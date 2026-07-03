@@ -1959,6 +1959,14 @@ export const items: Record<ItemId, ItemDef> = {
     "cat": "Combat",
     "sell": 0
   },
+  "hunters_horn": {
+    "id": "hunters_horn",
+    "name": "Hunter's Horn",
+    "description": "A guild signal-horn keyed to your ledger. Sound it and be carried straight to your active task's hunting ground. One use.",
+    "icon": "📯",
+    "cat": "Combat",
+    "sell": 0
+  },
   "helm_1": {
     "id": "helm_1",
     "name": "Knucklestone Helm",

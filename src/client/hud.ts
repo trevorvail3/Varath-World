@@ -1251,6 +1251,10 @@ export class Hud {
       // Bones: a tap buries them on the spot (the common action); crushing,
       // dropping and the rest stay on the long-press menu.
       this.dispatch({ type: "BURY", slot: index });
+    } else if (data.item === "hunters_horn") {
+      // The Hunter's Horn: a tap sounds it (teleport to the active task's
+      // hunting ground; the core refuses it — and keeps it — with no task).
+      this.dispatch({ type: "SOUND_HORN", slot: index });
     } else {
       this.inspectItem(index, screenX, screenY);
     }
@@ -1276,6 +1280,14 @@ export class Hud {
         target: def.name,
         tone: "action",
         onSelect: () => this.dispatch({ type: "EAT", slot: index }),
+      });
+    }
+    if (data.item === "hunters_horn") {
+      items.push({
+        label: "Sound",
+        target: def.name,
+        tone: "action",
+        onSelect: () => this.dispatch({ type: "SOUND_HORN", slot: index }),
       });
     }
     if (def.buryXp) {

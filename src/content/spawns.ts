@@ -2295,13 +2295,40 @@ function buildDungeonSites(): WorldObjectDef[] {
     { id: "war_maw_1", kind: "monster", monster: "iron_maw", x: wx + 14, y: wy + 38, name: "Iron Maw" },
     { id: "war_maw_2", kind: "monster", monster: "iron_maw", x: wx + 20, y: wy + 40, name: "Iron Maw" },
     { id: "war_maw_3", kind: "monster", monster: "iron_maw", x: wx + 24, y: wy + 38, name: "Iron Maw" },
-    // Grim dressing: the hunters who misjudged their grade.
+    // Grim dressing: the hunters who misjudged their grade — and the guild's
+    // braziers, one at each chamber mouth, so every grade is greeted by fire.
     { id: "rem_war_1", kind: "remains", variant: "bones", x: wx + 15, y: wy + 5, name: "Old Remains" },
     { id: "rem_war_2", kind: "remains", variant: "skeleton", x: wx + 10, y: wy + 13, name: "Old Remains" },
     { id: "rem_war_3", kind: "remains", variant: "sitting", x: wx + 11, y: wy + 21, name: "A Hunter's End" },
     { id: "rem_war_4", kind: "remains", variant: "sarco", x: wx + 12, y: wy + 31, name: "Old Remains" },
     { id: "rem_war_5", kind: "remains", variant: "camp", x: wx + 12, y: wy + 39, name: "A Hunter's Last Camp" },
     { id: "rem_war_6", kind: "remains", variant: "brazier", x: wx + 6, y: wy + 2, name: "Guild Brazier" },
+    // Chamber-mouth braziers (each pushes light into its grade's dark).
+    { id: "rem_war_b1", kind: "remains", variant: "brazier", x: wx + 15, y: wy + 4, name: "Burrows Brazier" },
+    { id: "rem_war_b2", kind: "remains", variant: "brazier", x: wx + 9, y: wy + 11, name: "Dens Brazier" },
+    { id: "rem_war_b3", kind: "remains", variant: "brazier", x: wx + 10, y: wy + 19, name: "Kennels Brazier" },
+    { id: "rem_war_b4", kind: "remains", variant: "brazier", x: wx + 10, y: wy + 28, name: "Crypt Brazier" },
+    { id: "rem_war_b5", kind: "remains", variant: "brazier", x: wx + 10, y: wy + 37, name: "Pit Brazier" },
+    // The Burrows: picked-clean kills and a grave-digger's spoil.
+    { id: "rem_war_7", kind: "remains", variant: "skeleton", x: wx + 22, y: wy + 4, name: "Old Remains" },
+    { id: "rem_war_8", kind: "remains", variant: "urn", x: wx + 17, y: wy + 6, name: "A Looted Urn" },
+    { id: "rem_war_9", kind: "remains", variant: "bones", x: wx + 23, y: wy + 7, name: "Old Remains" },
+    // The Dens: a courier who never delivered.
+    { id: "rem_war_10", kind: "remains", variant: "coins", x: wx + 14, y: wy + 11, name: "Spilled Purse" },
+    { id: "rem_war_11", kind: "remains", variant: "crate", x: wx + 9, y: wy + 14, name: "Guild Supplies" },
+    { id: "rem_war_12", kind: "remains", variant: "bones", x: wx + 24, y: wy + 13, name: "Old Remains" },
+    // The Kennels: tools downed mid-job.
+    { id: "rem_war_13", kind: "remains", variant: "tools", x: wx + 23, y: wy + 21, name: "A Flenser's Kit" },
+    { id: "rem_war_14", kind: "remains", variant: "skeleton", x: wx + 24, y: wy + 22, name: "Old Remains" },
+    { id: "rem_war_15", kind: "remains", variant: "bones", x: wx + 12, y: wy + 19, name: "Old Remains" },
+    // The Crypt: older dead than the hunters'.
+    { id: "rem_war_16", kind: "remains", variant: "urn", x: wx + 13, y: wy + 28, name: "A Sealed Urn" },
+    { id: "rem_war_17", kind: "remains", variant: "banner", x: wx + 22, y: wy + 30, name: "A Rotted Guild Banner" },
+    { id: "rem_war_18", kind: "remains", variant: "bones", x: wx + 20, y: wy + 32, name: "Old Remains" },
+    // The Maw Pit: what the larder keeps.
+    { id: "rem_war_19", kind: "remains", variant: "skeleton", x: wx + 16, y: wy + 41, name: "Old Remains" },
+    { id: "rem_war_20", kind: "remains", variant: "coins", x: wx + 22, y: wy + 41, name: "A Dead Man's Marks" },
+    { id: "rem_war_21", kind: "remains", variant: "crate", x: wx + 24, y: wy + 40, name: "Crushed Supplies" },
   );
   return out;
 }

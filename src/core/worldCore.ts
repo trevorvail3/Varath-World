@@ -1850,6 +1850,45 @@ export function applyIntent(
       events.push({ type: "LOG", message: "The world folds, and Ironvale's fountain-square opens around you." });
       break;
     }
+    case "SOUND_HORN": {
+      // A Hunter's Horn (Hunt-Marks ware): carries you straight to your active
+      // task's hunting ground — the guides' answer to a long walk back. It's a
+      // consumable, so travel convenience stays a marks sink, not a freebie.
+      const slot = player.inventory[intent.slot];
+      if (!slot || slot.item !== "hunters_horn") break;
+      const task = player.bounty.task;
+      const ground = task ? content.huntingGrounds[task.monster] : undefined;
+      if (!task || !ground) {
+        events.push({ type: "LOG", message: "The horn only answers a live contract — take a task from a guide first." });
+        break;
+      }
+      // Land on the nearest ground-walkable tile to the ground's centre (the
+      // centre itself may be a wall/water tile in a dungeon chamber).
+      const { map } = content;
+      const solid = (x: number, y: number): boolean => {
+        if (x < 0 || y < 0 || x >= map.width || y >= map.height) return true;
+        const t = map.tiles[y * map.width + x];
+        return t === "water" || t === "mountain" || t === "cave_wall" || t === "deep" || t === "wall";
+      };
+      let dest: Vec2 | null = null;
+      outer: for (let r = 0; r <= ground.r + 4 && !dest; r++) {
+        for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) {
+          if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;
+          if (!solid(ground.x + dx, ground.y + dy)) { dest = { x: ground.x + dx, y: ground.y + dy }; break outer; }
+        }
+      }
+      if (!dest) {
+        events.push({ type: "LOG", message: "The horn falters — the ground it knows is sealed." });
+        break;
+      }
+      removeOneItem(player, "hunters_horn");
+      player.pos = { ...dest };
+      player.path = [];
+      player.pendingInteractId = null;
+      clearActivity(player);
+      events.push({ type: "LOG", message: `The horn's note hangs in the air — and ${ground.name} rises around you.` });
+      break;
+    }
   }
   return events;
 }
@@ -5423,6 +5462,14 @@ function checkKill(
   events.push({ type: "LOG", message: `You defeat ${/^The /.test(def.name) ? def.name : `the ${def.name}`}.` });
   advanceKillQuests(state, content, def.monster, events);
   trackBountyKill(state, content, def.monster, ctx, events);
+  // Warren-bred quarry trains huntcraft even OFF-task (a modest flat trickle,
+  // strictly worse than contract pay) — so the guild grounds are never
+  // XP-dead between assignments, e.g. a Bounty-20 hunter grinding creepers
+  // before Serath will deal with them at 30.
+  const wstats = monsterFor(content, def);
+  if (wstats?.bountyReq && state.player.bounty.task?.monster !== def.monster) {
+    grantXp(state, content, "bounty", Math.round(wstats.bountyReq * 0.8), events);
+  }
   rollSuperiorBounty(state, content, def.monster, drop.x, drop.y, ctx, events);
   // A tool-gated kill spends its consumable — unless the mastery is owned.
   const hgk = HUNT_GATES[def.monster ?? ""];

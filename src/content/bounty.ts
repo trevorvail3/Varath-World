@@ -73,6 +73,10 @@ export const bountyTasks: Record<string, BountyTaskDef[]> = {
     { monster: "moor_rat", required: 60, xp: 650, marks: 22, minLevel: 10 },
     { monster: "hill_wolf", required: 15, xp: 500, marks: 20, minLevel: 5 },
     { monster: "hill_wolf", required: 35, xp: 1100, marks: 45, minLevel: 15 },
+    // Rook's bridge into the Warrens: the Burrows open (bountyReq) at 20, and
+    // Rook — whose hills border the quarry — writes the first contracts, so
+    // levels 20-29 aren't a drought waiting on Serath's door at 30.
+    { monster: "warren_creeper", required: 10, xp: 1300, marks: 52, minLevel: 20 },
   ],
   greyoak_wood: [
     { monster: "wild_boar", required: 15, xp: 800, marks: 32, minLevel: 10 },
@@ -109,6 +113,7 @@ export const bountyTasks: Record<string, BountyTaskDef[]> = {
     { monster: "poacher", required: 10, xp: 600, marks: 22, minLevel: 9 },
     { monster: "bandit", required: 12, xp: 800, marks: 30, minLevel: 12 },
     { monster: "highwayman", required: 10, xp: 1000, marks: 38, minLevel: 16 },
+    { monster: "cutthroat", required: 8, xp: 1200, marks: 46, minLevel: 24 },
   ],
   // The lawless roads — outlaw gangs from footpad to captain, ranging the whole
   // map. Serath posts these alongside the Spine and moor work.
@@ -269,6 +274,7 @@ export const bountyShop: BountyShopListing[] = [
   { item: "flensing_hook", cost: 130, qty: 10, label: "Flensing Hooks ×10", desc: "A task's worth of hooks at a bulk rate." },
   { item: "maw_spike", cost: 25, qty: 1, label: "Maw-Spike", desc: "Required to harm an Iron Maw; one is spent per kill." },
   { item: "maw_spike", cost: 220, qty: 10, label: "Maw-Spikes ×10", desc: "A task's worth of spikes at a bulk rate." },
+  { item: "hunters_horn", cost: 40, qty: 1, label: "Hunter's Horn", desc: "Sound it to be carried straight to your active task's hunting ground. One use — the walk back is what you're paying to skip." },
   { item: "battle_ration", cost: 60, qty: 1, label: "Battle Ration", desc: "Field food — heals on the spot, no cooking needed." },
   { item: "health_elixir", cost: 40, qty: 1, label: "Health Elixir", desc: "Restores health instantly." },
   { item: "arrow_ashiron", cost: 25, qty: 15, label: "Ashiron Arrows ×15", desc: "A bundle of fifteen ashiron-tipped arrows." },

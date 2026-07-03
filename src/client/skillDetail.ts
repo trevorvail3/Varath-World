@@ -8,7 +8,7 @@
 
 import type { Content, ItemId, SkillId, WorldState } from "../core/types.ts";
 import { glyph, iconize } from "./glyph.ts";
-import { equipRequirement } from "../core/worldCore.ts";
+import { equipRequirement, HUNT_GATES } from "../core/worldCore.ts";
 import { LEVEL_CAP, XP_CAP } from "../content/xpCurve.ts";
 
 /** Which gear each combat skill gates: weapons need Edge, armour needs Ward,
@@ -221,10 +221,13 @@ export class SkillDetailModal {
         const def = this.content.monsters[mon];
         addTo("Quarry (first contract)", lvl, def?.name ?? mon);
       }
-      // The Hunt Warrens: creatures you cannot FIGHT at all below their gate.
+      // The Hunt Warrens: creatures you cannot FIGHT at all below their gate —
+      // and the guild wares two of them also demand (OSRS tool-gate style).
       for (const id of Object.keys(this.content.monsters)) {
         const def = this.content.monsters[id];
-        if (def?.bountyReq) addTo("The Hunt Warrens (to fight at all)", def.bountyReq, `${def.name} — unique drop`);
+        if (!def?.bountyReq) continue;
+        const tool = HUNT_GATES[id];
+        addTo("The Hunt Warrens (to fight at all)", def.bountyReq, `${def.name} — unique drop${tool ? `, needs a ${tool.toolName}` : ""}`);
       }
       // The level perks the claims maths pays out.
       addTo("Perks", 50, "The veteran's cut: contracts pay +10% Marks");

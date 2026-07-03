@@ -550,6 +550,7 @@ export type ItemId =
   | "creeper_eye"
   | "flensing_hook"
   | "maw_spike"
+  | "hunters_horn"
   | "stalker_fangs"
   | "houndhide_cloak"
   | "wraithbone_staff"
@@ -1952,6 +1953,14 @@ export interface RecallIntent {
   type: "RECALL";
 }
 
+/** Sound a Hunter's Horn (a Hunt-Marks consumable in the given pack slot): be
+ *  carried straight to your active bounty task's hunting ground. Consumed on
+ *  use; refused (and kept) when no task is live. */
+export interface SoundHornIntent {
+  type: "SOUND_HORN";
+  slot: number;
+}
+
 /** "Pick up the loot lying on this tile" (honoured when the player is on/next to it). */
 export interface PickupIntent {
   type: "PICKUP";
@@ -2049,6 +2058,7 @@ export type Intent =
   | UpgradeFurnitureIntent
   | SetSurfaceIntent
   | RecallIntent
+  | SoundHornIntent
   | UseFurnitureIntent
   | BuildRoomIntent
   | PickupIntent
