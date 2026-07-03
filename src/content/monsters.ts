@@ -1371,13 +1371,15 @@ export const monsters: Record<string, MonsterStats> = {
       { item: "battle_ration", chance: 0.4, tier: "common" },
       { item: "bloodore_arrow", chance: 0.35, min: 6, max: 14, tier: "common" },
       { item: "cut_gem", chance: 0.2, tier: "uncommon" },
-      // The chase pieces for an entry boss: half a watchman's kit, one piece
-      // a fight — the small taste of the loop every later boss runs on.
-      { item: "watchmans_buckler", chance: 0.05, tier: "rare" },
-      { item: "watchmans_sallet", chance: 0.05, tier: "rare" },
-      // And the first pet most players will ever hunt — deliberately the most
-      // generous boss-pet rate in the game, because it's here to teach the itch.
-      { item: "pet_brann", chance: 0.004, tier: "legendary" },
+      // The chase pieces for an entry boss: half a watchman's kit. Rare enough
+      // that the set is a real hunt (~1/33 a piece, a session or two of trips),
+      // still the friendliest unique rate any boss offers.
+      { item: "watchmans_buckler", chance: 0.03, tier: "rare" },
+      { item: "watchmans_sallet", chance: 0.03, tier: "rare" },
+      // And the first pet most players will ever hunt — 1/333 keeps it a real
+      // brag, while staying the most generous boss-pet rate in the game
+      // (the Boneman's is 1/500), because this is where the itch gets taught.
+      { item: "pet_brann", chance: 0.003, tier: "legendary" },
     ],
   },
   "boneman": {
