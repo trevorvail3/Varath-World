@@ -1393,7 +1393,23 @@ export function drawWorld(
   };
   const labelHits = (b: [number, number, number, number]): boolean =>
     labelBoxes.some((p) => b[0] < p[2] && b[2] > p[0] && b[1] < p[3] && b[3] > p[1]);
+  // Floor pass: remains (bone piles, corpses, braziers, a boss's dais) lie
+  // flat on the ground, so they draw before — and therefore under — anything
+  // that stands on or walks over them.
   for (const def of content.objects) {
+    if (def.kind !== "remains") continue;
+    if (!state.objects[def.id]) continue;
+    if (objectHidden(def, state.player)) continue;
+    if (!inRegion(def.x, def.y)) continue;
+    if (outside(def.x, def.y)) continue;
+    const px = def.x * TILE - cam.x;
+    const py = def.y * TILE - cam.y;
+    if (px < -TILE * 2 || py < -TILE * 2 || px > w + TILE * 2 || py > h + TILE * 2) continue;
+    drawRemains(g, px + TILE / 2, py + TILE / 2, def, now);
+    if (def.variant === "brazier") lights.push([px + TILE / 2, py + TILE / 2 - 6]);
+  }
+  for (const def of content.objects) {
+    if (def.kind === "remains") continue; // drawn in the floor pass above
     const obj = state.objects[def.id];
     if (!obj) continue;
     if (objectHidden(def, state.player)) continue; // story-gated: not revealed yet
@@ -1446,6 +1462,8 @@ export function drawWorld(
       lights.push([px + TILE / 2, py + TILE / 2 - 10]); // glow at the lantern
     } else if (def.kind === "monster" && obj.available && (def.monster === "court_wisp" || def.monster === "storm_wisp")) {
       lights.push([px + TILE / 2, py + TILE / 2 - 4]); // the halls lit by their keepers
+    } else if (def.id === "north_door") {
+      lights.push([px + TILE / 2, py + TILE / 2 - 4]); // a cold seam of light under the last door
     }
     // Name label — monsters show their combat level (OSRS-style). A slain
     // monster (respawning) drops its label until it's back.
@@ -2496,6 +2514,7 @@ function drawObject(
       scaled(g, cx, cy, 1.35, () => drawAnvil(g, 0, 0));
       break;
     case "portal":
+      if (DUNGEON_MOUTHS[def.id]) { drawDungeonMouth(g, cx, cy, def.id); break; }
       drawPortal(g, cx, cy);
       break;
     case "trap":
@@ -2950,6 +2969,266 @@ function drawDungeonChest(g: CanvasRenderingContext2D, cx: number, cy: number, l
     g.fillStyle = "#352b23"; g.fillRect(cx - 11, cy - 6, 22, 5);
     g.strokeStyle = "#8b8fa0"; g.beginPath(); g.moveTo(cx - 6, cy - 6); g.lineTo(cx - 6, cy - 1); g.moveTo(cx + 6, cy - 6); g.lineTo(cx + 6, cy - 1); g.stroke();
     g.fillStyle = "#c9cede"; g.fillRect(cx - 1.5, cy - 3, 3, 4);
+  }
+}
+
+/** Dungeon floor dressing: the dead, their goods, and what light they left.
+ *  Everything here is flat-ish and drawn in the floor pass (under entities).
+ *  Variants are picked by def.variant; a stable per-id hash varies rotation
+ *  and small offsets so repeated pieces don't stamp identically. */
+function drawRemains(g: CanvasRenderingContext2D, cx: number, cy: number, def: WorldObjectDef, now: number): void {
+  let h = 0;
+  const id = def.id;
+  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) | 0;
+  const r1 = (Math.abs(h) % 100) / 100, r2 = (Math.abs(h >> 4) % 100) / 100;
+  const rot = (r1 - 0.5) * 0.9;
+  const BONE = "#cfc8b4", BONE2 = "#b5ad97", RUST = "#6e4f3a", WOOD = "#4a3c2c", CLOTH = "#4a4438";
+  switch (def.variant) {
+    case "bones": { // a low pile of long bones + a skull
+      g.save(); g.translate(cx, cy); g.rotate(rot);
+      g.strokeStyle = BONE2; g.lineWidth = 2.4; g.lineCap = "round";
+      g.beginPath(); g.moveTo(-8, 3); g.lineTo(6, -1); g.moveTo(-5, -3); g.lineTo(7, 4); g.moveTo(-2, 6); g.lineTo(4, -5); g.stroke();
+      g.fillStyle = BONE;
+      g.beginPath(); g.arc(-6, -4, 3.6, 0, Math.PI * 2); g.fill(); // skull
+      g.fillStyle = "#1d1a16"; g.fillRect(-7.6, -5, 1.6, 1.6); g.fillRect(-5, -5, 1.6, 1.6);
+      g.restore(); break;
+    }
+    case "skeleton": { // sprawled full skeleton, face-down where it fell
+      g.save(); g.translate(cx, cy); g.rotate(rot * 2);
+      g.strokeStyle = BONE; g.lineWidth = 2.2; g.lineCap = "round";
+      g.beginPath(); g.moveTo(-9, 0); g.lineTo(7, 0); g.stroke(); // spine
+      for (let i = -1; i <= 2; i++) { g.beginPath(); g.moveTo(i * 3 - 3, -3.5); g.lineTo(i * 3 - 3, 3.5); g.stroke(); } // ribs
+      g.beginPath(); g.moveTo(-4, -1); g.lineTo(-12, -6); g.moveTo(-4, 1); g.lineTo(-11, 7); g.stroke(); // arms, reaching
+      g.beginPath(); g.moveTo(7, -1); g.lineTo(13, -5); g.moveTo(7, 1); g.lineTo(14, 4); g.stroke(); // legs
+      g.fillStyle = BONE; g.beginPath(); g.arc(-13, -1, 3.8, 0, Math.PI * 2); g.fill();
+      g.fillStyle = "#1d1a16"; g.fillRect(-14.8, -2.2, 1.5, 1.5); g.fillRect(-12.2, -2.2, 1.5, 1.5);
+      g.restore(); break;
+    }
+    case "sitting": { // slumped upright against whatever held it — died at its post
+      g.fillStyle = CLOTH; // rotted cloak pooled around it
+      g.beginPath(); g.ellipse(cx, cy + 6, 9, 4.5, 0, 0, Math.PI * 2); g.fill();
+      g.strokeStyle = BONE; g.lineWidth = 2.2; g.lineCap = "round";
+      g.beginPath(); g.moveTo(cx, cy + 5); g.lineTo(cx, cy - 4); g.stroke(); // slumped spine
+      g.beginPath(); g.moveTo(cx, cy - 1); g.lineTo(cx - 6, cy + 4); g.moveTo(cx, cy - 1); g.lineTo(cx + 6, cy + 3); g.stroke();
+      g.fillStyle = BONE; g.beginPath(); g.arc(cx + 1.5, cy - 7, 3.6, 0, Math.PI * 2); g.fill(); // head, tipped
+      g.fillStyle = "#1d1a16"; g.fillRect(cx + 0.2, cy - 8, 1.5, 1.5); g.fillRect(cx + 2.6, cy - 8, 1.5, 1.5);
+      break;
+    }
+    case "urn": { // a grave-goods urn; about half stand tipped and spilled
+      const tipped = r2 > 0.5;
+      g.save(); g.translate(cx, cy); if (tipped) g.rotate(1.2);
+      g.fillStyle = "#7a6a52";
+      g.beginPath(); g.moveTo(-5, 6); g.quadraticCurveTo(-7, -2, -3, -6); g.lineTo(3, -6); g.quadraticCurveTo(7, -2, 5, 6); g.closePath(); g.fill();
+      g.fillStyle = "#5d5040"; g.fillRect(-4, -8, 8, 2.5);
+      g.strokeStyle = "#4a4034"; g.lineWidth = 1; g.beginPath(); g.moveTo(-5.5, 0); g.lineTo(5.5, 0); g.stroke();
+      g.restore();
+      if (tipped) { g.fillStyle = BONE2; for (let i = 0; i < 4; i++) g.fillRect(cx + 6 + i * 3, cy + 3 + (i % 2) * 2, 2, 2); }
+      break;
+    }
+    case "camp": { // a cold camp: bedroll, dead fire, a dropped pack
+      g.fillStyle = "#54423a"; // bedroll
+      g.save(); g.translate(cx - 8, cy + 2); g.rotate(-0.25); g.fillRect(-9, -4, 18, 8);
+      g.fillStyle = "#3f322c"; g.fillRect(-9, -4, 4, 8); g.restore();
+      g.fillStyle = "#2b2622"; // dead firepit
+      g.beginPath(); g.arc(cx + 8, cy - 2, 4.5, 0, Math.PI * 2); g.fill();
+      g.strokeStyle = "#191512"; g.lineWidth = 1.8;
+      g.beginPath(); g.moveTo(cx + 4, cy - 4); g.lineTo(cx + 12, cy + 1); g.moveTo(cx + 12, cy - 5); g.lineTo(cx + 5, cy + 1); g.stroke();
+      g.fillStyle = RUST; g.fillRect(cx + 2, cy + 6, 6, 5); // the pack no one came back for
+      g.fillStyle = "#5a4030"; g.fillRect(cx + 2, cy + 6, 6, 2);
+      break;
+    }
+    case "tools": { // dropped iron: a pick, a blade, a shield boss gone to rust
+      g.save(); g.translate(cx, cy); g.rotate(rot);
+      g.strokeStyle = RUST; g.lineWidth = 2.2; g.lineCap = "round";
+      g.beginPath(); g.moveTo(-8, 4); g.lineTo(6, -4); g.stroke(); // haft
+      g.beginPath(); g.moveTo(3, -7); g.quadraticCurveTo(8, -4, 5, 0); g.stroke(); // pick head
+      g.strokeStyle = "#7d7466"; g.lineWidth = 1.8;
+      g.beginPath(); g.moveTo(-4, -5); g.lineTo(8, 5); g.stroke(); // a blade
+      g.fillStyle = RUST; g.beginPath(); g.arc(-7, -2, 3, 0, Math.PI * 2); g.fill(); // shield boss
+      g.restore(); break;
+    }
+    case "crate": { // stores that never shipped
+      g.fillStyle = WOOD; g.fillRect(cx - 8, cy - 6, 11, 11);
+      g.strokeStyle = "#352b1f"; g.lineWidth = 1.2; g.strokeRect(cx - 8, cy - 6, 11, 11);
+      g.beginPath(); g.moveTo(cx - 8, cy - 6); g.lineTo(cx + 3, cy + 5); g.stroke();
+      g.fillStyle = "#3f3425"; g.fillRect(cx + 1, cy - 1, 8, 8); // a smaller one, tipped against it
+      g.strokeStyle = "#2b2318"; g.strokeRect(cx + 1, cy - 1, 8, 8);
+      break;
+    }
+    case "coins": { // a spilled count no one dared take
+      g.fillStyle = "#c9a24a";
+      for (let i = 0; i < 9; i++) {
+        const a = (Math.abs(h >> i) % 100) / 100;
+        const b = (Math.abs(h >> (i + 3)) % 100) / 100;
+        g.beginPath(); g.ellipse(cx + (a - 0.5) * 18, cy + (b - 0.5) * 12, 1.8, 1.2, 0, 0, Math.PI * 2); g.fill();
+      }
+      g.fillStyle = "#8a6f33"; g.beginPath(); g.ellipse(cx + 2, cy + 1, 2, 1.3, 0, 0, Math.PI * 2); g.fill();
+      break;
+    }
+    case "nest": { // a shriker nest: twigs ringed around old bones
+      g.strokeStyle = "#5c4a30"; g.lineWidth = 2;
+      g.beginPath(); g.ellipse(cx, cy, 10, 6.5, 0, 0, Math.PI * 2); g.stroke();
+      g.strokeStyle = "#6e5a3c"; g.lineWidth = 1.4;
+      g.beginPath(); g.ellipse(cx, cy, 7, 4.5, 0.3, 0, Math.PI * 2); g.stroke();
+      g.strokeStyle = BONE2; g.beginPath(); g.moveTo(cx - 3, cy + 1); g.lineTo(cx + 3, cy - 1); g.stroke();
+      g.fillStyle = BONE; g.beginPath(); g.arc(cx + 2, cy + 1, 2, 0, Math.PI * 2); g.fill();
+      g.fillStyle = "#d8d2c2"; // a shed feather
+      g.beginPath(); g.ellipse(cx - 8, cy - 5, 3.5, 1.2, -0.5, 0, Math.PI * 2); g.fill();
+      break;
+    }
+    case "banner": { // a fallen standard, its colours long gone grey
+      g.save(); g.translate(cx, cy); g.rotate(rot + 0.4);
+      g.strokeStyle = "#4a3c2c"; g.lineWidth = 2;
+      g.beginPath(); g.moveTo(-10, -6); g.lineTo(10, 6); g.stroke(); // the pole
+      g.fillStyle = "#57544a";
+      g.beginPath(); g.moveTo(-6, -4); g.lineTo(6, 3); g.lineTo(3, 8); g.lineTo(-2, 5); g.lineTo(-4, 8); g.lineTo(-8, 0); g.closePath(); g.fill(); // torn cloth
+      g.restore(); break;
+    }
+    case "kelp": { // silt and weed the flood left behind
+      g.strokeStyle = "#3e5244"; g.lineWidth = 2; g.lineCap = "round";
+      for (let i = 0; i < 5; i++) {
+        const a = (Math.abs(h >> i) % 100) / 100;
+        const x = cx + (a - 0.5) * 16;
+        g.beginPath(); g.moveTo(x, cy + 6); g.quadraticCurveTo(x + 3, cy, x - 1, cy - 6 - a * 3); g.stroke();
+      }
+      g.fillStyle = "rgba(70,90,76,0.35)";
+      g.beginPath(); g.ellipse(cx, cy + 5, 11, 3.5, 0, 0, Math.PI * 2); g.fill();
+      break;
+    }
+    case "sarco": { // a stone coffin, lid dragged aside long ago
+      g.fillStyle = "#6b655c"; g.fillRect(cx - 12, cy - 7, 24, 14);
+      g.strokeStyle = "#4a453e"; g.lineWidth = 1.4; g.strokeRect(cx - 12, cy - 7, 24, 14);
+      g.fillStyle = "#14110e"; g.fillRect(cx - 9, cy - 4, 18, 8); // the dark inside
+      g.strokeStyle = BONE2; g.lineWidth = 1.6;
+      g.beginPath(); g.moveTo(cx - 4, cy); g.lineTo(cx + 4, cy); g.stroke(); // what's left of the resident
+      g.save(); g.translate(cx + 14, cy + 4); g.rotate(0.5);
+      g.fillStyle = "#5d5850"; g.fillRect(-4, -8, 8, 16); g.restore(); // the shoved-off lid
+      break;
+    }
+    case "device": { // a broken instrument: tripod, tilted disc, spilled workings
+      g.strokeStyle = "#5a4a36"; g.lineWidth = 2;
+      g.beginPath(); g.moveTo(cx - 6, cy + 7); g.lineTo(cx, cy - 3); g.lineTo(cx + 6, cy + 7); g.moveTo(cx, cy - 3); g.lineTo(cx, cy + 7); g.stroke();
+      g.save(); g.translate(cx + 1, cy - 6); g.rotate(0.7);
+      g.strokeStyle = "#8b8478"; g.lineWidth = 1.6;
+      g.beginPath(); g.ellipse(0, 0, 6.5, 6.5, 0, 0, Math.PI * 2); g.stroke();
+      g.beginPath(); g.moveTo(-6.5, 0); g.lineTo(6.5, 0); g.moveTo(0, -6.5); g.lineTo(0, 6.5); g.stroke();
+      g.restore();
+      g.fillStyle = "#8b8478"; g.fillRect(cx + 7, cy + 4, 2.5, 2.5); g.fillRect(cx - 10, cy + 5, 2, 2);
+      break;
+    }
+    case "brazier": { // still burning after a thousand years — ward-fire
+      shadow(g, cx, cy + 7, 8, 3);
+      g.fillStyle = "#3a3630"; g.fillRect(cx - 2, cy - 2, 4, 8); // stem
+      g.fillStyle = "#4a453e";
+      g.beginPath(); g.moveTo(cx - 7, cy - 6); g.quadraticCurveTo(cx, cy - 1, cx + 7, cy - 6); g.lineTo(cx + 5, cy - 2); g.lineTo(cx - 5, cy - 2); g.closePath(); g.fill();
+      const gutter = 0.75 + 0.25 * Math.sin(now / 150 + h);
+      g.fillStyle = "#e8a23c";
+      g.beginPath(); g.moveTo(cx - 4, cy - 6); g.quadraticCurveTo(cx, cy - 13 * gutter, cx + 4, cy - 6); g.closePath(); g.fill();
+      g.fillStyle = "#f6d87a";
+      g.beginPath(); g.moveTo(cx - 2, cy - 6); g.quadraticCurveTo(cx, cy - 9.5 * gutter, cx + 2, cy - 6); g.closePath(); g.fill();
+      break;
+    }
+    case "dais": { // a broad stone step the keeper stands on
+      g.fillStyle = "#57534a";
+      g.beginPath(); g.ellipse(cx, cy + 4, 26, 13, 0, 0, Math.PI * 2); g.fill();
+      g.fillStyle = "#635e54";
+      g.beginPath(); g.ellipse(cx, cy + 1, 20, 9.5, 0, 0, Math.PI * 2); g.fill();
+      g.strokeStyle = "#8d897d"; g.lineWidth = 1.2;
+      g.beginPath(); g.ellipse(cx, cy + 1, 14, 6.5, 0, 0, Math.PI * 2); g.stroke(); // the seal's inlay ring
+      break;
+    }
+    case "throne": { // a high seat, older than the water that drowned it
+      g.fillStyle = "#4e4a42";
+      g.beginPath(); g.ellipse(cx, cy + 8, 16, 7, 0, 0, Math.PI * 2); g.fill(); // plinth
+      g.fillStyle = "#5d5850"; g.fillRect(cx - 9, cy - 14, 18, 18); // the back
+      g.fillStyle = "#6b655c"; g.fillRect(cx - 7, cy - 2, 14, 7); // the seat
+      g.fillStyle = "#4a453e"; g.fillRect(cx - 11, cy - 6, 3, 12); g.fillRect(cx + 8, cy - 6, 3, 12); // arms
+      g.strokeStyle = "#8d897d"; g.lineWidth = 1;
+      g.beginPath(); g.moveTo(cx - 5, cy - 11); g.lineTo(cx + 5, cy - 11); g.moveTo(cx, cy - 14); g.lineTo(cx, cy - 8); g.stroke(); // a worn crest
+      break;
+    }
+    default: { // unknown variant: read as plain bones rather than vanish
+      g.strokeStyle = BONE2; g.lineWidth = 2;
+      g.beginPath(); g.moveTo(cx - 6, cy + 2); g.lineTo(cx + 6, cy - 2); g.stroke();
+      g.fillStyle = BONE; g.beginPath(); g.arc(cx - 5, cy - 3, 3, 0, Math.PI * 2); g.fill();
+    }
+  }
+}
+
+/** The five Act II dungeon mouths: grand carved gates, not critter caves.
+ *  ~3 tiles of doorposts, lintel and descending steps, tinted to the site,
+ *  each with its sigil cut into the lintel. Collision stays one tile — the
+ *  art simply overhangs, the way trees do. */
+const DUNGEON_MOUTHS: Record<string, { stone: string; lit: string; dark: string; glow: string; sigil: "wolf" | "tally" | "scales" | "star" | "until" }> = {
+  portal_hollow: { stone: "#5d5a4e", lit: "#767261", dark: "#3d3a32", glow: "rgba(140,150,130,0.16)", sigil: "wolf" },
+  portal_spine: { stone: "#5f6167", lit: "#7c7e85", dark: "#3e4045", glow: "rgba(150,165,185,0.16)", sigil: "tally" },
+  portal_court: { stone: "#556058", lit: "#6f7d71", dark: "#37403a", glow: "rgba(110,160,140,0.18)", sigil: "scales" },
+  portal_sky: { stone: "#565b68", lit: "#737a8c", dark: "#383c46", glow: "rgba(140,165,215,0.18)", sigil: "star" },
+  portal_under: { stone: "#8d8a80", lit: "#b0aca0", dark: "#5c5952", glow: "rgba(228,224,214,0.20)", sigil: "until" },
+};
+
+function drawDungeonMouth(g: CanvasRenderingContext2D, cx: number, cy: number, portalId: string): void {
+  const c = DUNGEON_MOUTHS[portalId]!;
+  const W = TILE * 1.45; // half-width — the gate spans ~3 tiles of art
+  shadow(g, cx, cy + 16, W, 6);
+  // Broad steps rising to the door.
+  g.fillStyle = c.dark; g.fillRect(cx - W * 0.8, cy + 8, W * 1.6, 6);
+  g.fillStyle = c.stone; g.fillRect(cx - W * 0.66, cy + 3, W * 1.32, 6);
+  // The doorposts.
+  g.fillStyle = c.stone;
+  g.fillRect(cx - W, cy - 34, 13, 42);
+  g.fillRect(cx + W - 13, cy - 34, 13, 42);
+  g.fillStyle = c.lit; // weathered top light
+  g.fillRect(cx - W, cy - 34, 13, 5);
+  g.fillRect(cx + W - 13, cy - 34, 13, 5);
+  g.fillStyle = c.dark; // base courses
+  g.fillRect(cx - W, cy + 2, 13, 6);
+  g.fillRect(cx + W - 13, cy + 2, 13, 6);
+  // The lintel.
+  g.fillStyle = c.stone; g.fillRect(cx - W - 4, cy - 44, W * 2 + 8, 13);
+  g.fillStyle = c.lit; g.fillRect(cx - W - 4, cy - 44, W * 2 + 8, 4);
+  // The dark going down.
+  g.fillStyle = "#0b0908";
+  g.beginPath();
+  g.moveTo(cx - W + 14, cy + 4);
+  g.lineTo(cx - W + 14, cy - 26);
+  g.quadraticCurveTo(cx, cy - 36, cx + W - 14, cy - 26);
+  g.lineTo(cx + W - 14, cy + 4);
+  g.closePath(); g.fill();
+  // A cold breath of light from below.
+  g.fillStyle = c.glow;
+  g.beginPath();
+  g.moveTo(cx - W + 14, cy + 4);
+  g.lineTo(cx, cy - 14);
+  g.lineTo(cx + W - 14, cy + 4);
+  g.closePath(); g.fill();
+  // The sigil, cut into the lintel.
+  g.strokeStyle = c.dark; g.fillStyle = c.dark; g.lineWidth = 2; g.lineCap = "round";
+  const sy = cy - 37.5;
+  switch (c.sigil) {
+    case "wolf": // the running wolf: a lean stroke with ears
+      g.beginPath(); g.moveTo(cx - 9, sy + 3); g.quadraticCurveTo(cx, sy - 4, cx + 9, sy + 1); g.stroke();
+      g.beginPath(); g.moveTo(cx + 5, sy - 2); g.lineTo(cx + 7, sy - 5); g.moveTo(cx + 8, sy - 2); g.lineTo(cx + 10, sy - 5); g.stroke();
+      break;
+    case "tally": // the ledger's tallies
+      for (let i = -2; i <= 2; i++) { g.beginPath(); g.moveTo(cx + i * 5, sy - 4); g.lineTo(cx + i * 5 + (i === 2 ? -10 : 0), sy + 4); g.stroke(); }
+      break;
+    case "scales": // the court's scales
+      g.beginPath(); g.moveTo(cx, sy - 4); g.lineTo(cx, sy + 3); g.moveTo(cx - 8, sy - 2); g.lineTo(cx + 8, sy - 2); g.stroke();
+      g.beginPath(); g.arc(cx - 8, sy + 1, 3, 0, Math.PI, false); g.stroke();
+      g.beginPath(); g.arc(cx + 8, sy + 1, 3, 0, Math.PI, false); g.stroke();
+      break;
+    case "star": // the watch-star
+      for (let i = 0; i < 4; i++) {
+        const a = (i * Math.PI) / 4;
+        g.beginPath(); g.moveTo(cx - Math.cos(a) * 6, sy - Math.sin(a) * 6); g.lineTo(cx + Math.cos(a) * 6, sy + Math.sin(a) * 6); g.stroke();
+      }
+      break;
+    case "until": // the one word over the Undergate
+      g.font = "bold 9px serif"; g.textAlign = "center"; g.textBaseline = "middle";
+      g.fillText("UNTIL", cx, sy);
+      g.textAlign = "left"; g.textBaseline = "alphabetic";
+      break;
   }
 }
 

@@ -2497,6 +2497,7 @@ function startInteraction(
     case "signpost":
     case "bone_cairn":
     case "ruin_prop":
+    case "remains":
       // Examine-only landmark / city dressing / wildlife / signage.
       events.push({
         type: "LOG",

@@ -925,6 +925,10 @@ export type ObjKind =
   /** Surface ruin dressing at a dungeon mouth — a broken pillar, a fallen
    *  arch, a rubble mound. Blocks movement; examine-only. */
   | "ruin_prop"
+  /** Dungeon floor dressing — bone piles, corpses, urns, cold camps, nests,
+   *  braziers, a boss's dais. Walk-over (never blocks, so the verified choke
+   *  math is untouched); examine-only; drawn under everything that stands. */
+  | "remains"
   /** A Herblore cauldron: brew tinctures, elixirs and draughts. */
   | "cauldron"
   /** A Construction workbench: cut, frame and fit building components. */
@@ -1018,6 +1022,10 @@ export interface WorldObjectDef {
    *  then vanishes. Used for a barrier that a quest removes (e.g. the pier gate
    *  that disappears once access is granted). */
   hiddenByFlag?: string;
+  /** `remains` only: which floor-dressing shape to draw (bones, skeleton,
+   *  sitting, urn, camp, tools, crate, coins, nest, banner, kelp, sarco,
+   *  device, brazier, dais, throne). */
+  variant?: string;
   /**
    * Resource nodes (tree/rock/fishing_spot) only: the SkillAction id this node
    * yields (e.g. "fell_coldpine"). Determines the item, XP and level required.

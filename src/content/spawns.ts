@@ -2217,11 +2217,130 @@ function buildDungeonSites(): WorldObjectDef[] {
   return out;
 }
 
+/**
+ * The dead and their leavings: walk-over floor dressing through all five Act
+ * II sites (kind "remains" never blocks, so the verified gate/choke geometry
+ * is untouched), plus the surface ruins the first two mouths never got.
+ * Braziers are remains too — lit ones; the renderer gives them real light.
+ */
+function buildDungeonDressing(): WorldObjectDef[] {
+  const R = (id: string, variant: string, x: number, y: number, name: string, line: string): WorldObjectDef =>
+    ({ id, kind: "remains", variant, x, y, name, lines: [line] });
+  const bmouth = remap(108, 24); // the Barrows' grove mouth
+  const vmouth = remap(50, 12);  // the Vault's pass mouth
+  return [
+    // === Surface ruins for the first two mouths (parity with the later sites) ===
+    { id: "ruin_barrow_1", kind: "ruin_prop", x: bmouth.x - 2, y: bmouth.y - 1, name: "Barrow-Stones", lines: ["Standing stones sunk to their shoulders in the turf, ringing the mouth the way teeth ring a throat."] },
+    { id: "ruin_barrow_2", kind: "ruin_prop", x: bmouth.x + 2, y: bmouth.y, name: "Toppled Waymark", lines: ["A waymark on its face in the grass. The carving underneath is a running wolf — nobody has turned it over in a thousand years."] },
+    { id: "ruin_barrow_3", kind: "ruin_prop", x: bmouth.x - 1, y: bmouth.y + 2, name: "Grave Rubble", lines: ["Kerb-stones of old graves, ploughed up by roots and time."] },
+    { id: "ruin_vault_1", kind: "ruin_prop", x: vmouth.x - 2, y: vmouth.y - 1, name: "Fallen Ward-Stone", lines: ["A ward-stone face-down in the scree. Whatever it was warding against, it gave up before the door did."] },
+    { id: "ruin_vault_2", kind: "ruin_prop", x: vmouth.x + 2, y: vmouth.y, name: "Dressed Rubble", lines: ["Masonry finer than anything in Ironvale, lying where the mountain shrugged it."] },
+    { id: "ruin_vault_3", kind: "ruin_prop", x: vmouth.x - 1, y: vmouth.y + 2, name: "Broken Cornice", lines: ["A cornice carved with tallies — the vault's count began outside its own door."] },
+
+    // === THE HOLLOW BARROWS — the dead in their niches, and one who came late ===
+    R("rm_bw_1", "sitting", 12, 198, "Niche-Dead", "One of the north-folk, seated in a wall-niche with folded hands. Not fallen. Placed."),
+    R("rm_bw_2", "sitting", 11, 201, "Niche-Dead", "Another of the seated dead. The niches run the length of the hall — this was a whole people's grave."),
+    R("rm_bw_3", "bones", 20, 205, "Bone Pile", "Bones swept into a corner. Someone tidied this corridor, once, and it wasn't recently."),
+    R("rm_bw_4", "bones", 26, 207, "Bone Pile", "Long bones and a skull, gnawed. The barrow's bats don't do this. Something else does."),
+    R("rm_bw_5", "urn", 30, 206, "Grave-Goods Urn", "A funeral urn, sealed with wax. Whatever went with them, it stayed."),
+    R("rm_bw_6", "urn", 40, 208, "Grave-Goods Urn", "A tipped urn — old beads and knucklebones spilled across the plaque hall floor."),
+    R("rm_bw_7", "sarco", 36, 210, "A Robbed Bier", "A stone bier, its lid dragged half off. Grave-robbers got exactly this far, once. Only this far."),
+    R("rm_bw_8", "skeleton", 47, 199, "A Grave-Robber", "Sprawled reaching toward the entrance, a rusted pry-bar just past the fingers. The barrow keeps its own."),
+    R("rm_bw_9", "bones", 34, 212, "Bone Pile", "Bones at the flooded nook's edge, wet-black and old."),
+    R("rm_bw_10", "camp", 49, 200, "A Delver's Last Camp", "A bedroll, a cold firepit, a pack no one came back for. They camped in sight of the Grave-Sentinel's gallery. They shouldn't have slept."),
+    R("rm_bw_11", "skeleton", 63, 214, "Honour-Dead", "A skeleton in the rags of ceremonial mail, fallen at its post before the King."),
+    R("rm_bw_12", "bones", 68, 215, "Bone Pile", "The resting hall's floor is more bone than stone this close to the throne."),
+    R("rm_bw_13", "brazier", 60, 210, "Ward-Brazier", "A brazier that has burned without fuel since the door first shut. Grave-fire."),
+    R("rm_bw_14", "brazier", 66, 215, "Ward-Brazier", "Its twin. The flames lean toward the King's seat, always."),
+
+    // === THE SPINE VAULT — the workers who stayed with the work ===
+    R("rm_sv_1", "tools", 104, 200, "The Mason's Kit", "Chisels and a maul laid out in perfect order, waiting for a hand that is now mostly dust."),
+    R("rm_sv_2", "sitting", 117, 208, "The Mason", "Slumped at the gallery wall, one finger-bone still pointing along a seam only a craftsman would worry about."),
+    R("rm_sv_3", "crate", 106, 207, "Vault Stores", "Provision crates, stamped with tallies. Enough for a season. They planned to stay longer than that."),
+    R("rm_sv_4", "crate", 112, 201, "Vault Stores", "More stores. Sealed from the inside means provisioned from the inside."),
+    R("rm_sv_5", "device", 104, 205, "Tally-Board", "A slate board of running counts. The last column was never summed."),
+    R("rm_sv_6", "bones", 129, 199, "Bone Pile", "Bones at the stair's turn — a porter who set his load down and never picked it up."),
+    R("rm_sv_7", "tools", 137, 211, "Rusted Arms Rack", "Spears racked by the strongdoor, rusted into one solid piece. The wardens armed for something that never came up the stair."),
+    R("rm_sv_8", "skeleton", 143, 203, "The Archivist", "Fallen across the alcove threshold, arms around nothing — whatever it died holding was taken long ago. Or delivered."),
+    R("rm_sv_9", "coins", 143, 207, "The Spilled Count", "Coins fanned across the treasury floor. Untouched. Every delver who made it this far had better sense than to touch the count."),
+    R("rm_sv_10", "coins", 146, 214, "The Spilled Count", "More of the count. The Vaultwright re-stacks it, they say, when the room is dark."),
+    R("rm_sv_11", "brazier", 142, 206, "Ward-Brazier", "Mason-fire in an iron cage, burning on nothing at all."),
+    R("rm_sv_12", "brazier", 148, 211, "Ward-Brazier", "The treasury's second flame. Between them, the count is always lit."),
+
+    // === THE SUNKEN COURT — the session that never adjourned ===
+    R("rm_ct_1", "urn", 20, 237, "Offering Urn", "A courtyard urn for petitions, silted to the rim. Some of the petitions are still in it."),
+    R("rm_ct_2", "bones", 23, 230, "Bone Pile", "Bones in the passage, drifted together like leaves in a doorway."),
+    R("rm_ct_3", "urn", 20, 232, "Offering Urn", "The mosaic hall's urn, cracked, weeping black silt."),
+    R("rm_ct_4", "skeleton", 43, 231, "A Drowned Clerk", "Sprawled by the sluices, an arm through the spokes of the wheel. They tried to hold the tide out. The tide had jurisdiction."),
+    R("rm_ct_5", "kelp", 26, 243, "Flood-Weed", "Moor-weed rooted in the courtyard seams, combed flat by water that isn't here anymore. Mostly."),
+    R("rm_ct_6", "sitting", 62, 226, "The Drowned Gallery", "A skeleton in court dress, seated, facing the bench. Still waiting for the verdict."),
+    R("rm_ct_7", "sitting", 78, 233, "The Drowned Gallery", "Another of the gallery. The water rose slowly enough to leave. Nobody left."),
+    R("rm_ct_8", "sitting", 94, 227, "The Drowned Gallery", "A juror, by the chain of office. The chain kept its shape better than the juror."),
+    R("rm_ct_9", "kelp", 66, 236, "Flood-Weed", "Weed and silt lapping the nave pillars in green-black drifts."),
+    R("rm_ct_10", "tools", 56, 241, "Crossed Halberds", "Two bailiffs' halberds crossed on the processional floor, rusted together where they fell. Their owners are still on duty."),
+    R("rm_ct_11", "skeleton", 36, 250, "Chained at the Wrist", "A skeleton in the reliquary, wrist-chained to a ring in the floor. Prisoner or volunteer — the court's records are underwater."),
+    R("rm_ct_12", "device", 42, 250, "The Court's Scales", "The great scales of the Sunken Court, seized mid-weigh. Both pans hold silt now, in exactly equal measure."),
+    R("rm_ct_13", "bones", 66, 250, "Bone Pile", "Bones along the lower approach, all pointed the same way: away."),
+    R("rm_ct_14", "throne", 116, 252, "The Drowned Throne", "The Magistrate's high seat, black stone under black water-stain. He does not use it. He stands. He has always stood."),
+    R("rm_ct_15", "brazier", 112, 250, "Court-Light Sconce", "A standing flame the water refuses to touch. The court's session never lapses for darkness."),
+    R("rm_ct_16", "brazier", 120, 255, "Court-Light Sconce", "Its pair across the floor. Between them, the throne room keeps its awful order."),
+    R("rm_ct_17", "kelp", 106, 254, "Flood-Weed", "Weed in the throne room's standing pools, swaying to a current nobody can feel."),
+    R("rm_ct_18", "bones", 124, 252, "Bone Pile", "Bones below the bench. Contempt of court, perhaps."),
+
+    // === SKYREACH RUIN — the watch that froze at its post ===
+    R("rm_sk_1", "sitting", 24, 302, "Frozen at His Post", "A watchman seated against the terrace wall, spear across his knees, facing the pass. Snow fills him like a bowl."),
+    R("rm_sk_2", "sitting", 33, 292, "Frozen at His Post", "Another sentry, upright at the switchback turn. The wind has polished him white."),
+    R("rm_sk_3", "banner", 16, 296, "Fallen Standard", "A watch-standard face-down on the terrace, its colours scoured to grey. The pole snapped in a wind nobody recorded."),
+    R("rm_sk_4", "device", 26, 283, "Shattered Astrolabe", "A star-reader's instrument, tripod bent, disc cracked through the constellation it was measuring."),
+    R("rm_sk_5", "nest", 48, 284, "Shriker Nest", "Twigs, wool, and small bones. Some of the bones wear rings."),
+    R("rm_sk_6", "nest", 80, 276, "Shriker Nest", "A nest wedged behind a pillar, lined with what used to be a banner."),
+    R("rm_sk_7", "banner", 64, 284, "Fallen Standard", "The wind hall's standard, half-buried in scree blown through the baffles."),
+    R("rm_sk_8", "bones", 60, 292, "Bone Pile", "Bones on the traverse, picked clean and bleached by altitude."),
+    R("rm_sk_9", "bones", 86, 291, "Bone Pile", "More bones near the Warder's walk. It tidies them to the edges, like a groundskeeper."),
+    R("rm_sk_10", "skeleton", 94, 297, "A Fallen Climber", "Face-down on the ascent, still roped to a piton. The rope outlived the climber by centuries."),
+    R("rm_sk_11", "nest", 117, 286, "The Herald's Eyrie-Nest", "The great nest itself — wide as a cart, built of beams, spears and bones. The Storm-Herald stands its watch from here."),
+    R("rm_sk_12", "brazier", 112, 284, "Beacon-Flame", "A fragment of the great beacon, still lit — the fire that must never be shown burns low, in private."),
+    R("rm_sk_13", "brazier", 122, 288, "Beacon-Flame", "Another shard of the old signal-fire, caged and hoarded."),
+    R("rm_sk_14", "bones", 120, 290, "Bone Pile", "Bones beneath the eyrie's rim. The hawks eat well."),
+    R("rm_sk_15", "bones", 110, 287, "Bone Pile", "Small bones, large bones. The eyrie doesn't discriminate."),
+
+    // === THE UNDERGATE — pilgrims at every seal, wolves on the road home ===
+    R("rm_ug_1", "bones", 46, 314, "Bone Pile", "Bones just inside the mouth. The Undergate's threshold has been argued at before."),
+    R("rm_ug_2", "camp", 24, 320, "The Last Pilgrim Camp", "Bedrolls for four, a firepit, a cooking pot — all facing downhill, toward the seals. Pilgrims of the psalm. None of the bedrolls were slept in twice."),
+    R("rm_ug_3", "skeleton", 40, 327, "A Pilgrim", "Fallen on the third terrace, arms toward the descent. Even dying, headed down."),
+    R("rm_ug_4", "sitting", 82, 329, "A Pilgrim of the Psalm", "Seated before the seals with palms up — someone who came to recite, and recited until they stopped."),
+    R("rm_ug_5", "urn", 80, 324, "Votive Urn", "An urn of offerings at the Seal Hall's edge: knucklebones, teeth, and five smooth stones."),
+    R("rm_ug_6", "urn", 98, 324, "Votive Urn", "Another urn. The offerings continue centuries deeper than the offerers."),
+    R("rm_ug_7", "bones", 96, 329, "Bone Pile", "Bones beneath the Seal of the Storm. Reaching up."),
+    R("rm_ug_8", "skeleton", 120, 324, "One of the Wardens' Own", "A north-folk skeleton in the Underway, fallen mid-stride on the patrol line it walked in life."),
+    R("rm_ug_9", "bones", 132, 324, "Bone Pile", "Bones between the pillars, arranged too neatly to have fallen."),
+    R("rm_ug_10", "crate", 114, 330, "The Underway Stores", "Sealed crates of grave-goods and grain — supplies for the keepers of a thousand-year watch."),
+    R("rm_ug_11", "banner", 140, 327, "The Wardens' Standard", "The Undergate's own standard, laid flat and weighted with stones. Retired, not fallen."),
+    R("rm_ug_12", "sitting", 113, 335, "He Knocked Until the End", "A skeleton seated against the Gatewright's door, knuckles resting on the stone. The door is older than his patience was."),
+    R("rm_ug_13", "skeleton", 50, 341, "A Pilgrim", "Face-down in the Echo Gallery, hands over where its ears were."),
+    R("rm_ug_14", "bones", 88, 341, "Bone Pile", "Bones by the sounding-stones' water. The echoes don't disturb them. Nothing does."),
+    R("rm_ug_15", "urn", 116, 340, "Votive Urn", "A pilgrim urn set square in the gallery's heart, full to the lid with small white stones — one per verse, times many."),
+    R("rm_ug_16", "banner", 36, 341, "The Wardens' Standard", "Another retired standard by the western seal. They folded their colours before the end. It WAS the end, and they knew."),
+    R("rm_ug_17", "bones", 52, 352, "Wolf Bones", "A wolf's skeleton on the deep road, mid-stride, headed north. It got further than most."),
+    R("rm_ug_18", "bones", 94, 351, "Wolf Bones", "Another wolf, curled at the corridor's edge as if it lay down to wait."),
+    R("rm_ug_19", "skeleton", 108, 352, "A Pilgrim", "Past the Deepway Door — one who got through, and knelt at the waymarks, and never stood."),
+    R("rm_ug_20", "bones", 137, 351, "The Bone-Field", "Here the floor gives up pretending to be stone. Bones in drifts, all the way to the Last Seal."),
+    R("rm_ug_21", "skeleton", 140, 351, "The Last Pilgrim", "An arm's length from the Last Seal. An arm's length."),
+    R("rm_ug_22", "sitting", 148, 350, "Honour-Dead of the Fifth Seal", "Seated in a wall-niche flanking the North Door, armed and armoured. Death did not end the posting."),
+    R("rm_ug_23", "sitting", 148, 354, "Honour-Dead of the Fifth Seal", "The niche's twin. Between them, everything that approaches the door is watched twice."),
+    R("rm_ug_24", "dais", 152, 355, "The Fifth Seal", "A ring of pale stone inlaid in the floor — the seal itself. The Pale Warden stands upon it, because that is the whole instruction."),
+    R("rm_ug_25", "brazier", 152, 351, "Seal-Fire", "White flame in a pale iron cage, burning since the psalm was cut. It gutters when the door is spoken to."),
+    R("rm_ug_26", "brazier", 155, 353, "Seal-Fire", "The second seal-fire. Their light does not warm."),
+    R("rm_ug_27", "bones", 150, 357, "Bone Pile", "Bones at the foot of the Warden's hall. Every one of them faced the door when it fell."),
+  ];
+}
+
 export const objects: WorldObjectDef[] = [
   ...rawObjects.map(remapObject),
   ...newPois.map(scatterFill),
   ...buildHousing(),
   ...buildDungeonSites(),
+  ...buildDungeonDressing(),
   ...pierObjects,
 ].map(snapSpawn);
 

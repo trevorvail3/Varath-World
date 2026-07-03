@@ -47,7 +47,7 @@ import { audio, type CreatureVoice, type Sfx } from "./audio.ts";
 import { currentGhosts, startPresence } from "./presence.ts";
 import { getTrackedQuest } from "./questTrack.ts";
 import { resolveGear } from "./gearLook.ts";
-import { enterableAt, instanceRectAt, INTERIOR_TOP, OVERWORLD_HEIGHT } from "../content/map.ts";
+import { DUNGEON_TOP, enterableAt, instanceRectAt, INTERIOR_TOP, OVERWORLD_HEIGHT } from "../content/map.ts";
 import { DecorateUI } from "./decorate.ts";
 import { objectPos, objectHidden, travelFare, equipRequirement } from "../core/worldCore.ts";
 import { findPath, pathToAdjacent, pathToWithin } from "./pathfinding.ts";
@@ -221,6 +221,7 @@ const VERB: Record<ObjKind, string> = {
   puzzle_lever: "Pull",
   dungeon_chest: "Open",
   ruin_prop: "Examine",
+  remains: "Examine",
   tree: "Chop",
   rock: "Mine",
   fishing_spot: "Fish",
@@ -291,6 +292,7 @@ const EXAMINE_OBJECT: Record<ObjKind, string> = {
   puzzle_lever: "An iron lever in a carved mount. The order of throwing matters — read the walls.",
   dungeon_chest: "A heavy chest, banded and clasped. Whatever it keeps, it has kept a long time.",
   ruin_prop: "Broken masonry of the old north-folk, older than any road on the map.",
+  remains: "The dark keeps what it is given.",
   cauldron: "A blackened cauldron over coals. Flask in hand, you can brew here.",
   workbench: "A sturdy builder's bench, racked with saws and chisels.",
   crafting_table: "An artisan's table — tanning frame, glass-pipe and a jeweller's vice.",
@@ -588,8 +590,14 @@ export class Game {
       this.lastSceneCheck = now;
       const p = this.bridge.state.player.pos;
       const px = Math.round(p.x), py = Math.round(p.y);
-      const indoor = instanceRectAt(px, py) !== null || enterableAt(px, py) !== null;
-      audio.setScene(biomeAt(px, py), indoor);
+      // The Act II dungeon band gets the deep-cave soundscape at full volume —
+      // biomeAt would fall through to muffled overworld hills down there.
+      if (py >= DUNGEON_TOP) {
+        audio.setScene("marrow", false);
+      } else {
+        const indoor = instanceRectAt(px, py) !== null || enterableAt(px, py) !== null;
+        audio.setScene(biomeAt(px, py), indoor);
+      }
     }
     // Combat engagement: the moment a fight starts the foe speaks (and a named
     // boss brings its own battle music); leaving the fight cuts the music.
@@ -1813,6 +1821,9 @@ export class Game {
     const tst = tid ? player.quests[tid] : undefined;
     if (tid && tst) {
       const def = quests.find((q) => q.id === tid);
+      // Act IV (The Silence Beyond the Spine) is an adventure chain: no guide
+      // chevron, no edge arrow — the psalm and the plaques are the only map.
+      if (def?.act === 4) return;
       const step = def?.steps[tst.step] as
         | { type?: string; npc?: string; from?: string; x?: number; y?: number }
         | undefined;
