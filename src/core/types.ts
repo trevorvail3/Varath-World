@@ -1188,6 +1188,9 @@ export interface WorldObjectState {
   hp?: number;
   /** Monsters only: time (ms) of the monster's next attack while in combat. */
   nextAttackAt?: number;
+  /** Monsters only: risen as a SUPERIOR (Bounty encounter) — bigger, far
+   *  tougher, and worth a burst of Marks. Transient; not saved. */
+  superior?: boolean;
   /**
    * Wandering creatures (npc/monster) only: their live position, which drifts
    * within a small region around the spawn tile (def.x/def.y). Undefined for
@@ -1377,6 +1380,9 @@ export interface BountyState {
   /** Monster ids the hunter has blocked — never rolled into a task. Capped at a
    *  base allotment, widened by the "wider_net" unlock. */
   blocked: string[];
+  /** The last few DISTINCT monsters assigned (newest first, capped) — the
+   *  "recent assignments" list you can block from without holding the task. */
+  history: string[];
   /** Permanent Hunt-Marks unlocks the hunter owns (BountyUnlock ids), e.g.
    *  "superior" (enables Superior encounters) or "wider_net" (more block slots). */
   unlocks: string[];
@@ -1857,6 +1863,9 @@ export interface BountySkipIntent {
 /** "Block my current task's monster" — never assign it again (uses a block slot). */
 export interface BountyBlockIntent {
   type: "BOUNTY_BLOCK";
+  /** Block this recently-assigned monster instead of the current task's (must
+   *  be in bounty.history). Omitted = block (and cancel) the current task. */
+  monster?: string;
 }
 
 /** "Un-block a monster" — free up its block slot so it can be assigned again. */

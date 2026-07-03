@@ -98,6 +98,7 @@ export interface SavedProgress {
     tasksDone: number;
     lastClaimDay: number;
     blocked: string[];
+    history: string[];
     unlocks: string[];
   };
   /** Farming patches: patch id -> what's planted and when (epoch ms). */
@@ -181,6 +182,7 @@ export function serializePlayer(state: WorldState): SavedProgress {
       tasksDone: player.bounty.tasksDone,
       lastClaimDay: player.bounty.lastClaimDay,
       blocked: [...player.bounty.blocked],
+      history: [...player.bounty.history],
       unlocks: [...player.bounty.unlocks],
     },
     hp: player.hp,
@@ -440,6 +442,10 @@ export function hydratePlayer(
     const blocked = savedBounty["blocked"];
     if (Array.isArray(blocked)) {
       player.bounty.blocked = blocked.filter((m): m is string => typeof m === "string" && m in content.monsters);
+    }
+    const history = savedBounty["history"];
+    if (Array.isArray(history)) {
+      player.bounty.history = history.filter((m): m is string => typeof m === "string" && m in content.monsters).slice(0, 10);
     }
     const unlocks = savedBounty["unlocks"];
     if (Array.isArray(unlocks)) {

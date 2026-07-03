@@ -241,6 +241,16 @@ export class BountyUI {
     } else {
       html += `<div class="bounty-empty-mini">Nothing blocked. Use <b>Block</b> on a task you never want again.</div>`;
     }
+    // Recently assigned: block a past assignment WITHOUT having to hold it
+    // again (the OSRS "I never want another of those" moment).
+    const recent = b.history.filter((m) => !b.blocked.includes(m) && m !== b.task?.monster);
+    if (recent.length && b.blocked.length < blockCap) {
+      html += `<div class="bounty-empty-mini">Recently assigned — block without re-rolling:</div><div class="bounty-blocked">`;
+      for (const m of recent.slice(0, 6)) {
+        html += `<span class="bounty-block-chip">${this.monsterName(m)} <button class="bounty-histblock" data-monster="${m}" type="button" title="Block ${this.monsterName(m)} forever">🚫</button></span>`;
+      }
+      html += `</div>`;
+    }
 
     // --- 4) Permanent unlocks ---
     html += `<div class="bounty-section-label">Unlocks</div><div class="bounty-shop">`;
@@ -328,6 +338,13 @@ export class BountyUI {
         e.stopPropagation();
         const m = el.dataset["monster"];
         if (m) this.act({ type: "BOUNTY_UNBLOCK", monster: m });
+      });
+    }
+    for (const el of Array.from(this.body.querySelectorAll<HTMLElement>(".bounty-histblock"))) {
+      el.addEventListener("pointerdown", (e) => {
+        e.stopPropagation();
+        const m = el.dataset["monster"];
+        if (m) this.act({ type: "BOUNTY_BLOCK", monster: m });
       });
     }
     for (const el of Array.from(this.body.querySelectorAll<HTMLElement>(".bounty-unlock-buy:not(.disabled)"))) {

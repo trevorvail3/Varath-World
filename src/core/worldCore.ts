@@ -549,7 +549,7 @@ export function createWorld(
       legColor: "#9a5a2a", shoeColor: "#3a2c20",
       hairStyle: "short", facial: "none", top: "plain", legs: "trousers", shoes: "boots",
     },
-    bounty: { marks: 0, guideId: content.bountyGuides[0]?.id ?? "rook", task: null, streak: 0, tasksDone: 0, lastClaimDay: 0, blocked: [], unlocks: [] },
+    bounty: { marks: 0, guideId: content.bountyGuides[0]?.id ?? "rook", task: null, streak: 0, tasksDone: 0, lastClaimDay: 0, blocked: [], history: [], unlocks: [] },
     home: { storage: {}, placed: [], tier: 0 },
     puzzles: {},
     buffs: {},
@@ -1705,7 +1705,7 @@ export function applyIntent(
     }
     case "BOUNTY_BLOCK": {
       if (!atStation(player, "bounty", "a bounty guide", events)) break;
-      blockBountyTask(player, content, events);
+      blockBountyTask(player, content, intent.monster, events);
       break;
     }
     case "BOUNTY_UNBLOCK": {
@@ -1861,6 +1861,21 @@ export function applyIntent(
       if (!task || !ground) {
         events.push({ type: "LOG", message: "The horn only answers a live contract — take a task from a guide first." });
         break;
+      }
+      // Warren contracts land at the Warrens' ENTRANCE, not inside a chamber:
+      // the guild's grades are walked past in order, not skipped over.
+      if (content.monsters[task.monster]?.bountyReq) {
+        const wDoor = content.objects.find((o) => o.id === "portal_warrens");
+        const wt = wDoor && "target" in wDoor ? (wDoor.target as Vec2 | undefined) : undefined;
+        if (wt) {
+          removeOneItem(player, "hunters_horn");
+          player.pos = { ...wt };
+          player.path = [];
+          player.pendingInteractId = null;
+          clearActivity(player);
+          events.push({ type: "LOG", message: "The horn's note drops away below you — and the Warrens' entry hall rises around you." });
+          break;
+        }
       }
       // Land on the nearest ground-walkable tile to the ground's centre (the
       // centre itself may be a wall/water tile in a dungeon chamber).
@@ -2535,6 +2550,25 @@ function startInteraction(
         break;
       }
       const lines = handleNpcTalk(state, content, def, events);
+      // A guide's small talk acknowledges the ledger: the live contract (their
+      // own or another guide's), or a filled one waiting to be claimed. Never
+      // over quest dialogue — story beats keep the floor.
+      if (def.bountyGuide && lines.length > 0 && !questStepTargets(player, content, def.id)) {
+        const g = content.bountyGuides.find((x) => x.id === def.bountyGuide);
+        const t = player.bounty.task;
+        if (g && t) {
+          const mname = content.monsters[t.monster]?.name ?? t.monster;
+          const done = t.progress >= t.required;
+          const issuer = content.bountyGuides.find((x) => x.id === t.guideId);
+          lines.unshift(
+            done
+              ? `"That ${mname} contract is filled. Open my ledger and claim what you're owed."`
+              : t.guideId === g.id
+                ? `"My ledger says ${t.progress} of ${t.required} ${mname}. The rest won't die of old age."`
+                : `"You carry ${issuer?.name ?? "another guide"}'s contract — ${t.progress} of ${t.required} ${mname}. I honour it the same."`,
+          );
+        }
+      }
       if (lines.length > 0) {
         events.push({ type: "DIALOGUE", npc: def.name, lines });
       }
@@ -4798,13 +4832,14 @@ function takeBountyTask(
   }
   const pool: BountyTaskDef[] = [];
   const cl = combatLevel(player);
+  let heldByCombat = 0; // templates your Bounty rank earned but your arm can't cash
   for (const zone of guide.zones) {
     for (const t of content.bountyTasks[zone] ?? []) {
       if (level < t.minLevel) continue;
       // OSRS-style: a guide sizes you up before writing your name — no
       // contract for quarry far beyond your combat level.
       const mLvl = content.monsters[t.monster]?.level ?? 1;
-      if (mLvl > cl + 10) continue;
+      if (mLvl > cl + 10) { heldByCombat++; continue; }
       // Boss bounties are gated behind their unlock quest — never assign a task
       // for a boss the hunter can't yet reach.
       if (t.requiresFlag && !player.flags.includes(t.requiresFlag)) continue;
@@ -4814,7 +4849,13 @@ function takeBountyTask(
     }
   }
   if (pool.length === 0) {
-    events.push({ type: "LOG", message: `${guide.name} has nothing you're ready for — train Bounty and your combat, or see a lower-tier guide.` });
+    // Tell the hunter WHICH wall they hit: rank, or arm.
+    events.push({
+      type: "LOG",
+      message: heldByCombat > 0
+        ? `${guide.name} closes the ledger. "Your rank's earned the work, but not the arm to do it — the quarry I post would kill you. Train your combat and come back."`
+        : `${guide.name} has nothing at your Bounty rank — train it up, or see a lower-tier guide.`,
+    });
     return;
   }
   const pick = pool[Math.floor(ctx.rng() * pool.length)]!;
@@ -4831,6 +4872,9 @@ function takeBountyTask(
     marks,
     guideId,
   };
+  // Remember the assignment (newest first, distinct, capped) so it can be
+  // blocked later from the ledger without holding it again.
+  player.bounty.history = [pick.monster, ...player.bounty.history.filter((m) => m !== pick.monster)].slice(0, 10);
   const name = content.monsters[pick.monster]?.name ?? pick.monster;
   // The guide names the quarry's ground, OSRS-Slayer style: you're told WHERE
   // to hunt, and the maps ring that ground while the task is live.
@@ -4963,8 +5007,22 @@ function skipBountyTask(player: Player, content: Content, events: WorldEvent[]):
 
 /** Block the current task's monster — never assigned again — using a block slot.
  *  Clears the task (streak survives) so a fresh one can be taken. */
-function blockBountyTask(player: Player, content: Content, events: WorldEvent[]): void {
+function blockBountyTask(player: Player, content: Content, monster: string | undefined, events: WorldEvent[]): void {
   const task = player.bounty.task;
+  // Blocking a RECENT assignment (from the ledger's history row) needs no live
+  // task and cancels nothing — unless it names the task you're holding.
+  if (monster !== undefined) {
+    if (!player.bounty.history.includes(monster)) return;
+    if (player.bounty.blocked.includes(monster)) return;
+    if (player.bounty.blocked.length >= blockCap(player)) {
+      events.push({ type: "LOG", message: `Your block list is full (${blockCap(player)}).` });
+      return;
+    }
+    player.bounty.blocked.push(monster);
+    if (task?.monster === monster) player.bounty.task = null;
+    events.push({ type: "LOG", message: `${content.monsters[monster]?.name ?? monster} blocked — you'll never be sent after them again.` });
+    return;
+  }
   if (!task) { events.push({ type: "LOG", message: "You have no task to block." }); return; }
   if (player.bounty.blocked.includes(task.monster)) { player.bounty.task = null; return; }
   if (player.bounty.blocked.length >= blockCap(player)) {
@@ -5010,34 +5068,66 @@ function buyBountyUnlock(player: Player, content: Content, id: string, events: W
  *  rarer shot at an ultra-rare Hunter's trophy dropped where the creature fell. */
 const SUPERIOR_ODDS = 100;            // ~1/100 on-task kills (…/65 with keen_eye)
 const SUPERIOR_ODDS_KEEN = 65;
+const SUPERIOR_HP_MULT = 2.2;         // the risen fight is a real fight
 const SUPERIOR_UNIQUE_ODDS = 12;      // …of Superiors yield an ultra-rare (~1/1200 base)
 const SUPERIOR_UNIQUES: ItemId[] = ["reckoners_charm", "pet_superior"];
-function rollSuperiorBounty(
+
+/** After an ordinary on-task kill: maybe raise the corpse as a SUPERIOR — a
+ *  visibly bigger, far tougher second fight that stands straight back up and
+ *  re-engages. Killing THAT is what pays (see paySuperiorBounty). */
+function rollSuperiorRise(
   state: WorldState,
   content: Content,
-  monster: string | undefined,
-  x: number,
-  y: number,
+  def: WorldObjectDef,
+  obj: WorldObjectState,
+  ctx: Ctx,
+  events: WorldEvent[],
+): boolean {
+  const { player } = state;
+  const task = player.bounty.task;
+  if (!def.monster || !task || task.monster !== def.monster) return false;
+  if (!player.bounty.unlocks.includes("superior")) return false;
+  const odds = player.bounty.unlocks.includes("keen_eye") ? SUPERIOR_ODDS_KEEN : SUPERIOR_ODDS;
+  if (ctx.rng() >= 1 / odds) return false;
+  const stats = monsterFor(content, def);
+  if (!stats) return false;
+  obj.available = true;
+  obj.superior = true;
+  obj.hp = Math.round(stats.hp * SUPERIOR_HP_MULT);
+  // It gets straight back up and comes for you.
+  const pSpeed = playerSpeed(player, content);
+  player.activity = { kind: "combat", targetId: def.id, actionId: null, nextActionAt: ctx.now + pSpeed, actionInterval: pSpeed };
+  obj.nextAttackAt = ctx.now + Math.floor((stats.speed ?? COMBAT.monsterSpeed) / 2);
+  events.push({ type: "LOG", message: `The ${stats.name} RISES — a Superior, half again its size and twice as angry!` });
+  return true;
+}
+
+/** A slain Superior pays its burst of Marks + Bounty XP — and rolls the
+ *  ultra-rare trophy into the PACK (bank on overflow), never onto the floor
+ *  where the despawn timer could eat a once-a-playthrough item. */
+function paySuperiorBounty(
+  state: WorldState,
+  content: Content,
+  monster: string,
   ctx: Ctx,
   events: WorldEvent[],
 ): void {
   const { player } = state;
   const task = player.bounty.task;
-  if (!monster || !task || task.monster !== monster) return;
-  if (!player.bounty.unlocks.includes("superior")) return;
-  const odds = player.bounty.unlocks.includes("keen_eye") ? SUPERIOR_ODDS_KEEN : SUPERIOR_ODDS;
-  if (ctx.rng() >= 1 / odds) return;
-  // A Superior! Always a burst of Marks + Bounty XP…
   const name = content.monsters[monster]?.name ?? monster;
-  const bonusMarks = Math.max(30, Math.round(task.marks * 0.4));
-  const bonusXp = Math.max(200, Math.round(task.xp * 0.5));
+  const bonusMarks = Math.max(30, Math.round((task?.marks ?? 60) * 0.4));
+  const bonusXp = Math.max(200, Math.round((task?.xp ?? 400) * 0.5));
   player.bounty.marks += bonusMarks;
   grantXp(state, content, "bounty", bonusXp, events);
-  events.push({ type: "LOG", message: `A Superior ${name} rises! +${bonusMarks} Hunt Marks · +${bonusXp} Bounty XP.` });
-  // …and, more rarely, an ultra-rare trophy on the ground where it fell.
+  events.push({ type: "LOG", message: `The Superior ${name} falls! +${bonusMarks} Hunt Marks · +${bonusXp} Bounty XP.` });
   if (ctx.rng() < 1 / SUPERIOR_UNIQUE_ODDS) {
     const unique = SUPERIOR_UNIQUES[Math.floor(ctx.rng() * SUPERIOR_UNIQUES.length)]!;
-    dropToGround(state, unique, 1, x, y, ctx);
+    if (canAddItem(player, unique)) {
+      addItem(player, unique, 1, events);
+    } else {
+      player.bank[unique] = (player.bank[unique] ?? 0) + 1;
+      events.push({ type: "LOG", message: "Your pack is full — the trophy is sent to your bank." });
+    }
     events.push({ type: "LOG", message: `The Superior leaves something behind: ${content.items[unique]?.name ?? unique}!` });
   }
 }
@@ -5470,7 +5560,16 @@ function checkKill(
   if (wstats?.bountyReq && state.player.bounty.task?.monster !== def.monster) {
     grantXp(state, content, "bounty", Math.round(wstats.bountyReq * 0.8), events);
   }
-  rollSuperiorBounty(state, content, def.monster, drop.x, drop.y, ctx, events);
+  // Superiors are a real second fight: an ordinary on-task kill can RAISE the
+  // corpse (rollSuperiorRise re-engages both sides); slaying the risen one is
+  // what pays. A superior never chains into another superior.
+  let rose = false;
+  if (obj.superior) {
+    obj.superior = false;
+    paySuperiorBounty(state, content, def.monster ?? "", ctx, events);
+  } else {
+    rose = rollSuperiorRise(state, content, def, obj, ctx, events);
+  }
   // A tool-gated kill spends its consumable — unless the mastery is owned.
   const hgk = HUNT_GATES[def.monster ?? ""];
   if (hgk && !player.bounty.unlocks.includes(hgk.unlock)) {
@@ -5479,7 +5578,9 @@ function checkKill(
       events.push({ type: "LOG", message: `That was your last ${hgk.toolName} — buy more from a guide, or the mastery to be done with them.` });
     }
   }
-  clearActivity(player);
+  // A risen Superior has already locked the player back into combat — don't
+  // clear the very engagement it just set up.
+  if (!rose) clearActivity(player);
 }
 
 /**

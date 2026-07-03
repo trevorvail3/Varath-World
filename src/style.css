@@ -224,6 +224,23 @@ body {
 }
 
 /* --- Low-HP warning --- */
+.hunt-chip {
+  margin-top: 4px;
+  font-family: "Cinzel", serif;
+  font-size: 10px;
+  color: #d0b078;
+  background: rgba(20, 16, 11, 0.72);
+  border: 1px solid rgba(201, 162, 74, 0.35);
+  border-radius: 5px;
+  padding: 1px 7px;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.hunt-chip.done { color: #9fd07a; border-color: rgba(140, 200, 110, 0.5); }
+.hunt-chip.hidden { display: none; }
+
 .hud-vitals.low {
   border-color: #c44a3a;
   box-shadow: 0 0 14px rgba(196, 58, 42, 0.4);

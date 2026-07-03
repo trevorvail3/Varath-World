@@ -1463,7 +1463,8 @@ export function drawWorld(
         FACING_X.set(def.id, lx);
         flip = FACING.get(def.id) ?? false;
       }
-      drawObject(g, def, obj.available, px, py, now, !!obj.wanderTarget, monsterAttack(def, obj, state, content, now), flip);
+      const superior = def.kind === "monster" && obj.available && obj.superior === true;
+      drawObject(g, def, obj.available, px, py, now, !!obj.wanderTarget, monsterAttack(def, obj, state, content, now), flip, superior);
       if (hp) g.restore();
     }
     if (def.kind === "fire" || def.kind === "furnace" || def.kind === "cauldron") {
@@ -2478,6 +2479,7 @@ function drawObject(
   moving = false,
   attack?: MonsterAttack,
   flip = false,
+  superior = false,
 ): void {
   const cx = px + TILE / 2;
   const cy = py + TILE / 2;
@@ -2507,17 +2509,27 @@ function drawObject(
     case "npc":
       drawNpc(g, cx, cy, now, moving, def.x, def.y);
       break;
-    case "monster":
-      if (flip) {
-        // Mirror about the creature's own centre line so it faces its travel.
-        g.save();
-        g.translate(cx, 0); g.scale(-1, 1); g.translate(-cx, 0);
-        drawMonster(g, def.monster, available, cx, cy, now, moving, attack);
-        g.restore();
-      } else {
-        drawMonster(g, def.monster, available, cx, cy, now, moving, attack);
+    case "monster": {
+      // A SUPERIOR reads a screen away: a pulsing gold ground-ring, and the
+      // whole creature drawn half again its size about the ground line.
+      if (superior && available) {
+        const pulse = 0.5 + Math.sin(now / 220) * 0.15;
+        const grad = g.createRadialGradient(cx, cy + 12, 2, cx, cy + 12, 26);
+        grad.addColorStop(0, `rgba(240, 200, 90, ${0.4 * pulse})`);
+        grad.addColorStop(1, "rgba(240, 200, 90, 0)");
+        g.fillStyle = grad;
+        g.beginPath(); g.ellipse(cx, cy + 12, 26, 12, 0, 0, Math.PI * 2); g.fill();
       }
+      g.save();
+      if (flip) { g.translate(cx, 0); g.scale(-1, 1); g.translate(-cx, 0); }
+      if (superior && available) {
+        const foot = cy + 14;
+        g.translate(cx, foot); g.scale(1.45, 1.45); g.translate(-cx, -foot);
+      }
+      drawMonster(g, def.monster, available, cx, cy, now, moving, attack);
+      g.restore();
       break;
+    }
 
     case "shrine":
       drawShrine(g, cx, cy);

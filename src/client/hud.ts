@@ -116,6 +116,7 @@ export class Hud {
   private autocastChips = new Map<string, HTMLElement>();
   private invSlots: HTMLElement[] = [];
   private hpFill!: HTMLElement;
+  private huntChip!: HTMLElement;
   private hpBar!: HTMLElement;
   private graceFill!: HTMLElement;
   private graceBar!: HTMLElement;
@@ -274,7 +275,9 @@ export class Hud {
           <div class="hp-bar" title="Hitpoints"><div class="hp-fill"></div></div>
           <div class="grace-row"><div class="grace-bar" title="Grace — the Devotion spell fuel. Refill at a shrine or altar."><div class="grace-fill"></div></div></div>
         </div>
-      </div>`;
+      </div>
+      <div class="hunt-chip hidden" title="Your active bounty task"></div>`;
+    this.huntChip = vitals.querySelector(".hunt-chip") as HTMLElement;
     this.hpFill = vitals.querySelector(".hp-fill") as HTMLElement;
     this.hpBar = vitals.querySelector(".hp-bar") as HTMLElement;
     this.graceFill = vitals.querySelector(".grace-fill") as HTMLElement;
@@ -1536,6 +1539,19 @@ export class Hud {
       // Bar fills right for positive standing, capped at +100; empty when ≤ 0.
       els.fill.style.width = `${Math.max(0, Math.min(1, rep / 100)) * 100}%`;
       els.fill.className = `faction-fill ${s.tone}`;
+    }
+
+    // The hunt chip: a one-glance readout of the live bounty task under the
+    // vitals — target and tally only, nothing that plays the game for you.
+    const bt = player.bounty.task;
+    if (bt) {
+      const done = bt.progress >= bt.required;
+      const bName = this.content.monsters[bt.monster]?.name ?? bt.monster;
+      this.huntChip.textContent = done ? `🎯 ${bName} — claim!` : `🎯 ${bName} ${bt.progress}/${bt.required}`;
+      this.huntChip.classList.toggle("done", done);
+      this.huntChip.classList.remove("hidden");
+    } else {
+      this.huntChip.classList.add("hidden");
     }
 
     // Hitpoints (always-on bar) + low-HP warning.
