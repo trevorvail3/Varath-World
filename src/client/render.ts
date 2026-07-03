@@ -5632,6 +5632,8 @@ const MONSTER_SCALE: Record<string, number> = {
   court_reliquarist: 1.2, drowned_magistrate: 1.4,
   sky_warder: 1.2, storm_herald: 1.4, aerie_harpy: 1.12,
   pale_wight: 1.1, pale_gatekeeper: 1.25, pale_herald: 1.25, pale_warden: 1.5,
+  // The Hunt Warrens: each grade of quarry reads a size up from the last.
+  dusk_stalker: 1.15, hollow_hound: 1.25, warren_shade: 1.2, iron_maw: 1.5,
 };
 
 /** A coloured ground-glow per boss — presence you can feel a screen away. */
@@ -5714,13 +5716,20 @@ function drawMonsterBody(
       return drawBigCat(g, cx, cy, now);
     case "stone_crawler":
     case "cave_crawler":
+    case "warren_creeper": // the Burrows' pale many-legged crawler
       return drawStoneCrawler(g, cx, cy, now);
     case "mountain_troll":
     case "deep_golem":
+    case "iron_maw": // the armoured hulk at the Warrens' bottom
       return drawTroll(g, cx, cy, now);
     case "spine_wraith":
     case "marrow_wraith":
+    case "warren_shade": // the Crypt's dead hunters
       return drawWraith(g, cx, cy, now);
+    case "dusk_stalker": // the Dens' long black cat
+      return drawBigCat(g, cx, cy, now);
+    case "hollow_hound": // the Kennels' feral hound
+      return drawWolf(g, cx, cy, now);
     case "mire_serpent":
     case "river_serpent":
     case "marsh_lurker":

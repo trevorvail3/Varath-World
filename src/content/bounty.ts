@@ -21,7 +21,7 @@ export const bountyGuides: BountyGuide[] = [
     icon: "🪶",
     desc: "An old tracker who patrols the Knuckle Hills. Sends new hunters after small game and common prey.",
     levelReq: 1,
-    zones: ["knuckle_hills", "greyoak_wood"],
+    zones: ["knuckle_hills", "greyoak_wood", "petty_outlaws"],
     xpMult: 1.0,
     marksMult: 1.0,
   },
@@ -32,7 +32,7 @@ export const bountyGuides: BountyGuide[] = [
     icon: "🗡️",
     desc: "A scarred warrior stationed at the Spine passes. Assigns tasks in rougher territory for seasoned hunters.",
     levelReq: 30,
-    zones: ["spine", "heartmoor", "outlaws"],
+    zones: ["spine", "heartmoor", "outlaws", "warrens"],
     xpMult: 1.6,
     marksMult: 1.6,
   },
@@ -43,7 +43,7 @@ export const bountyGuides: BountyGuide[] = [
     icon: "💀",
     desc: "Speaks little. Posts bounties in the Marrow Deeps and Redrun for hunters who have earned the right.",
     levelReq: 65,
-    zones: ["marrow_deeps", "redrun"],
+    zones: ["marrow_deeps", "redrun", "warrens", "old_places"],
     xpMult: 2.5,
     marksMult: 2.5,
   },
@@ -99,6 +99,15 @@ export const bountyTasks: Record<string, BountyTaskDef[]> = {
     { monster: "bog_knight", required: 5, xp: 4000, marks: 165, minLevel: 58 },
     { monster: "mire_serpent", required: 4, xp: 4500, marks: 185, minLevel: 62 },
   ],
+  // Rook's petty-crime docket: the small outlaws of the near roads, so a new
+  // hunter sees more than rats and wolves before level 20.
+  petty_outlaws: [
+    { monster: "footpad", required: 15, xp: 400, marks: 14, minLevel: 3 },
+    { monster: "cutpurse", required: 12, xp: 500, marks: 18, minLevel: 6 },
+    { monster: "poacher", required: 10, xp: 600, marks: 22, minLevel: 9 },
+    { monster: "bandit", required: 12, xp: 800, marks: 30, minLevel: 12 },
+    { monster: "highwayman", required: 10, xp: 1000, marks: 38, minLevel: 16 },
+  ],
   // The lawless roads — outlaw gangs from footpad to captain, ranging the whole
   // map. Serath posts these alongside the Spine and moor work.
   outlaws: [
@@ -125,6 +134,31 @@ export const bountyTasks: Record<string, BountyTaskDef[]> = {
     { monster: "ancient_orc", required: 3, xp: 12000, marks: 490, minLevel: 91 },
     { monster: "ancient_orc", required: 8, xp: 28000, marks: 1150, minLevel: 95 },
   ],
+  // The Hunt Warrens — the guild's own slayer grounds under the Old Quarry.
+  // Each quarry also carries a KILL gate (MonsterStats.bountyReq), so these
+  // tasks are the ladder the skill climbs: new grade every ~20 levels, each
+  // with a unique that drops nowhere else. Posted by Serath and Mourne.
+  warrens: [
+    { monster: "warren_creeper", required: 12, xp: 1500, marks: 60, minLevel: 20 },
+    { monster: "warren_creeper", required: 25, xp: 3200, marks: 130, minLevel: 30 },
+    { monster: "dusk_stalker", required: 10, xp: 2600, marks: 105, minLevel: 40 },
+    { monster: "dusk_stalker", required: 20, xp: 5400, marks: 220, minLevel: 50 },
+    { monster: "hollow_hound", required: 8, xp: 4200, marks: 170, minLevel: 60 },
+    { monster: "hollow_hound", required: 16, xp: 8500, marks: 350, minLevel: 70 },
+    { monster: "warren_shade", required: 6, xp: 6000, marks: 245, minLevel: 75 },
+    { monster: "warren_shade", required: 12, xp: 12500, marks: 510, minLevel: 82 },
+    { monster: "iron_maw", required: 5, xp: 8500, marks: 350, minLevel: 90 },
+    { monster: "iron_maw", required: 10, xp: 18000, marks: 740, minLevel: 95 },
+  ],
+  // Mourne's sweep of the old places — the Act II ruins' own dead, for hunters
+  // who have earned the deep dark. The Undergate's wights wait on its reveal.
+  old_places: [
+    { monster: "drowned_thrall", required: 10, xp: 4500, marks: 185, minLevel: 65 },
+    { monster: "court_wisp", required: 8, xp: 5000, marks: 205, minLevel: 67 },
+    { monster: "aerie_harpy", required: 10, xp: 5500, marks: 225, minLevel: 70 },
+    { monster: "storm_wisp", required: 8, xp: 6000, marks: 245, minLevel: 72 },
+    { monster: "pale_wight", required: 8, xp: 9500, marks: 390, minLevel: 76, requiresFlag: "act2_tablets_all" },
+  ],
   // Kaeda's ledger — single-target hunts for Varath's named bosses. Base values
   // are large and the guide triples them, so one clean boss kill pays like a
   // long grind. Quest bosses carry a requiresFlag so they're only ever assigned
@@ -139,6 +173,8 @@ export const bountyTasks: Record<string, BountyTaskDef[]> = {
     { monster: "marrow_keeper", required: 1, xp: 7000, marks: 320, minLevel: 70 },
     { monster: "ashen_wyrm", required: 1, xp: 9000, marks: 420, minLevel: 75 },
     { monster: "dread_ferryman", required: 1, xp: 10000, marks: 460, minLevel: 78 },
+    { monster: "greyback", required: 1, xp: 7000, marks: 320, minLevel: 66 },
+    { monster: "storm_herald", required: 1, xp: 8000, marks: 360, minLevel: 72 },
   ],
 };
 
@@ -185,6 +221,24 @@ export const huntingGrounds: Record<string, HuntingGround> = {
   river_serpent: { name: "the Redrun Mouth", hint: "where the river meets the eastern sea", x: 146, y: 98, r: 6 },
   redrun_brigand: { name: "the Redrun Bank", hint: "the east bank of the river's last mile", x: 148, y: 100, r: 6 },
   ancient_orc: { name: "the Old Warcamp", hint: "the ruined camp on the lower Redrun", x: 127, y: 125, r: 6 },
+  // --- Rook's petty-crime docket: the outlaw camps of the near roads --------
+  footpad: { name: "the Gallows Oak", hint: "the outlaw camp on the north-west road", x: 48, y: 44, r: 5 },
+  cutpurse: { name: "the Cutpurse Steps", hint: "the broken stair south-east of Ironvale", x: 80, y: 97, r: 5 },
+  poacher: { name: "the Poachers' Blind", hint: "the hides on the Greyoak verge", x: 27, y: 77, r: 5 },
+  bandit: { name: "Waylayers' Bend", hint: "the bad turn on the west road", x: 58, y: 80, r: 5 },
+  highwayman: { name: "the Burnt Waystation", hint: "the gutted post-house on the east road", x: 101, y: 80, r: 5 },
+  // --- The Hunt Warrens: the guild's slayer grounds under the Old Quarry ----
+  warren_creeper: { name: "the Warren Burrows", hint: "first chamber of the Hunt Warrens, below the Old Quarry", x: 150, y: 230, r: 6 },
+  dusk_stalker: { name: "the Warren Dens", hint: "second chamber of the Hunt Warrens — listen for the whistle", x: 147, y: 237, r: 6 },
+  hollow_hound: { name: "the Warren Kennels", hint: "third chamber of the Hunt Warrens", x: 147, y: 245, r: 6 },
+  warren_shade: { name: "the Warren Crypt", hint: "fourth chamber of the Hunt Warrens — by the black pools", x: 148, y: 254, r: 6 },
+  iron_maw: { name: "the Maw Pit", hint: "the bottom of the Hunt Warrens", x: 148, y: 262, r: 7 },
+  // --- Mourne's sweep of the old places --------------------------------------
+  drowned_thrall: { name: "the Sunken Court", hint: "the drowned halls beneath the Heartmoor", x: 57, y: 242, r: 8 },
+  court_wisp: { name: "the Sunken Court", hint: "the drowned halls beneath the Heartmoor", x: 40, y: 227, r: 8 },
+  aerie_harpy: { name: "Skyreach Ruin", hint: "the aerie above the Spine pass", x: 57, y: 277, r: 8 },
+  storm_wisp: { name: "Skyreach Ruin", hint: "the aerie above the Spine pass", x: 80, y: 283, r: 8 },
+  pale_wight: { name: "the Undergate", hint: "beyond the fifth seal, under the Spine", x: 62, y: 340, r: 8 },
   // --- Kaeda's ledger: named bosses keep single lairs -----------------------
   bog_warden: { name: "the Bogmoor", hint: "its lair in the drowned moor", x: 44, y: 130, r: 4 },
   hollow_warden: { name: "the Barrows' Mouth", hint: "before the Hollow Barrows' gate", x: 124, y: 53, r: 4 },
@@ -193,6 +247,8 @@ export const huntingGrounds: Record<string, HuntingGround> = {
   spine_warlord: { name: "the Spine's Height", hint: "the war-tent on the high pass", x: 53, y: 19, r: 4 },
   boneman: { name: "the Bone Field", hint: "his cairn-ground in the west verge", x: 37, y: 88, r: 4 },
   marrow_keeper: { name: "the Marrow Delve", hint: "the arena beneath the Deeps", x: 56, y: 171, r: 4 },
+  greyback: { name: "the East Downs", hint: "a roamer — the guides post its last sighting past the Redrun road", x: 136, y: 111, r: 10 },
+  storm_herald: { name: "the Skyreach Eyrie", hint: "the storm-watch at the top of the ruin", x: 117, y: 286, r: 5 },
   ashen_wyrm: { name: "the Cinder Roost", hint: "the scorched shelf in the far northeast", x: 136, y: 17, r: 4 },
   dread_ferryman: { name: "the Grey Landing", hint: "the dark water at the world's south edge", x: 72, y: 169, r: 4 },
 };

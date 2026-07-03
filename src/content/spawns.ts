@@ -2243,6 +2243,61 @@ function buildDungeonSites(): WorldObjectDef[] {
     },
     { id: "ret_under_b", kind: "portal", x: ux + 146, y: uy + 45, name: "The Warden's Stair", target: { x: umouth.x, y: umouth.y + 1 }, lines: ["The Warden's own stair, straight and true, up to the pass."] },
   );
+
+  // --- SITE 6: THE HUNT WARRENS — the Bounty guild's slayer grounds. Old
+  //     hunting tunnels under the quarry country: no puzzles, no keys, just
+  //     five chambers of warren-bred quarry, each demanding more huntcraft
+  //     (Bounty level) than the last. The mouth opens at the Old Quarry.
+  const warrens = DUNGEONS.find((d) => d.id === "hunt_warrens")!;
+  const wx = warrens.x0, wy = warrens.y0;
+  const wmouth = { x: 120, y: 55 }; // the Old Quarry's deep cut (final coords)
+  out.push(
+    {
+      id: "portal_warrens", kind: "portal", x: wmouth.x, y: wmouth.y, name: "The Hunt Warrens",
+      dungeon: "hunt_warrens", target: { x: wx + warrens.entry.x, y: wy + warrens.entry.y },
+      lines: ["A timbered shaft in the quarry's deepest cut, its posts notched with hunters' tallies. Everything the guides ever turned away bred down there — and the board pays for all of it."],
+    },
+    { id: "ret_warrens", kind: "portal", x: wx + warrens.exit.x, y: wy + warrens.exit.y, name: "The Way Up", target: { x: wmouth.x, y: wmouth.y + 1 }, lines: ["You climb the tally-notched ladder back to the quarry."] },
+    // The guild's plain-spoken warnings — INSIDE each chamber's first bay, off
+    // the one-tile corridors (a signpost blocks its tile; posted in a neck it
+    // would seal the chamber shut).
+    { id: "plq_war_entry", kind: "signpost", x: wx + 7, y: wy + 1, name: "Guild Notice", lines: ["'THE HUNT WARRENS — guild ground. Five chambers, five grades of quarry. Know your level; the Warrens don't forgive a hunter who doesn't.'"] },
+    { id: "plq_war_burrows", kind: "signpost", x: wx + 17, y: wy + 4, name: "Chamber Mark: THE BURROWS", lines: ["'Creepers. Bounty 20. They hear your pulse — walk soft.'"] },
+    { id: "plq_war_dens", kind: "signpost", x: wx + 10, y: wy + 14, name: "Chamber Mark: THE DENS", lines: ["'Stalkers. Bounty 40. If you can hear the whistle, it has already leapt.'"] },
+    { id: "plq_war_kennels", kind: "signpost", x: wx + 11, y: wy + 23, name: "Chamber Mark: THE KENNELS", lines: ["'Hounds. Bounty 60. Aim for where the middle should be.'"] },
+    { id: "plq_war_crypt", kind: "signpost", x: wx + 11, y: wy + 32, name: "Chamber Mark: THE CRYPT", lines: ["'Shades. Bounty 75. They were hunters once. Don't listen to anything they say.'"] },
+    { id: "plq_war_pit", kind: "signpost", x: wx + 12, y: wy + 41, name: "Chamber Mark: THE MAW PIT", lines: ["'The Maw. Bounty 90. The guild does not fetch bodies from the Pit.'"] },
+    // THE BURROWS (Bounty 20) — creepers in the bare-earth warren.
+    { id: "war_creeper_1", kind: "monster", monster: "warren_creeper", x: wx + 18, y: wy + 5, name: "Warren Creeper" },
+    { id: "war_creeper_2", kind: "monster", monster: "warren_creeper", x: wx + 21, y: wy + 6, name: "Warren Creeper" },
+    { id: "war_creeper_3", kind: "monster", monster: "warren_creeper", x: wx + 19, y: wy + 8, name: "Warren Creeper" },
+    { id: "war_creeper_4", kind: "monster", monster: "warren_creeper", x: wx + 24, y: wy + 5, name: "Warren Creeper" },
+    // THE DENS (Bounty 40) — stalkers in the long gallery.
+    { id: "war_stalker_1", kind: "monster", monster: "dusk_stalker", x: wx + 12, y: wy + 12, name: "Dusk Stalker" },
+    { id: "war_stalker_2", kind: "monster", monster: "dusk_stalker", x: wx + 17, y: wy + 13, name: "Dusk Stalker" },
+    { id: "war_stalker_3", kind: "monster", monster: "dusk_stalker", x: wx + 22, y: wy + 12, name: "Dusk Stalker" },
+    { id: "war_stalker_4", kind: "monster", monster: "dusk_stalker", x: wx + 25, y: wy + 14, name: "Dusk Stalker" },
+    // THE KENNELS (Bounty 60) — hounds in the broad kennel-hall.
+    { id: "war_hound_1", kind: "monster", monster: "hollow_hound", x: wx + 13, y: wy + 20, name: "Hollow Hound" },
+    { id: "war_hound_2", kind: "monster", monster: "hollow_hound", x: wx + 18, y: wy + 22, name: "Hollow Hound" },
+    { id: "war_hound_3", kind: "monster", monster: "hollow_hound", x: wx + 22, y: wy + 20, name: "Hollow Hound" },
+    { id: "war_hound_4", kind: "monster", monster: "hollow_hound", x: wx + 15, y: wy + 23, name: "Hollow Hound" },
+    // THE CRYPT (Bounty 75) — shades casting from the black pools.
+    { id: "war_shade_1", kind: "monster", monster: "warren_shade", x: wx + 12, y: wy + 29, name: "Warren Shade" },
+    { id: "war_shade_2", kind: "monster", monster: "warren_shade", x: wx + 19, y: wy + 30, name: "Warren Shade" },
+    { id: "war_shade_3", kind: "monster", monster: "warren_shade", x: wx + 22, y: wy + 31, name: "Warren Shade" },
+    // THE MAW PIT (Bounty 90) — the Maws at the bottom of everything.
+    { id: "war_maw_1", kind: "monster", monster: "iron_maw", x: wx + 14, y: wy + 38, name: "Iron Maw" },
+    { id: "war_maw_2", kind: "monster", monster: "iron_maw", x: wx + 20, y: wy + 40, name: "Iron Maw" },
+    { id: "war_maw_3", kind: "monster", monster: "iron_maw", x: wx + 24, y: wy + 38, name: "Iron Maw" },
+    // Grim dressing: the hunters who misjudged their grade.
+    { id: "rem_war_1", kind: "remains", variant: "bones", x: wx + 15, y: wy + 5, name: "Old Remains" },
+    { id: "rem_war_2", kind: "remains", variant: "skeleton", x: wx + 10, y: wy + 13, name: "Old Remains" },
+    { id: "rem_war_3", kind: "remains", variant: "sitting", x: wx + 11, y: wy + 21, name: "A Hunter's End" },
+    { id: "rem_war_4", kind: "remains", variant: "sarco", x: wx + 12, y: wy + 31, name: "Old Remains" },
+    { id: "rem_war_5", kind: "remains", variant: "camp", x: wx + 12, y: wy + 39, name: "A Hunter's Last Camp" },
+    { id: "rem_war_6", kind: "remains", variant: "brazier", x: wx + 6, y: wy + 2, name: "Guild Brazier" },
+  );
   return out;
 }
 

@@ -271,6 +271,61 @@ const UNDERGATE_ROWS = [
   "                                                                                                                                                            ", // 49
 ];
 
+// ============================================================================
+// SITE 6 — THE HUNT WARRENS (the Bounty guild's slayer grounds)
+// Old hunting tunnels under the quarry country, where everything the guides
+// ever turned away has bred in the dark. No puzzles, no keys — just a spine
+// stair sinking past five chambers, each holding quarry that takes more
+// huntcraft (Bounty level) than the last: the Burrows (20), the Dens (40),
+// the Kennels (60), the Crypt (75) and, at the bottom, the Maw Pit (90).
+//     0         1         2
+//     0123456789012345678901234567
+const WARRENS_ROWS = [
+  "                            ", // 0
+  "  ........                  ", // 1  entry hall (way out at the nook)
+  "  ........                  ", // 2
+  "  ..............            ", // 3  east passage to the Burrows
+  "  ........    ..,,,,,,,,,   ", // 4
+  "    ..        ..,,,,,,,,,   ", // 5  THE BURROWS (Bounty 20)
+  "    ..        ..,,,,,,,,,   ", // 6
+  "    ..        ..,,,,,,,,,   ", // 7
+  "    ..          ,,,,,,,,,   ", // 8
+  "    ..                      ", // 9  the spine stair, sinking south
+  "    ..........              ", // 10
+  "    ..  ..................  ", // 11 THE DENS (Bounty 40)
+  "    ..  ..................  ", // 12
+  "    ..  ..................  ", // 13
+  "    ..  ..................  ", // 14
+  "    ..                      ", // 15
+  "    ..                      ", // 16
+  "    ..                      ", // 17
+  "    ..........              ", // 18
+  "    ..    ................  ", // 19 THE KENNELS (Bounty 60)
+  "    ..    ................  ", // 20
+  "    ..    ................  ", // 21
+  "    ..    ................  ", // 22
+  "    ..    ................  ", // 23
+  "    ..                      ", // 24
+  "    ..                      ", // 25
+  "    ..                      ", // 26
+  "    ..........              ", // 27
+  "    ..    ......~~......    ", // 28 THE CRYPT (Bounty 75) — still black pools
+  "    ..    ......~~......    ", // 29
+  "    ..    ..............    ", // 30
+  "    ..    ......~~......    ", // 31
+  "    ..    ......~~......    ", // 32
+  "    ..                      ", // 33
+  "    ..                      ", // 34
+  "    ..                      ", // 35
+  "    ..........,,,,,,,,,,,,  ", // 36 THE MAW PIT (Bounty 90) — bare earth
+  "    ..    ,,,,,,,,,,,,,,,,  ", // 37
+  "    ..    ,,,,,,,,,,,,,,,,  ", // 38
+  "    ......,,,,,,,,,,,,,,,,  ", // 39
+  "          ,,,,,,,,,,,,,,,,  ", // 40
+  "          ,,,,,,,,,,,,,,,,  ", // 41
+  "                            ", // 42
+];
+
 export const DUNGEON_LAYOUTS: DungeonLayout[] = [
   {
     id: "hollow_barrows",
@@ -316,5 +371,14 @@ export const DUNGEON_LAYOUTS: DungeonLayout[] = [
     rows: UNDERGATE_ROWS,
     entry: { x: 5, y: 4 },
     exit: { x: 3, y: 3 },
+  },
+  {
+    id: "hunt_warrens",
+    name: "The Hunt Warrens",
+    x0: 130,
+    row0: 30,
+    rows: WARRENS_ROWS,
+    entry: { x: 5, y: 2 },
+    exit: { x: 3, y: 1 },
   },
 ];

@@ -1974,5 +1974,75 @@ export const monsters: Record<string, MonsterStats> = {
       { item: "ashiron_bar", chance: 0.5, min: 2, max: 3, tier: "uncommon" },
       { item: "marrow_shard", chance: 0.25, tier: "rare" },
     ],
+  },
+
+  // === THE HUNT WARRENS — warren-bred quarry, each gated by Bounty level ====
+  // OSRS-Slayer style: without the huntcraft you can't fight them at all
+  // (bountyReq), and each tier pays better than the last, topped by a unique
+  // that drops nowhere else. Their tasks roll from the "warrens" zone pool.
+  "warren_creeper": {
+    id: "warren_creeper", name: "Warren Creeper", icon: "🕷️", level: 30, hp: 150,
+    acc: 60, def: 22, maxHit: 13, speed: 3000, xp: 110, attackStyle: "stab",
+    weakness: ["slash"], bountyReq: 20,
+    desc: "A pale, many-legged thing that never leaves the Burrows. It hears your pulse through the floor. Takes Bounty 20 to hunt.",
+    drops: [
+      { item: "worn_coin", chance: 1, min: 8, max: 20, tier: "always" },
+      { item: "bones", chance: 1, tier: "always" },
+      { item: "sinew", chance: 0.4, tier: "common" },
+      { item: "rough_gem", chance: 0.15, tier: "uncommon" },
+      { item: "creeper_eye", chance: 0.008, tier: "rare" },
+    ],
+  },
+  "dusk_stalker": {
+    id: "dusk_stalker", name: "Dusk Stalker", icon: "🐆", level: 50, hp: 260,
+    acc: 95, def: 38, maxHit: 18, speed: 2300, xp: 240, attackStyle: "slash",
+    weakness: ["crush"], bountyReq: 40,
+    desc: "A long cat of the Dens, black as a shut door and twice as quiet. Hunters swear its fangs whistle. Takes Bounty 40 to hunt.",
+    drops: [
+      { item: "worn_coin", chance: 1, min: 14, max: 34, tier: "always" },
+      { item: "big_bones", chance: 1, tier: "always" },
+      { item: "thick_hide", chance: 0.35, tier: "common" },
+      { item: "cut_gem", chance: 0.08, tier: "uncommon" },
+      { item: "stalker_fangs", chance: 0.007, tier: "rare" },
+    ],
+  },
+  "hollow_hound": {
+    id: "hollow_hound", name: "Hollow Hound", icon: "🐕", level: 68, hp: 400,
+    acc: 125, def: 55, maxHit: 25, speed: 2600, xp: 400, attackStyle: "crush",
+    weakness: ["stab"], bountyReq: 60,
+    desc: "A kennel-bred horror gone feral generations back — a hound's shape around a hollow middle. Its hide turns blades its body shouldn't. Takes Bounty 60 to hunt.",
+    drops: [
+      { item: "worn_coin", chance: 1, min: 22, max: 50, tier: "always" },
+      { item: "big_bones", chance: 1, tier: "always" },
+      { item: "thick_hide", chance: 0.6, min: 1, max: 2, tier: "common" },
+      { item: "marrow_shard", chance: 0.06, tier: "uncommon" },
+      { item: "houndhide_cloak", chance: 0.006, tier: "rare" },
+    ],
+  },
+  "warren_shade": {
+    id: "warren_shade", name: "Warren Shade", icon: "👻", level: 84, hp: 540,
+    acc: 240, def: 68, maxHit: 31, speed: 2700, attackRange: 5, xp: 580, attackStyle: "magic",
+    weakness: ["ranged"], bountyReq: 75,
+    desc: "What is left of the hunters who went below their level. It casts from the black pools of the Crypt, and it remembers being warm. Takes Bounty 75 to hunt.",
+    drops: [
+      { item: "worn_coin", chance: 1, min: 35, max: 75, tier: "always" },
+      { item: "bonemeal", chance: 0.7, min: 2, max: 4, tier: "common" },
+      { item: "hex_cloth", chance: 0.4, min: 1, max: 2, tier: "common" },
+      { item: "marrow_shard", chance: 0.12, tier: "uncommon" },
+      { item: "wraithbone_staff", chance: 0.005, tier: "rare" },
+    ],
+  },
+  "iron_maw": {
+    id: "iron_maw", name: "Iron Maw", icon: "🦂", level: 100, hp: 740,
+    acc: 170, def: 88, maxHit: 38, speed: 3000, xp: 820, attackStyle: "crush",
+    weakness: ["stab"], bountyReq: 90,
+    desc: "The thing at the bottom of the Warrens: an armoured mouth on legs, plated in scrap it has eaten and grown over. The Maw Pit is a larder, and it is the keeper. Takes Bounty 90 to hunt.",
+    drops: [
+      { item: "worn_coin", chance: 1, min: 60, max: 130, tier: "always" },
+      { item: "big_bones", chance: 1, tier: "always" },
+      { item: "ashiron_bar", chance: 0.4, min: 1, max: 2, tier: "common" },
+      { item: "cut_gem", chance: 0.15, min: 1, max: 2, tier: "uncommon" },
+      { item: "mawplate", chance: 0.004, tier: "rare" },
+    ],
   }
 };

@@ -2544,6 +2544,13 @@ function startInteraction(
         events.push({ type: "LOG", message: "There is nothing here to fight." });
         return;
       }
+      // Warren-bred creatures demand huntcraft, OSRS-Slayer style: without the
+      // Bounty level you can't even read their movements well enough to fight.
+      const gate = monsterFor(content, def)?.bountyReq;
+      if (gate && skillLvl(player, "bounty") < gate) {
+        events.push({ type: "LOG", message: `You can't read this creature's movements — it takes Bounty ${gate} to hunt a ${def.name}.` });
+        return;
+      }
       // Each side keeps its own swing clock: the player swings on weapon speed,
       // the monster on its own. Both start one interval out.
       const pSpeed = playerSpeed(player, content);

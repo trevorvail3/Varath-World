@@ -547,6 +547,11 @@ export type ItemId =
   | "bounty_helm"
   | "bounty_helm_g"
   | "hunters_cloak"
+  | "creeper_eye"
+  | "stalker_fangs"
+  | "houndhide_cloak"
+  | "wraithbone_staff"
+  | "mawplate"
   | "bone_helm"
   | "bone_body"
   | "bone_legs"
@@ -1142,6 +1147,9 @@ export interface MonsterStats {
   boss?: boolean;
   /** Boss Log hint: where to find this boss / how to take it on. */
   bossHint?: string;
+  /** Bounty level needed to FIGHT this creature at all (OSRS-Slayer style).
+   *  Warren-bred monsters carry this; ordinary overworld creatures don't. */
+  bountyReq?: number;
 }
 
 /** A boss's special move. Fires inside the monster's attack resolution. */

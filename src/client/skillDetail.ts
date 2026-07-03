@@ -191,16 +191,45 @@ export class SkillDetailModal {
       }
     }
 
-    // Bounty: the guides, each at the bounty level it opens up.
+    // Bounty: the guides, the full quarry list (every creature at the Bounty
+    // level its first contract can roll), the Warrens' kill-gates, and the
+    // level perks — the whole skill outlined, OSRS-style.
     if (skill === "bounty") {
-      const byLevel = activities.get("Guides") ?? new Map<number, string[]>();
+      const addTo = (label: string, lvl: number, name: string): void => {
+        const m = activities.get(label) ?? new Map<number, string[]>();
+        const list = m.get(lvl) ?? [];
+        if (!list.includes(name)) list.push(name);
+        m.set(lvl, list);
+        activities.set(label, m);
+      };
       for (const g of this.content.bountyGuides) {
-        const list = byLevel.get(g.levelReq) ?? [];
-        const label = `${g.name}, ${g.title}`;
-        if (!list.includes(label)) list.push(label);
-        byLevel.set(g.levelReq, list);
+        addTo("Guides", g.levelReq, `${g.name}, ${g.title}`);
       }
-      activities.set("Guides", byLevel);
+      // Quarry: each monster at the LOWEST Bounty level any of its task
+      // templates rolls at (through the guide that offers it earliest).
+      const earliest = new Map<string, number>();
+      for (const g of this.content.bountyGuides) {
+        for (const zone of g.zones) {
+          for (const t of this.content.bountyTasks[zone] ?? []) {
+            const lvl = Math.max(g.levelReq, t.minLevel);
+            const prev = earliest.get(t.monster);
+            if (prev === undefined || lvl < prev) earliest.set(t.monster, lvl);
+          }
+        }
+      }
+      for (const [mon, lvl] of earliest) {
+        const def = this.content.monsters[mon];
+        addTo("Quarry (first contract)", lvl, def?.name ?? mon);
+      }
+      // The Hunt Warrens: creatures you cannot FIGHT at all below their gate.
+      for (const id of Object.keys(this.content.monsters)) {
+        const def = this.content.monsters[id];
+        if (def?.bountyReq) addTo("The Hunt Warrens (to fight at all)", def.bountyReq, `${def.name} — unique drop`);
+      }
+      // The level perks the claims maths pays out.
+      addTo("Perks", 50, "The veteran's cut: contracts pay +10% Marks");
+      addTo("Perks", 75, "The veteran's cut: contracts pay +20% Marks");
+      addTo("Perks", 90, "The veteran's cut: contracts pay +30% Marks");
     }
 
     // Devotion (faith): its ladder is the staff tiers you can wield, the magic
