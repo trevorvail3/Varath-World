@@ -5270,7 +5270,7 @@ function checkKill(
   // Loot falls to the floor where the creature stood — the player walks over
   // and picks it up (OSRS-style), it isn't auto-collected.
   const drop = objectPos(def, obj);
-  rollDrops(state, drop.x, drop.y, stats, ctx, events); // resets killsSinceShard if the shard drops
+  rollDrops(state, content, drop.x, drop.y, stats, ctx, events); // resets killsSinceShard if the shard drops
   // Pity guarantee: once the count crosses the threshold without a shard, the
   // next kill yields one and the count resets — a rare drop that can't wall you.
   if (player.killsSinceShard >= SHARD_PITY) {
@@ -5885,6 +5885,7 @@ function resolveSlams(
 /** Roll a monster's loot table; each drop is an independent chance, to the floor. */
 function rollDrops(
   state: WorldState,
+  content: Content,
   x: number,
   y: number,
   stats: MonsterStats,
@@ -5896,6 +5897,21 @@ function rollDrops(
     const min = drop.min ?? 1;
     const max = drop.max ?? min;
     const qty = min + Math.floor(ctx.rng() * (max - min + 1));
+    // A quest relic — a dungeon key or tablet — must NEVER hit the ground: the
+    // 90s ground TTL would despawn it and seal the door it opens (the same
+    // softlock dropSlot already guards against for manual drops). Route it into
+    // the pack, or the bank if the pack is full.
+    if (content.items[drop.item]?.cat === "Quest") {
+      const player = state.player;
+      if (canAddItem(player, drop.item)) {
+        addItem(player, drop.item, qty, events);
+      } else {
+        player.bank[drop.item] = (player.bank[drop.item] ?? 0) + qty;
+        events.push({ type: "ITEM_GAINED", item: drop.item, qty });
+        events.push({ type: "LOG", message: `Your pack was full — the ${content.items[drop.item]?.name ?? drop.item} was sent to your bank.` });
+      }
+      continue;
+    }
     dropToGround(state, drop.item, qty, x, y, ctx, false); // each kill = its own pile
     if (drop.item === "shard_of_orun") {
       state.player.killsSinceShard = 0; // a natural drop re-arms the pity timer
