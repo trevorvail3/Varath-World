@@ -1369,9 +1369,15 @@ export const monsters: Record<string, MonsterStats> = {
       { item: "worn_coin", chance: 1, min: 60, max: 140, tier: "always" },
       { item: "health_elixir", chance: 0.5, tier: "common" },
       { item: "battle_ration", chance: 0.4, tier: "common" },
+      { item: "bloodore_arrow", chance: 0.35, min: 6, max: 14, tier: "common" },
       { item: "cut_gem", chance: 0.2, tier: "uncommon" },
-      // The chase piece for an entry boss: a solid early offhand.
+      // The chase pieces for an entry boss: half a watchman's kit, one piece
+      // a fight — the small taste of the loop every later boss runs on.
       { item: "watchmans_buckler", chance: 0.05, tier: "rare" },
+      { item: "watchmans_sallet", chance: 0.05, tier: "rare" },
+      // And the first pet most players will ever hunt — deliberately the most
+      // generous boss-pet rate in the game, because it's here to teach the itch.
+      { item: "pet_brann", chance: 0.004, tier: "legendary" },
     ],
   },
   "boneman": {

@@ -485,6 +485,15 @@ function petShape(p: Pal, id: string): string {
         + `<circle cx="16" cy="16" r="6" fill="#e8823a" opacity="0.4"/>`
         + `<path d="M16,8 Q20,13 18.5,17.5 Q21,17 19.5,21.5 Q18.4,24.6 16,24.6 Q13.6,24.6 12.5,21.5 Q11,17 13.5,17.5 Q12,13 16,8 Z" fill="#f2a848"/>`
         + `<path d="M16,12 Q18,15 17,18.5 Q16.4,21 16,21.4 Q14,19 14.6,16 Q15,13.5 16,12 Z" fill="#f8d890"/>`;
+    case "pet_brann": // THE LITTLE QUARTERMASTER — tarnished plate, tiny ledger
+      return el(16, 19, 6.5, 7, "#4a4436")
+        + `<circle cx="12.5" cy="10.5" r="3.6" fill="#c9b28a"/>`
+        + `<path d="M8.5,9.5 Q8.5,6 12.5,6 Q16.5,6 16.5,9.5 Z" fill="#6e6448"/>` // the sallet
+        + `<rect x="17.5" y="14" width="6.5" height="8" rx="1" fill="#d9cba8" stroke="#8a7a58" stroke-width="0.8"/>` // the ledger
+        + `<line x1="19" y1="16.5" x2="22.5" y2="16.5" stroke="#8a7a58" stroke-width="0.7"/><line x1="19" y1="18.5" x2="22.5" y2="18.5" stroke="#8a7a58" stroke-width="0.7"/>`
+        + `<path d="M9,17 Q12.5,15.5 16,17 L15.4,21 Q12.5,19.8 9.6,21 Z" fill="#6e6448"/>` // the breastplate
+        + `<rect x="10" y="24.5" width="2.4" height="3" rx="1" fill="#3a3630"/><rect x="14" y="24.5" width="2.4" height="3" rx="1" fill="#3a3630"/>`
+        + eye(11.5, 10, 0.9);
     case "pet_boneman": // LITTLE MARROW — a skull pup
       return el(16, 20, 7.5, 5.5, "#d9d2c0")
         + `<path d="M9.5,12.5 Q9.5,7 15,7 Q20.5,7 20.5,12.5 Q20.5,15 18.8,16 L18.8,18 L11.2,18 L11.2,16 Q9.5,15 9.5,12.5 Z" fill="#efe8da" stroke="#b8b0a0" stroke-width="0.7"/>`

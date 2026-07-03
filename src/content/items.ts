@@ -2005,6 +2005,29 @@ export const items: Record<ItemId, ItemDef> = {
     "def": 13,
     "sell": 420
   },
+  "watchmans_sallet": {
+    "id": "watchmans_sallet",
+    "name": "Watchman's Sallet",
+    "description": "A garrison-issue sallet from the same stores Brann bled dry. With the buckler it makes half a watchman \u2014 the honest half.",
+    "icon": "\ud83e\ude96",
+    "cat": "Armour",
+    "slot": "helmet",
+    "tier": 3,
+    "def": 15,
+    "sell": 460
+  },
+  "pet_brann": {
+    "id": "pet_brann",
+    "name": "The Little Quartermaster",
+    "description": "A knee-high figure in tarnished guard plate that counts everything you pick up and disapproves of most of it. It followed you home from the Coldstep Shack, ledger and all.",
+    "icon": "\ud83d\udee1\ufe0f",
+    "cat": "Boss Pets",
+    "slot": "companion",
+    "rarity": "legendary",
+    "meta": {
+      "petBoss": "quartermaster_brann"
+    }
+  },
   "helm_1": {
     "id": "helm_1",
     "name": "Knucklestone Helm",

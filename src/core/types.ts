@@ -567,6 +567,8 @@ export type ItemId =
   | "vane_letter"
   | "guards_signet"
   | "watchmans_buckler"
+  | "watchmans_sallet"
+  | "pet_brann"
   | "stalker_fangs"
   | "houndhide_cloak"
   | "wraithbone_staff"
