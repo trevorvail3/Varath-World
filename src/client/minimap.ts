@@ -303,8 +303,45 @@ export class Minimap {
       const p = objectPos(def, obj);
       if (p.x < x0 - 1 || p.x > x1 + 1 || p.y < y0 - 1 || p.y > y1 + 1) continue;
       if (!inRegion(Math.round(p.x), Math.round(p.y))) continue;
+      // A bounty guide reads as a hunt mark — a ringed gold dot — not a plain
+      // villager dot, so a hunter can spot the task-giver at a glance.
+      if (def.kind === "npc" && def.bountyGuide) {
+        const bx = sx(p.x + 0.5), by = sy(p.y + 0.5);
+        g.strokeStyle = "#e8b54a";
+        g.lineWidth = 1.2;
+        g.beginPath(); g.arc(bx, by, 3.4, 0, Math.PI * 2); g.stroke();
+        g.fillStyle = "#e8b54a";
+        g.beginPath(); g.arc(bx, by, 1.5, 0, Math.PI * 2); g.fill();
+        continue;
+      }
       const tint = obj && !obj.available ? "rgba(120,110,100,0.5)" : color;
       drawObjShape(g, def.kind, sx(p.x + 0.5), sy(p.y + 0.5), Math.max(1.6, cell * 0.32), tint);
+    }
+
+    // The live hunt: while a bounty task is on, ring the quarry's hunting
+    // ground — and when it's beyond the window, point to it from the map edge
+    // (a hunter's bearing, not a quest arrow: only ever for an accepted hunt).
+    const task = state.player.bounty.task;
+    const ground = task ? content.huntingGrounds[task.monster] : undefined;
+    if (!region && task && ground) {
+      const gx = sx(ground.x + 0.5), gy = sy(ground.y + 0.5);
+      g.strokeStyle = "rgba(224,96,60,0.9)";
+      g.setLineDash([3, 2]);
+      g.lineWidth = 1.2;
+      g.beginPath(); g.arc(gx, gy, ground.r * cell, 0, Math.PI * 2); g.stroke();
+      g.setLineDash([]);
+      if (gx < 0 || gx > S || gy < 0 || gy > S) {
+        const ang = Math.atan2(gy - S / 2, gx - S / 2);
+        const ex = S / 2 + Math.cos(ang) * (S / 2 - 7);
+        const ey = S / 2 + Math.sin(ang) * (S / 2 - 7);
+        g.fillStyle = "rgba(224,96,60,0.95)";
+        g.beginPath();
+        g.moveTo(ex + Math.cos(ang) * 5, ey + Math.sin(ang) * 5);
+        g.lineTo(ex + Math.cos(ang + 2.5) * 4, ey + Math.sin(ang + 2.5) * 4);
+        g.lineTo(ex + Math.cos(ang - 2.5) * 4, ey + Math.sin(ang - 2.5) * 4);
+        g.closePath();
+        g.fill();
+      }
     }
 
     // Other players (ghosts), live, with their name above the dot.
@@ -512,7 +549,11 @@ export class WorldMapModal {
     const kindCat = new Map<ObjKind, { id: string; icon: string; label: string }>();
     for (const c of MAP_CATS) for (const k of c.kinds) kindCat.set(k, c);
     for (const def of content.objects) {
-      const cat = kindCat.get(def.kind);
+      // Bounty guides file under the Bounty chip (🎯) with the boards, not
+      // under People — "where do I get a task" is one question, one filter.
+      const cat = def.kind === "npc" && def.bountyGuide
+        ? kindCat.get("bounty_board")
+        : kindCat.get(def.kind);
       if (!cat) continue;
       // One agility icon per course: only the starting obstacle (order 0) gets a
       // marker, so a course reads as a single pin, not a cluster of dots.
@@ -581,7 +622,6 @@ export class WorldMapModal {
     viewW: number,
     viewH: number,
   ): void {
-    void content; // markers are static DOM; the trail is no longer drawn on the map
     const g = this.g;
     const m = state.map;
     const cell = g.canvas.width / m.width;
@@ -594,6 +634,27 @@ export class WorldMapModal {
         g.fillStyle = MM_TILE[m.tiles[y * m.width + x]!];
         g.fillRect(x * cell, y * cell, cell + 0.6, cell + 0.6);
       }
+    }
+    // The live hunt: while a bounty task is on, ring the quarry's named
+    // hunting ground and label it, so "where do rats live?" has one answer.
+    const task = state.player.bounty.task;
+    const ground = task ? content.huntingGrounds[task.monster] : undefined;
+    if (task && ground && ground.y < rows) {
+      const gx = (ground.x + 0.5) * cell, gy = (ground.y + 0.5) * cell;
+      const gr = Math.max(ground.r * cell, 10);
+      g.strokeStyle = "rgba(226,96,64,0.95)";
+      g.setLineDash([5, 3]);
+      g.lineWidth = 2;
+      g.beginPath(); g.arc(gx, gy, gr, 0, Math.PI * 2); g.stroke();
+      g.setLineDash([]);
+      const label = `Hunt: ${ground.name}`;
+      g.font = "700 11px 'Cinzel', serif";
+      g.textAlign = "center";
+      g.fillStyle = "rgba(0,0,0,0.75)";
+      g.fillText(label, gx + 1, gy - gr - 5 + 1);
+      g.fillStyle = "#f0a080";
+      g.fillText(label, gx, gy - gr - 5);
+      g.textAlign = "start";
     }
     // The Varathian Trail is deliberately NOT drawn across the world map — only
     // its start (the "Varathian Trail" head marker in the POI list) is shown, so

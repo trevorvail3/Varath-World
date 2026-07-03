@@ -79,6 +79,8 @@ export interface SavedProgress {
   xpLamps?: number[];
   /** Collection log: item ids ever obtained. */
   collection?: string[];
+  /** Wall-clock time (Date.now ms) the free Recall is available again. */
+  recallReadyEpoch?: number;
   /** Unlocked achievement ids. */
   achievements: string[];
   /** Claimed Area Diary ids. */
@@ -167,6 +169,7 @@ export function serializePlayer(state: WorldState): SavedProgress {
     trailLaps: player.trailLaps ?? 0,
     xpLamps: [...(player.xpLamps ?? [])],
     collection: [...(player.collection ?? [])],
+    recallReadyEpoch: player.recallReadyEpoch ?? 0,
     appearance: { ...player.appearance },
     bounty: {
       marks: player.bounty.marks,
@@ -363,6 +366,9 @@ export function hydratePlayer(
   if (Array.isArray(savedLamps)) {
     player.xpLamps = savedLamps.filter((n) => finiteNum(n) && n > 0).map((n) => Math.floor(n));
   }
+  // Recall cooldown (epoch-based, so it survives reloads honestly).
+  const savedRecall = raw["recallReadyEpoch"];
+  if (finiteNum(savedRecall) && savedRecall > 0) player.recallReadyEpoch = savedRecall;
   // Collection log: load saved ids, then fold in whatever the player currently
   // holds (pack + bank + worn) so an existing character's log isn't empty.
   {

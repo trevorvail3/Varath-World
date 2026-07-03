@@ -488,8 +488,9 @@ export function createWorld(
       base.pos = { x: def.x, y: def.y };
       base.wanderTarget = null;
       base.nextWanderAt = ctx.now + Math.floor(ctx.rng() * WANDER.pauseMax);
-      // Critters don't block (the player walks through ambient wildlife).
-      if (def.kind !== "critter") creatureTiles.add(`${def.x},${def.y}`);
+      // Only monsters block the player's pathing — you walk through townsfolk
+      // (and wildlife) the way you do in OSRS; a monster holds its ground.
+      if (def.kind === "monster") creatureTiles.add(`${def.x},${def.y}`);
     }
     objects[def.id] = base;
   }
@@ -1828,6 +1829,27 @@ export function applyIntent(
       setSurface(state, content, intent.surfaceId, events);
       break;
     }
+    case "RECALL": {
+      // The free escape teleport: no reagents, no requirements, 30-minute
+      // wall-clock cooldown. Works from anywhere — its whole job is to save a
+      // player who is stuck (a furnished-over doorway, a pinned corner).
+      const epoch = ctx.epoch ?? 0;
+      const ready = player.recallReadyEpoch ?? 0;
+      if (epoch < ready) {
+        const mins = Math.ceil((ready - epoch) / 60_000);
+        events.push({ type: "LOG", message: `The recall is still gathering — ready in about ${mins} minute${mins === 1 ? "" : "s"}.` });
+        break;
+      }
+      const fountain = content.objects.find((o) => o.id === "fountain_1");
+      const dest = fountain ? { x: fountain.x, y: fountain.y + 2 } : { ...player.spawn };
+      player.pos = { ...dest };
+      player.path = [];
+      player.pendingInteractId = null;
+      clearActivity(player);
+      player.recallReadyEpoch = epoch + 30 * 60_000;
+      events.push({ type: "LOG", message: "The world folds, and Ironvale's fountain-square opens around you." });
+      break;
+    }
   }
   return events;
 }
@@ -2896,6 +2918,16 @@ function canPlaceAt(state: WorldState, content: Content, f: FurnitureDef, x: num
   if (f.category !== "rug" && !f.wall) {
     const occ = occupiedHomeTiles(state.player, content, exceptIndex);
     for (const t of tiles) if (occ.has(t)) return false; // no blocking overlap
+    // Never let a blocking piece seal a doorway: the door tile and the floor
+    // tiles beside it stay clear, so a player can't furnish themselves into a
+    // room with no way out.
+    for (const obj of content.objects) {
+      if (obj.kind !== "house_door") continue;
+      for (const t of tiles) {
+        const [tx, ty] = t.split(",").map(Number);
+        if (Math.abs(tx! - obj.x) + Math.abs(ty! - obj.y) <= 1) return false;
+      }
+    }
   }
   return true;
 }
@@ -3772,14 +3804,23 @@ function wanderCreatures(
 
   // Rebuild the live occupancy set from where creatures currently stand (and the
   // tiles they're stepping into), so reservations are honoured within this pass.
-  const occupied = state.creatureTiles;
-  occupied.clear();
+  // Two sets with different customers: `occupied` (npc + monster) keeps creatures
+  // from stacking on EACH OTHER; `state.creatureTiles` (monsters only) is what the
+  // PLAYER's pathfinder routes around — you brush past townsfolk in a narrow
+  // street the way you do in OSRS, but a monster still holds its ground.
+  const occupied = new Set<string>();
+  const playerBlocked = state.creatureTiles;
+  playerBlocked.clear();
   for (const def of content.objects) {
     if (def.kind === "critter") continue; // ambient wildlife doesn't block
     const obj = state.objects[def.id];
     if (!obj || !obj.pos || !obj.available) continue;
     occupied.add(`${Math.round(obj.pos.x)},${Math.round(obj.pos.y)}`);
     if (obj.wanderTarget) occupied.add(`${obj.wanderTarget.x},${obj.wanderTarget.y}`);
+    if (def.kind === "monster") {
+      playerBlocked.add(`${Math.round(obj.pos.x)},${Math.round(obj.pos.y)}`);
+      if (obj.wanderTarget) playerBlocked.add(`${obj.wanderTarget.x},${obj.wanderTarget.y}`);
+    }
   }
 
   for (const def of content.objects) {
@@ -4691,7 +4732,11 @@ function takeBountyTask(
     guideId,
   };
   const name = content.monsters[pick.monster]?.name ?? pick.monster;
-  events.push({ type: "LOG", message: `${guide.name}: slay ${pick.required} ${name}.` });
+  // The guide names the quarry's ground, OSRS-Slayer style: you're told WHERE
+  // to hunt, and the maps ring that ground while the task is live.
+  const ground = content.huntingGrounds[pick.monster];
+  const where = ground ? ` You'll find them at ${ground.name} — ${ground.hint}.` : "";
+  events.push({ type: "LOG", message: `${guide.name}: slay ${pick.required} ${name}.${where}` });
 }
 
 /** Claim a finished task: pay Hunt Marks + Bounty XP (Hunter's Kit boosts XP). */

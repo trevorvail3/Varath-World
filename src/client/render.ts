@@ -4056,10 +4056,11 @@ function drawCritter(
   // Stable and paddock stock render as the full mount rig (idle) so the beasts
   // in a pen look like the beasts the stable sells.
   if (species === "horse" || species === "ox") {
-    shadow(g, cx, cy + 11, 11, 3.5);
+    // Livestock at life size too — a paddock horse shouldn't read as a pony.
+    shadow(g, cx, cy + 11, 16, 4.5);
     g.save();
     g.translate(cx, cy);
-    g.scale(0.85, 0.85);
+    g.scale(1.3, 1.3);
     drawMountRig(g, 0, 0, now, false, cx % 80 < 40, { id: species === "ox" ? "mount_ox" : "mount_horse", gold: false, barding: false });
     g.restore();
     return;
@@ -6640,12 +6641,15 @@ function drawPlayer(
     // (legs tucked — the avatar knows it's riding). One shared shadow.
     // NOTE the rig's forward is -x while the avatar's is +x, so the rig takes
     // the INVERTED flip — otherwise the horse gallops facing backwards.
-    shadow(g, cx, cy + TILE / 2 - 2, 14, 4.5);
-    drawMountRig(g, cx, cy + 5, now, moving, !flip, mount);
+    // Life-size: a horse is a big animal — the rig draws at 1.7x, hooves
+    // planted on the tile, and the rider sits up on the taller back.
+    const K = 1.7;
+    shadow(g, cx, cy + TILE / 2 - 2, 14 * K, 5.5);
+    drawMountRig(g, cx, cy, now, moving, !flip, mount, K);
     // Seat the rider over the saddle (rig-local x −1 → mirrored when facing
-    // left), hips at the saddle's height.
-    const seatX = cx + (flip ? 1 : -1);
-    drawAvatar(g, seatX, cy - 10, 1, withDefaults(look), { now, moving, flip, riding: true, ...(action ? { action } : {}) }, gear);
+    // left), hips up at the scaled saddle height.
+    const seatX = cx + (flip ? 2 : -2);
+    drawAvatar(g, seatX, cy - 17, 1, withDefaults(look), { now, moving, flip, riding: true, ...(action ? { action } : {}) }, gear);
     return;
   }
   shadow(g, cx, cy + TILE / 2 - 4, 9, 3.5); // grounds the player on the terrain
@@ -6695,6 +6699,7 @@ function drawMountRig(
   moving: boolean,
   flip: boolean,
   mount: MountDress,
+  scale = 1,
 ): void {
   const look = MOUNT_LOOKS[mount.id] ?? MOUNT_LOOKS["mount_horse"]!;
   const coat = look.coat, mane = look.mane;
@@ -6702,6 +6707,8 @@ function drawMountRig(
   g.save();
   g.translate(cx, cy);
   if (flip) g.scale(-1, 1);
+  // Life-size steeds: grow about the ground line so the hooves stay planted.
+  if (scale !== 1) { g.translate(0, 11); g.scale(scale, scale); g.translate(0, -11); }
   const bob = moving ? Math.abs(Math.sin(now / 130)) * 1.6 : Math.sin(now / 460) * 0.6;
   const bodyW = look.bulky ? 15 : 13.5;
   const bodyH = look.bulky ? 8.5 : 7;

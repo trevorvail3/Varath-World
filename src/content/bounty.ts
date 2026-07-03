@@ -11,7 +11,7 @@
  * flat task rewards (rougher territory pays more).
  */
 
-import type { BountyGuide, BountyShopListing, BountyTaskDef, BountyUnlock } from "../core/types.ts";
+import type { BountyGuide, BountyShopListing, BountyTaskDef, BountyUnlock, HuntingGround } from "../core/types.ts";
 
 export const bountyGuides: BountyGuide[] = [
   {
@@ -140,6 +140,61 @@ export const bountyTasks: Record<string, BountyTaskDef[]> = {
     { monster: "ashen_wyrm", required: 1, xp: 9000, marks: 420, minLevel: 75 },
     { monster: "dread_ferryman", required: 1, xp: 10000, marks: 460, minLevel: 78 },
   ],
+};
+
+/**
+ * Where each bounty monster reliably lives — its named hunting ground
+ * (OSRS-Slayer style: hill giants have their places, so do our bears). The
+ * spawn tables cluster each species here, the contract card quotes the place,
+ * and the minimap/world map ring it while the task is live. A few strays of
+ * the common species still wander the wider wilds for flavour; the ground is
+ * simply where a hunter is *guaranteed* to find them.
+ *
+ * Coordinates are final world tiles (post-remap). Keep them honest: if a
+ * species' spawns move, move its ground.
+ */
+export const huntingGrounds: Record<string, HuntingGround> = {
+  // --- Rook's beat: the Knuckle Hills + Greyoak Wood -----------------------
+  moor_rat: { name: "the Mill Fields", hint: "east of Rook's watch in the Knuckle Hills", x: 54, y: 34, r: 6 },
+  hill_wolf: { name: "Howler's Rise", hint: "the bare hill west of the Knuckle road", x: 28, y: 36, r: 6 },
+  wild_boar: { name: "the Boar Run", hint: "western Greyoak, north of Lodgehold", x: 11, y: 76, r: 8 },
+  greymane_boar: { name: "the Greymane Thicket", hint: "the deep bracken of southern Greyoak", x: 18, y: 95, r: 6 },
+  forest_bear: { name: "Bearwallow", hint: "the Greyoak hollows south of Lodgehold", x: 10, y: 90, r: 7 },
+  mountain_lion: { name: "the Sunning Crags", hint: "the warm ledges on the Spine's southern skirt", x: 57, y: 45, r: 7 },
+  // --- Serath's beat: the Spine, the Heartmoor, the outlaw roads -----------
+  ridge_wolf: { name: "the Low Passes", hint: "the first climbs above Serath's post", x: 63, y: 16, r: 6 },
+  stone_crawler: { name: "the Spine Cut", hint: "the quarry scars mid-Spine", x: 60, y: 25, r: 7 },
+  mountain_troll: { name: "the High Shelf", hint: "up past the Wind-Shrine, near the snowline", x: 64, y: 30, r: 6 },
+  spine_wraith: { name: "the Windscour", hint: "where the Spine wind never stops", x: 63, y: 31, r: 8 },
+  marsh_lurker: { name: "the Drowning Pools", hint: "the west Heartmoor standing water", x: 15, y: 141, r: 7 },
+  heartmoor_hound: { name: "the Hound Fens", hint: "the moor south of the drowned kirk", x: 15, y: 148, r: 8 },
+  cult_acolyte: { name: "the Ashfen Ring", hint: "the cult's stones on the Ashfen Flats", x: 79, y: 146, r: 8 },
+  cult_zealot: { name: "the Ashfen Ring", hint: "the cult's stones on the Ashfen Flats", x: 80, y: 151, r: 8 },
+  bog_knight: { name: "the Bogmoor", hint: "the drowned ground by the Bog Warden's lair", x: 45, y: 131, r: 6 },
+  mire_serpent: { name: "the Serpent Mire", hint: "the black water of the north Heartmoor", x: 26, y: 134, r: 6 },
+  outlaw_archer: { name: "Smuggler's Landing", hint: "the far east coast, past the Redrun mouth", x: 151, y: 97, r: 6 },
+  cutthroat: { name: "Cutthroat Hollow", hint: "the sunken road south of Ironvale", x: 53, y: 104, r: 6 },
+  marauder: { name: "the Brigand's Roost", hint: "the outlaw camp west of Ironvale", x: 54, y: 67, r: 6 },
+  outlaw_captain: { name: "the Brigand's Roost", hint: "the outlaw camp west of Ironvale", x: 54, y: 67, r: 6 },
+  // --- Mourne's beat: the Marrow Deeps + the Redrun -------------------------
+  cave_crawler: { name: "the Marrow Shelves", hint: "the broken ground at the Deeps' mouth", x: 129, y: 15, r: 10 },
+  deep_bat: { name: "the Bat Galleries", hint: "the dark overhangs of the Marrow Deeps", x: 130, y: 20, r: 9 },
+  cult_magus: { name: "the Ashfen Ring", hint: "the inner stones on the Ashfen Flats", x: 84, y: 149, r: 7 },
+  marrow_wraith: { name: "the Wraithways", hint: "the cold hollows south of the Deeps", x: 122, y: 36, r: 6 },
+  deep_golem: { name: "the Golem Quarry", hint: "the worked stone deep in the Marrow", x: 133, y: 36, r: 6 },
+  river_serpent: { name: "the Redrun Mouth", hint: "where the river meets the eastern sea", x: 146, y: 98, r: 6 },
+  redrun_brigand: { name: "the Redrun Bank", hint: "the east bank of the river's last mile", x: 148, y: 100, r: 6 },
+  ancient_orc: { name: "the Old Warcamp", hint: "the ruined camp on the lower Redrun", x: 127, y: 125, r: 6 },
+  // --- Kaeda's ledger: named bosses keep single lairs -----------------------
+  bog_warden: { name: "the Bogmoor", hint: "its lair in the drowned moor", x: 44, y: 130, r: 4 },
+  hollow_warden: { name: "the Barrows' Mouth", hint: "before the Hollow Barrows' gate", x: 124, y: 53, r: 4 },
+  green_baron: { name: "the Baron's Court", hint: "his court in the north wood", x: 47, y: 35, r: 4 },
+  hollow_prophet: { name: "the Prophet's Circle", hint: "the cult ground east of Drover's Rest", x: 92, y: 122, r: 4 },
+  spine_warlord: { name: "the Spine's Height", hint: "the war-tent on the high pass", x: 53, y: 19, r: 4 },
+  boneman: { name: "the Bone Field", hint: "his cairn-ground in the west verge", x: 37, y: 88, r: 4 },
+  marrow_keeper: { name: "the Marrow Delve", hint: "the arena beneath the Deeps", x: 56, y: 171, r: 4 },
+  ashen_wyrm: { name: "the Cinder Roost", hint: "the scorched shelf in the far northeast", x: 136, y: 17, r: 4 },
+  dread_ferryman: { name: "the Grey Landing", hint: "the dark water at the world's south edge", x: 72, y: 169, r: 4 },
 };
 
 /** The Bounty board's Hunt-Marks shop (ported subset that exists in our items). */

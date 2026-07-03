@@ -1312,6 +1312,24 @@ export interface BountyTaskDef {
   requiresFlag?: string;
 }
 
+/**
+ * A bounty monster's home ground — the one named place where it reliably
+ * lives (OSRS-Slayer style). Individuals still wander their patch, and a few
+ * strays may roam the wider world, but the ground is where a hunter is TOLD
+ * to look: the contract names it and the maps mark it while the task is live.
+ */
+export interface HuntingGround {
+  /** The place's name, e.g. "Bearwallow" — shown on the contract and the map. */
+  name: string;
+  /** A guide's one-line direction to it, e.g. "southern Greyoak, below the snares". */
+  hint: string;
+  /** Centre tile of the ground (world coordinates). */
+  x: number;
+  y: number;
+  /** Rough radius of the ground in tiles (drawn as the hunt ring on maps). */
+  r: number;
+}
+
 /** A live, assigned bounty task — a template plus running progress. */
 export interface BountyTask {
   monster: string;
@@ -1449,6 +1467,9 @@ export interface Player {
   /** Collection log: every item id the player has ever obtained (deduped), for
    *  the OSRS-style collection log under the Records tab. Persisted. */
   collection?: ItemId[];
+  /** Wall-clock (Date.now) time the free Recall becomes available again.
+   *  Epoch-based so the cooldown survives reloads. Persisted. */
+  recallReadyEpoch?: number;
   /**
    * Set when energy hits 0; forces walking until energy recovers a little, so
    * the player doesn't micro-stutter between sprint and walk on an empty bar.
@@ -1905,6 +1926,13 @@ export interface SetSurfaceIntent {
   surfaceId: string;
 }
 
+/** "Recall me to Ironvale" — the free escape teleport (Settings). No reagents,
+ *  no requirements, 30-minute cooldown: if you're ever walled in (a furnished
+ *  doorway, a wander pinch), this gets you home. OSRS home-teleport energy. */
+export interface RecallIntent {
+  type: "RECALL";
+}
+
 /** "Pick up the loot lying on this tile" (honoured when the player is on/next to it). */
 export interface PickupIntent {
   type: "PICKUP";
@@ -2001,6 +2029,7 @@ export type Intent =
   | StoreFurnitureIntent
   | UpgradeFurnitureIntent
   | SetSurfaceIntent
+  | RecallIntent
   | UseFurnitureIntent
   | BuildRoomIntent
   | PickupIntent
@@ -2557,6 +2586,9 @@ export interface Content {
   bountyShop: BountyShopListing[];
   /** Permanent Hunt-Marks unlocks the board offers (data). */
   bountyUnlocks: BountyUnlock[];
+  /** Where each bounty monster reliably lives, keyed by monster id (data).
+   *  Drives the "found at…" line on the contract and the hunt marker on maps. */
+  huntingGrounds: Record<string, HuntingGround>;
   /** The species catchable from the deep-water pier minigame (data). */
   pierFish: PierFishDef[];
   /** Seed entries for the pier's records board — rival anglers to beat. */

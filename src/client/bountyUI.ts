@@ -181,10 +181,17 @@ export class BountyUI {
       const t = b.task;
       const done = t.progress >= t.required;
       const pct = Math.min(100, Math.round((t.progress / t.required) * 100));
+      // The guide tells you WHERE the quarry lives — its named hunting ground —
+      // and the maps ring that ground while the hunt is live.
+      const ground = this.content.huntingGrounds[t.monster];
+      const whereLine = ground
+        ? `<div class="bounty-task-where">${iconize("🐾")} Found at <b>${ground.name}</b> — ${ground.hint}. Ringed on your map while the hunt is live.</div>`
+        : "";
       html += `
         <div class="bounty-contract">
           <div class="bounty-task-name">Slay ${t.required} ${this.monsterName(t.monster)}</div>
           <div class="bounty-task-from">Issued by ${guide?.name ?? "your guide"} · claimable at any board</div>
+          ${whereLine}
           <div class="bounty-progress"><div class="bounty-progress-fill" style="width:${pct}%"></div></div>
           <div class="bounty-task-count">${t.progress} / ${t.required}${done ? " — ready to claim" : ""}</div>
           <div class="bounty-task-rewards">Reward: +${t.marks} Hunt Marks · +${t.xp.toLocaleString()} Bounty XP</div>

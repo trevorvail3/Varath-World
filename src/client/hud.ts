@@ -714,6 +714,33 @@ export class Hud {
         };
         const gameplay = section("Gameplay", true);
         const audioSec = section("Audio");
+        // --- Recall: the free escape teleport. No reagents, no requirements,
+        //     30-minute cooldown — if you're ever stuck (a furnished-over
+        //     doorway, a pinned corner), this gets you back to Ironvale. ---
+        const recallRow = document.createElement("div");
+        recallRow.className = "settings-zoom";
+        const recallBtn = document.createElement("button");
+        recallBtn.className = "hud-btn";
+        const syncRecall = (): void => {
+          const ready = this.lastState?.player.recallReadyEpoch ?? 0;
+          const left = ready - Date.now();
+          if (left > 0) {
+            recallBtn.textContent = `Recall to Ironvale (${Math.ceil(left / 60_000)}m)`;
+            recallBtn.disabled = true;
+          } else {
+            recallBtn.textContent = "Recall to Ironvale";
+            recallBtn.disabled = false;
+          }
+        };
+        syncRecall();
+        recallBtn.addEventListener("click", () => {
+          this.dispatch({ type: "RECALL" });
+          this.setTab("inventory"); // back to the world view
+        });
+        recallRow.appendChild(recallBtn);
+        gameplay.appendChild(recallRow);
+        gameplay.appendChild(note("A free teleport home — no runes, no wand. If you're ever stuck, this is the way out. 30 minute cooldown."));
+
         // --- Zoom: drag the slider, scroll the wheel, or pinch on a touchscreen. ---
         const zoomRow = document.createElement("div");
         zoomRow.className = "settings-zoom";

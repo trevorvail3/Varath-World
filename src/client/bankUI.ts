@@ -113,17 +113,33 @@ export class BankUI {
 
   private renderTabs(): void {
     this.tabsEl.innerHTML = "";
-    const mk = (label: string, on: boolean, tap: () => void, hold?: () => void): void => {
+    const mk = (label: string, on: boolean, tap: () => void, tabIndex: number, hold?: () => void): void => {
       const b = document.createElement("button");
       b.type = "button";
       b.className = "bank-tab" + (on ? " on" : "");
       b.textContent = label;
       this.attachPress(b, hold ?? tap, tap);
+      // Tabs are drop targets: drag a stored item onto one to file it there
+      // (onto "All" to unfile it).
+      b.addEventListener("dragover", (e) => {
+        if (!e.dataTransfer?.types.includes("text/varath-item")) return;
+        e.preventDefault();
+        e.dataTransfer.dropEffect = "move";
+        b.classList.add("drop-here");
+      });
+      b.addEventListener("dragleave", () => b.classList.remove("drop-here"));
+      b.addEventListener("drop", (e) => {
+        b.classList.remove("drop-here");
+        const item = e.dataTransfer?.getData("text/varath-item") as ItemId | "";
+        if (!item) return;
+        e.preventDefault();
+        this.assignToTab(item, tabIndex);
+      });
       this.tabsEl.appendChild(b);
     };
-    mk("All", this.activeTab === -1, () => { this.activeTab = -1; this.render(); });
+    mk("All", this.activeTab === -1, () => { this.activeTab = -1; this.render(); }, -1);
     this.tabs.forEach((t, i) => {
-      mk(t.name, this.activeTab === i, () => { this.activeTab = i; this.render(); }, () => this.tabOptions(i));
+      mk(t.name, this.activeTab === i, () => { this.activeTab = i; this.render(); }, i, () => this.tabOptions(i));
     });
     if (this.tabs.length < 6) {
       const add = document.createElement("button");
@@ -244,7 +260,7 @@ export class BankUI {
       for (const id of entries) {
         const qty = player.bank[id] ?? 0;
         this.bankGrid.appendChild(
-          this.slot(id, qty, (x, y) => this.withdrawMenu(id, qty, x, y)),
+          this.slot(id, qty, (x, y) => this.withdrawMenu(id, qty, x, y), true),
         );
       }
     }
@@ -266,18 +282,29 @@ export class BankUI {
     }
   }
 
-  private slot(item: ItemId, qty: number, onTap: (x: number, y: number) => void): HTMLElement {
+  private slot(item: ItemId, qty: number, onTap: (x: number, y: number) => void, draggable = false): HTMLElement {
     const def = this.content.items[item];
     const slot = document.createElement("button");
     slot.type = "button";
     slot.className = "inv-slot filled";
-    slot.title = `${def.name} — hold to inspect, tap to move`;
+    slot.title = `${def.name} — hold to inspect, tap to move${draggable ? ", drag to a tab to file it" : ""}`;
     slot.innerHTML = `<span class="inv-icon">${itemIconSVG(def)}</span>${
       qty > 1 ? `<span class="inv-qty">${qty}</span>` : ""
     }`;
     // Tap moves the item (withdraw/deposit); long-hold (or right-click) inspects
     // it instead — so you can examine a stored item without pulling it out.
     this.attachPress(slot, () => this.showItemInfo(item, qty), (x, y) => onTap(x, y));
+    // Bank items can be DRAGGED onto a tab header to file them there (the
+    // native drag suppresses the tap, so the two gestures don't fight).
+    if (draggable) {
+      slot.draggable = true;
+      slot.addEventListener("dragstart", (e) => {
+        e.dataTransfer?.setData("text/varath-item", item);
+        if (e.dataTransfer) e.dataTransfer.effectAllowed = "move";
+        slot.classList.add("dragging");
+      });
+      slot.addEventListener("dragend", () => slot.classList.remove("dragging"));
+    }
     return slot;
   }
 

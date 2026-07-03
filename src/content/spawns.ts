@@ -75,6 +75,13 @@ function nearestMatch(x: number, y: number, max: number, pred: (x: number, y: nu
  *  bands (arenas / home interiors) are left untouched. */
 function snapSpawn(o: WorldObjectDef): WorldObjectDef {
   if (o.y >= map.height - 30) return o; // arena/interior band
+  // Housing pieces are constructed onto exact carved tiles: doors on doorway
+  // gaps, seals in wall openings, footings on room floors. Plank floors count
+  // as "blocked" to the scatter logic, so snapping would rip the Door Out off
+  // its doorway — and once the Act II dungeon band carved walkable cave below
+  // the home interiors, it teleported exit doors into the Barrows, sealing
+  // players inside their own homes. Never move a housing object.
+  if (o.kind === "house_door" || o.kind === "room_seal" || o.kind === "build_hotspot" || o.kind === "housing_plot") return o;
   // The Drowned Pier is hand-placed on exact tiles (the cast point deliberately
   // sits on open deep water, the gate on a plank neck) — leave it where it is.
   if (o.kind === "pier_spot" || o.kind === "record_board" || o.kind === "pier_gate") return o;
@@ -1614,8 +1621,11 @@ const newPois: WorldObjectDef[] = [
   { id: "fire_lodgehold", kind: "fire", x: 11, y: 83, name: "Steading Hearth" },
   { id: "cart_lodgehold", kind: "cart", x: 12, y: 80, name: "Log Pile", lines: ["Greyoak trunks bucked to length and stacked to season. Every ring in them is older than you."] },
 
-  // === WILD ANIMALS roaming the open country between places — huntable for the
-  // generic Raw Meat + Raw Hide (and a little coin). Spread across the gaps. ====
+  // === WILD ANIMALS. Deer roam the open country between places — huntable for
+  // the generic Raw Meat + Raw Hide. The bounty species live in their named
+  // HUNTING GROUNDS (see content/bounty.ts huntingGrounds — OSRS-Slayer style:
+  // a guide can point at the map and say "the bears are HERE"), with only a
+  // stray or two left wandering the wider wilds for flavour. ==================
   { id: "wild_deer_1", kind: "monster", monster: "red_deer", x: 24, y: 28, name: "Red Deer" },
   { id: "wild_deer_2", kind: "monster", monster: "red_deer", x: 90, y: 40, name: "Red Deer" },
   { id: "wild_deer_3", kind: "monster", monster: "red_deer", x: 110, y: 70, name: "Red Deer" },
@@ -1624,22 +1634,41 @@ const newPois: WorldObjectDef[] = [
   { id: "wild_deer_6", kind: "monster", monster: "red_deer", x: 30, y: 108, name: "Red Deer" },
   { id: "wild_deer_7", kind: "monster", monster: "red_deer", x: 20, y: 58, name: "Red Deer" },
   { id: "wild_deer_8", kind: "monster", monster: "red_deer", x: 102, y: 50, name: "Red Deer" },
-  { id: "wild_bear_1", kind: "monster", monster: "forest_bear", x: 35, y: 30, name: "Forest Bear" },
+  // Bearwallow — the bear ground in the Greyoak hollows south of Lodgehold.
+  { id: "wild_bear_1", kind: "monster", monster: "forest_bear", x: 7, y: 90, name: "Forest Bear" },
+  { id: "wild_bear_4", kind: "monster", monster: "forest_bear", x: 12, y: 93, name: "Forest Bear" },
+  { id: "wild_bear_5", kind: "monster", monster: "forest_bear", x: 14, y: 91, name: "Forest Bear" },
+  // …and two strays still ranging the far country.
   { id: "wild_bear_2", kind: "monster", monster: "forest_bear", x: 126, y: 76, name: "Forest Bear" },
   { id: "wild_bear_3", kind: "monster", monster: "forest_bear", x: 70, y: 126, name: "Forest Bear" },
-  { id: "wild_bear_4", kind: "monster", monster: "forest_bear", x: 46, y: 100, name: "Forest Bear" },
-  { id: "wild_bear_5", kind: "monster", monster: "forest_bear", x: 136, y: 56, name: "Forest Bear" },
+  // The Sunning Crags — the lion ground on the Spine's southern skirt.
   { id: "wild_lion_1", kind: "monster", monster: "mountain_lion", x: 56, y: 46, name: "Mountain Lion" },
-  { id: "wild_lion_2", kind: "monster", monster: "mountain_lion", x: 112, y: 46, name: "Mountain Lion" },
+  { id: "wild_lion_2", kind: "monster", monster: "mountain_lion", x: 59, y: 48, name: "Mountain Lion" },
+  // …and two strays on the far hills.
   { id: "wild_lion_3", kind: "monster", monster: "mountain_lion", x: 50, y: 120, name: "Mountain Lion" },
   { id: "wild_lion_4", kind: "monster", monster: "mountain_lion", x: 130, y: 92, name: "Mountain Lion" },
+  // Howler's Rise — the wolf ground on the bare hill west of the Knuckle road.
   { id: "wild_wolf_1", kind: "monster", monster: "hill_wolf", x: 28, y: 36, name: "Hill Wolf" },
-  { id: "wild_wolf_2", kind: "monster", monster: "hill_wolf", x: 96, y: 36, name: "Hill Wolf" },
-  { id: "wild_wolf_3", kind: "monster", monster: "hill_wolf", x: 116, y: 106, name: "Hill Wolf" },
-  { id: "wild_wolf_4", kind: "monster", monster: "hill_wolf", x: 40, y: 116, name: "Hill Wolf" },
-  { id: "wild_boar_w1", kind: "monster", monster: "wild_boar", x: 26, y: 55, name: "Wild Boar" },
-  { id: "wild_boar_w2", kind: "monster", monster: "wild_boar", x: 106, y: 60, name: "Wild Boar" },
-  { id: "wild_boar_w3", kind: "monster", monster: "wild_boar", x: 86, y: 118, name: "Wild Boar" },
+  { id: "wild_wolf_2", kind: "monster", monster: "hill_wolf", x: 25, y: 38, name: "Hill Wolf" },
+  { id: "wild_wolf_3", kind: "monster", monster: "hill_wolf", x: 30, y: 38, name: "Hill Wolf" },
+  { id: "wild_wolf_4", kind: "monster", monster: "hill_wolf", x: 31, y: 34, name: "Hill Wolf" },
+  // The Boar Run — the boar ground in western Greyoak, north of Lodgehold.
+  { id: "wild_boar_w1", kind: "monster", monster: "wild_boar", x: 8, y: 74, name: "Wild Boar" },
+  { id: "wild_boar_w2", kind: "monster", monster: "wild_boar", x: 14, y: 75, name: "Wild Boar" },
+  { id: "wild_boar_w3", kind: "monster", monster: "wild_boar", x: 10, y: 78, name: "Wild Boar" },
+  // Small packs at the thinner grounds, so every contract has a sure address.
+  { id: "hab_rat_1", kind: "monster", monster: "moor_rat", x: 51, y: 32, name: "Moor Rat" },
+  { id: "hab_rat_2", kind: "monster", monster: "moor_rat", x: 55, y: 37, name: "Moor Rat" },
+  { id: "hab_greymane_1", kind: "monster", monster: "greymane_boar", x: 21, y: 93, name: "Greymane Boar" },
+  { id: "hab_greymane_2", kind: "monster", monster: "greymane_boar", x: 15, y: 97, name: "Greymane Boar" },
+  { id: "hab_ridge_wolf", kind: "monster", monster: "ridge_wolf", x: 61, y: 17, name: "Ridge Wolf" },
+  { id: "hab_troll", kind: "monster", monster: "mountain_troll", x: 66, y: 32, name: "Mountain Troll" },
+  { id: "hab_serpent", kind: "monster", monster: "mire_serpent", x: 27, y: 136, name: "Mire Serpent" },
+  { id: "hab_wraith", kind: "monster", monster: "marrow_wraith", x: 120, y: 34, name: "Marrow Wraith" },
+  { id: "hab_golem", kind: "monster", monster: "deep_golem", x: 135, y: 34, name: "Deep Golem" },
+  { id: "hab_river_serpent", kind: "monster", monster: "river_serpent", x: 144, y: 100, name: "River Serpent" },
+  { id: "hab_brigand", kind: "monster", monster: "redrun_brigand", x: 147, y: 102, name: "Redrun Brigand" },
+  { id: "hab_orc", kind: "monster", monster: "ancient_orc", x: 125, y: 123, name: "Ancient Orc" },
 
   // === FILLING THE OPEN COUNTRY — resource spreads + landmarks so there's no
   // dead land between places. Gatherable nodes (trees/rock/forage) and examine
@@ -1747,8 +1776,8 @@ const newPois: WorldObjectDef[] = [
   { id: "fzf_tree_20", kind: "tree", x: 28, y: 138, name: "Greyoak", resource: "fell_greyoak", species: "greyoak" },
   { id: "fzf_tree_21", kind: "tree", x: 38, y: 56, name: "Greyoak", resource: "fell_greyoak", species: "greyoak" },
   { id: "fzf_tree_22", kind: "tree", x: 40, y: 96, name: "Ashwood Tree", resource: "fell_ashwood", species: "ashwood" },
-  { id: "fzf_bear_w1", kind: "monster", monster: "forest_bear", x: 14, y: 70, name: "Forest Bear" },
-  { id: "fzf_boar_w1", kind: "monster", monster: "wild_boar", x: 28, y: 100, name: "Wild Boar" },
+  { id: "fzf_bear_w1", kind: "monster", monster: "forest_bear", x: 9, y: 87, name: "Forest Bear" }, // Bearwallow
+  { id: "fzf_boar_w1", kind: "monster", monster: "wild_boar", x: 13, y: 73, name: "Wild Boar" }, // the Boar Run
   { id: "fzf_deer_w1", kind: "monster", monster: "red_deer", x: 20, y: 128, name: "Red Deer" },
   // -- The NE mining hills: ore veins between the river and the Marrow caves. --
   { id: "fzm_ore_1", kind: "rock", x: 106, y: 36, name: "Ashiron Vein", resource: "mine_ashiron" },
@@ -1756,12 +1785,12 @@ const newPois: WorldObjectDef[] = [
   { id: "fzm_ore_3", kind: "rock", x: 116, y: 46, name: "Ribstone Seam", resource: "mine_ribstone" },
   { id: "fzm_ore_4", kind: "rock", x: 108, y: 50, name: "Rough Gem Rock", resource: "mine_rough_gem" },
   { id: "fzm_ore_5", kind: "rock", x: 118, y: 34, name: "Ashiron Vein", resource: "mine_ashiron" },
-  { id: "fzm_lion_1", kind: "monster", monster: "mountain_lion", x: 112, y: 52, name: "Mountain Lion" },
+  { id: "fzm_lion_1", kind: "monster", monster: "mountain_lion", x: 60, y: 43, name: "Mountain Lion" }, // the Sunning Crags
   // -- The northern range: high crag-mining and a hardy beast or two. --
   { id: "fzn_ore_1", kind: "rock", x: 30, y: 18, name: "Silica Deposit", resource: "mine_silica" },
   { id: "fzn_ore_2", kind: "rock", x: 100, y: 18, name: "Ashiron Vein", resource: "mine_ashiron" },
   { id: "fzn_ore_3", kind: "rock", x: 130, y: 16, name: "Silica Deposit", resource: "mine_silica" },
-  { id: "fzn_lion_1", kind: "monster", monster: "mountain_lion", x: 20, y: 22, name: "Mountain Lion" },
+  { id: "fzn_lion_1", kind: "monster", monster: "mountain_lion", x: 54, y: 47, name: "Mountain Lion" }, // the Sunning Crags
 
   // === FARMING RUN — a plant + tree patch pair at every settlement, so the
   // skill is a circuit of the whole map (waystones make the run). ============
