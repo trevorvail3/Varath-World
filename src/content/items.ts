@@ -2020,6 +2020,32 @@ export const items: Record<ItemId, ItemDef> = {
     "def": 22,
     "sell": 0
   },
+  "bounty_helm_g": {
+    "id": "bounty_helm_g",
+    "name": "Greater Bounty Helm",
+    "description": "The Bounty Helm remade around a Superior's skull-plate. +18% damage against the creature your active bounty names. The mark of a hunter the guides talk about.",
+    "icon": "🪖",
+    "cat": "Armour",
+    "slot": "helmet",
+    "tier": 7,
+    "def": 30,
+    "rarity": "rare",
+    "sell": 0
+  },
+  "hunters_cloak": {
+    "id": "hunters_cloak",
+    "name": "Hunter's Cloak",
+    "description": "Oiled hide lined with the pelts of a hundred contracts. Worn only by hunters who earned it at the board — it cannot be bought with coin.",
+    "icon": "🧥",
+    "cat": "Capes",
+    "slot": "cape",
+    "def": 6,
+    "acc": 3,
+    "rngAcc": 3,
+    "magAcc": 3,
+    "rarity": "rare",
+    "sell": 0
+  },
   "legs_1": {
     "id": "legs_1",
     "name": "Knucklestone Leg Plate",

@@ -95,6 +95,8 @@ export interface SavedProgress {
     guideId: string;
     task: { monster: string; required: number; progress: number; xp: number; marks: number; guideId: string } | null;
     streak: number;
+    tasksDone: number;
+    lastClaimDay: number;
     blocked: string[];
     unlocks: string[];
   };
@@ -176,6 +178,8 @@ export function serializePlayer(state: WorldState): SavedProgress {
       guideId: player.bounty.guideId,
       task: player.bounty.task ? { ...player.bounty.task } : null,
       streak: player.bounty.streak,
+      tasksDone: player.bounty.tasksDone,
+      lastClaimDay: player.bounty.lastClaimDay,
       blocked: [...player.bounty.blocked],
       unlocks: [...player.bounty.unlocks],
     },
@@ -429,6 +433,10 @@ export function hydratePlayer(
     }
     const streak = savedBounty["streak"];
     if (finiteNum(streak) && streak >= 0) player.bounty.streak = Math.floor(streak);
+    const tasksDone = savedBounty["tasksDone"];
+    if (finiteNum(tasksDone) && tasksDone >= 0) player.bounty.tasksDone = Math.floor(tasksDone);
+    const lastDay = savedBounty["lastClaimDay"];
+    if (finiteNum(lastDay) && lastDay >= 0) player.bounty.lastClaimDay = Math.floor(lastDay);
     const blocked = savedBounty["blocked"];
     if (Array.isArray(blocked)) {
       player.bounty.blocked = blocked.filter((m): m is string => typeof m === "string" && m in content.monsters);

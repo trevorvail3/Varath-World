@@ -545,6 +545,8 @@ export type ItemId =
   | "wyrm_shield"
   | "wyrm_blade"
   | "bounty_helm"
+  | "bounty_helm_g"
+  | "hunters_cloak"
   | "bone_helm"
   | "bone_body"
   | "bone_legs"
@@ -1352,9 +1354,15 @@ export interface BountyState {
   /** The active task, or null when none is taken. */
   task: BountyTask | null;
   /** Consecutive tasks claimed without abandoning. Each claim past the first
-   *  pays escalating bonus Hunt Marks (+5% per streak, capped +50%); abandoning
-   *  a task resets it to 0. */
+   *  pays escalating bonus Hunt Marks (+5% per streak, capped +50% — +100%
+   *  with the Reckoner's Favour unlock); abandoning a task resets it to 0. */
   streak: number;
+  /** Lifetime tasks claimed. Drives milestone claims (every 10th pays ×3
+   *  Marks, every 50th ×6, every 100th ×10 — OSRS-Slayer style). Persisted. */
+  tasksDone: number;
+  /** The wall-clock day (floor(epoch / 86,400,000)) of the last claim — the
+   *  first claim of each real day pays double base Marks. Persisted. */
+  lastClaimDay: number;
   /** Monster ids the hunter has blocked — never rolled into a task. Capped at a
    *  base allotment, widened by the "wider_net" unlock. */
   blocked: string[];

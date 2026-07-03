@@ -549,7 +549,7 @@ export function createWorld(
       legColor: "#9a5a2a", shoeColor: "#3a2c20",
       hairStyle: "short", facial: "none", top: "plain", legs: "trousers", shoes: "boots",
     },
-    bounty: { marks: 0, guideId: content.bountyGuides[0]?.id ?? "rook", task: null, streak: 0, blocked: [], unlocks: [] },
+    bounty: { marks: 0, guideId: content.bountyGuides[0]?.id ?? "rook", task: null, streak: 0, tasksDone: 0, lastClaimDay: 0, blocked: [], unlocks: [] },
     home: { storage: {}, placed: [], tier: 0 },
     puzzles: {},
     buffs: {},
@@ -1685,7 +1685,7 @@ export function applyIntent(
     }
     case "BOUNTY_CLAIM": {
       if (!atStation(player, "bounty", "the bounty board", events)) break;
-      claimBountyTask(state, content, events);
+      claimBountyTask(state, content, ctx, events);
       break;
     }
     case "BOUNTY_ABANDON": {
@@ -4660,23 +4660,46 @@ function advanceKillQuests(
 
 // --- Bounty: a slay-task board, ported from the idle game's bounty loop -------
 
-/** A kill counts toward the active bounty task if it targets that monster. */
+/** Twin Marks unlock: this share of on-task kills counts double. */
+const TWIN_MARKS_CHANCE = 0.12;
+/** The Tracker (the Bounty skilling pet) only ever appears mid-hunt: each
+ *  counting kill is a slim roll. On-task kills are far scarcer than gather
+ *  actions, so the odds sit between a boss pet (1/500) and a gather pet. */
+const TRACKER_PET_CHANCE = 1 / 10_000;
+
+/** A kill counts toward the active bounty task if it targets that monster.
+ *  On-task kills are where Bounty LIVES: each one trickles Bounty XP (so the
+ *  skill trains while you hunt, not only at the board), can count double with
+ *  Twin Marks, and is the only roll for the Tracker pet. */
 function trackBountyKill(
-  player: Player,
+  state: WorldState,
   content: Content,
   monster: string | undefined,
+  ctx: Ctx,
   events: WorldEvent[],
 ): void {
   if (!monster) return;
+  const { player } = state;
   const task = player.bounty.task;
   if (!task || task.monster !== monster) return;
   if (task.progress >= task.required) return; // already done; don't overcount
-  task.progress += 1;
+  const twin = player.bounty.unlocks.includes("twin_marks") && ctx.rng() < TWIN_MARKS_CHANCE;
+  task.progress = Math.min(task.required, task.progress + (twin ? 2 : 1));
+  // The trickle: ~35% of the task's XP is paid across the kills themselves,
+  // the rest (the full listed reward) still lands on claim.
+  grantXp(state, content, "bounty", Math.max(4, Math.round((task.xp * 0.35) / task.required)), events);
+  // The Tracker: a silent companion that only the hunt can turn up.
+  if (ctx.rng() < TRACKER_PET_CHANCE && !ownsItem(player, "pet_bounty") && canAddItem(player, "pet_bounty")) {
+    addItem(player, "pet_bounty", 1, events);
+    events.push({ type: "COMPANION_FOUND", item: "pet_bounty" });
+    events.push({ type: "LOG", message: `A companion has found you: ${content.items["pet_bounty"]?.name ?? "Tracker"}!` });
+  }
   const name = content.monsters[monster]?.name ?? monster;
+  const twinNote = twin ? " (Twin Marks — it counts twice!)" : "";
   if (task.progress >= task.required) {
-    events.push({ type: "LOG", message: `Bounty complete — return to the board to claim it.` });
+    events.push({ type: "LOG", message: `Bounty complete${twinNote} — return to the board to claim it.` });
   } else {
-    events.push({ type: "LOG", message: `Bounty: ${task.progress}/${task.required} ${name}.` });
+    events.push({ type: "LOG", message: `Bounty: ${task.progress}/${task.required} ${name}.${twinNote}` });
   }
 }
 
@@ -4722,7 +4745,10 @@ function takeBountyTask(
   }
   const pick = pool[Math.floor(ctx.rng() * pool.length)]!;
   const xp = Math.round(pick.xp * guide.xpMult);
-  const marks = Math.round(pick.marks * guide.marksMult);
+  // The veteran's cut: a proven hunter's name is worth more on a contract.
+  // Bounty 50/75/90 raise every task's marks by 10/20/30%.
+  const vet = level >= 90 ? 1.3 : level >= 75 ? 1.2 : level >= 50 ? 1.1 : 1;
+  const marks = Math.round(pick.marks * guide.marksMult * vet);
   player.bounty.task = {
     monster: pick.monster,
     required: pick.required,
@@ -4739,10 +4765,25 @@ function takeBountyTask(
   events.push({ type: "LOG", message: `${guide.name}: slay ${pick.required} ${name}.${where}` });
 }
 
-/** Claim a finished task: pay Hunt Marks + Bounty XP (Hunter's Kit boosts XP). */
+/** Milestone claims, OSRS-Slayer style: the Nth lifetime task pays a marks
+ *  multiplier — every 100th ×10, every 50th ×6, every 10th ×3. */
+export function bountyMilestoneMult(nthTask: number): number {
+  if (nthTask <= 0) return 1;
+  if (nthTask % 100 === 0) return 10;
+  if (nthTask % 50 === 0) return 6;
+  if (nthTask % 10 === 0) return 3;
+  return 1;
+}
+
+/** Claim a finished task: pay Hunt Marks + Bounty XP (Hunter's Kit boosts XP).
+ *  Marks stack four ways: milestone claims multiply, the first claim of each
+ *  real day doubles, and the hunt streak adds up to +50% (+100% with the
+ *  Reckoner's Favour) — so steady hunters get rich and lapsed ones get a
+ *  reason to come back to the board. */
 function claimBountyTask(
   state: WorldState,
   content: Content,
+  ctx: Ctx,
   events: WorldEvent[],
 ): void {
   const { player } = state;
@@ -4761,20 +4802,30 @@ function claimBountyTask(
   const xp = hasKit ? Math.round(task.xp * 1.5) : task.xp;
   if (hasKit) removeOneItem(player, "hunters_kit");
   // Hunt streak: each consecutive claim (past the first) pays escalating bonus
-  // marks, +5% per streak up to +50%. Abandoning a task breaks the streak.
+  // marks, +5% per streak. Abandoning a task breaks the streak.
   player.bounty.streak += 1;
-  const streakPct = Math.min(player.bounty.streak - 1, 10) * 0.05;
-  const bonusMarks = Math.round(task.marks * streakPct);
-  player.bounty.marks += task.marks + bonusMarks;
+  player.bounty.tasksDone += 1;
+  const streakCap = player.bounty.unlocks.includes("reckoners_favour") ? 20 : 10;
+  const streakPct = Math.min(player.bounty.streak - 1, streakCap) * 0.05;
+  const streakBonus = Math.round(task.marks * streakPct);
+  // Milestone: the 10th/50th/100th lifetime task pays a multiplier.
+  const mult = bountyMilestoneMult(player.bounty.tasksDone);
+  const milestoneBonus = task.marks * (mult - 1);
+  // Daily: the first claim of each real day pays double base marks.
+  const day = Math.floor((ctx.epoch ?? 0) / 86_400_000);
+  const daily = day > 0 && day !== player.bounty.lastClaimDay;
+  if (day > 0) player.bounty.lastClaimDay = day;
+  const dailyBonus = daily ? task.marks : 0;
+  player.bounty.marks += task.marks + streakBonus + milestoneBonus + dailyBonus;
   player.bounty.task = null;
   grantXp(state, content, "bounty", xp, events);
   const kitNote = hasKit ? " (Hunter's Kit bonus)" : "";
-  const streakNote = bonusMarks > 0
-    ? ` · Hunt streak ×${player.bounty.streak}: +${bonusMarks} bonus Marks`
-    : "";
+  const streakNote = streakBonus > 0 ? ` · streak ×${player.bounty.streak}: +${streakBonus}` : "";
+  const mileNote = mult > 1 ? ` · task #${player.bounty.tasksDone} milestone: +${milestoneBonus}` : "";
+  const dayNote = daily ? ` · first hunt of the day: +${dailyBonus}` : "";
   events.push({
     type: "LOG",
-    message: `Bounty claimed! +${task.marks} Hunt Marks · +${xp} Bounty XP${kitNote}${streakNote}.`,
+    message: `Bounty claimed! +${task.marks} Hunt Marks · +${xp} Bounty XP${kitNote}${streakNote}${mileNote}${dayNote}.`,
   });
 }
 
@@ -5246,13 +5297,14 @@ function playerSwing(
       // fights (right style ≈ 2× wrong style), as every bossHint promises.
       dmg = Math.max(1, Math.round(dmg * COMBAT.bossOffStyleDmg));
     }
-    // Bounty Helm: a tracker's edge. While worn it adds +10% damage against the
-    // exact creature your active bounty names — so it speeds the task you're on.
-    if (
-      player.equipment.helmet === "bounty_helm" &&
-      player.bounty.task?.monster === stats.id
-    ) {
-      dmg = Math.round(dmg * 1.1);
+    // Bounty Helm: a tracker's edge. While worn it adds damage against the
+    // exact creature your active bounty names — so it speeds the task you're
+    // on. The Greater helm (a Hunt-Marks chase item) sharpens the edge.
+    const helmEdge =
+      player.equipment.helmet === "bounty_helm_g" ? 1.18 :
+      player.equipment.helmet === "bounty_helm" ? 1.1 : 1;
+    if (helmEdge > 1 && player.bounty.task?.monster === stats.id) {
+      dmg = Math.round(dmg * helmEdge);
     }
     obj.hp -= dmg;
     events.push({ type: "DAMAGE", targetId: obj.id, amount: dmg, weak: exploits });
@@ -5335,7 +5387,7 @@ function checkKill(
   // "the The Boneman" reads badly — names that carry their own article skip ours.
   events.push({ type: "LOG", message: `You defeat ${/^The /.test(def.name) ? def.name : `the ${def.name}`}.` });
   advanceKillQuests(state, content, def.monster, events);
-  trackBountyKill(player, content, def.monster, events);
+  trackBountyKill(state, content, def.monster, ctx, events);
   rollSuperiorBounty(state, content, def.monster, drop.x, drop.y, ctx, events);
   clearActivity(player);
 }

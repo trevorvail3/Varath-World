@@ -2178,6 +2178,18 @@ button.inv-slot {
   padding: 10px 12px;
 }
 .bounty-task-name { font-size: 14px; color: var(--ink); margin-bottom: 2px; }
+.bounty-tally { font-size: 11px; color: var(--ink-dim); margin: 2px 0 8px; }
+.bounty-tally b { color: var(--gold); font-family: "Cinzel", serif; }
+.bounty-perks { margin-top: 4px; display: flex; flex-wrap: wrap; gap: 6px; }
+.bounty-perk {
+  font-size: 10px;
+  color: #d0b078;
+  background: rgba(201, 162, 74, 0.1);
+  border: 1px solid rgba(201, 162, 74, 0.35);
+  border-radius: 5px;
+  padding: 2px 8px;
+}
+.bounty-perk.hot { color: #f0b878; border-color: var(--gold); background: rgba(201, 162, 74, 0.2); }
 .bounty-task-from { font-size: 10px; color: #8a8472; margin-bottom: 6px; }
 .bounty-task-where { font-size: 11px; color: #d09a6a; margin-bottom: 6px; }
 .bounty-task-where b { color: #f0b878; font-family: "Cinzel", serif; font-size: 11px; }

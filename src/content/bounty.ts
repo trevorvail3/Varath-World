@@ -201,6 +201,9 @@ export const huntingGrounds: Record<string, HuntingGround> = {
 export const bountyShop: BountyShopListing[] = [
   // The signature reward first — a hunter's helm that rewards staying on-task.
   { item: "bounty_helm", cost: 450, qty: 1, label: "Bounty Helm", desc: "+10% damage against the creature your active bounty names. A serious edge on long tasks." },
+  // The chase items: Marks-only prestige gear that no coin can buy.
+  { item: "hunters_cloak", cost: 1500, qty: 1, label: "Hunter's Cloak", desc: "A cape of a hundred contracts — solid all-style stats, and proof you did the work. Marks only; no gold price exists." },
+  { item: "bounty_helm_g", cost: 2500, qty: 1, label: "Greater Bounty Helm", desc: "The Bounty Helm remade — +18% damage against your active task's creature, and heavier plate besides. The board's richest ware." },
   { item: "hunters_kit", cost: 150, qty: 1, label: "Hunter's Kit", desc: "Hold one when you claim a task: +50% Bounty XP, consumed on claim." },
   { item: "battle_ration", cost: 60, qty: 1, label: "Battle Ration", desc: "Field food — heals on the spot, no cooking needed." },
   { item: "health_elixir", cost: 40, qty: 1, label: "Health Elixir", desc: "Restores health instantly." },
@@ -221,5 +224,7 @@ export const bountyShop: BountyShopListing[] = [
 export const bountyUnlocks: BountyUnlock[] = [
   { id: "superior", name: "Bigger & Badder", cost: 750, desc: "Unlocks Superior encounters — while on a task, the creature you hunt can rarely rise as a Superior: a tougher kill that showers bonus Hunt Marks and Bounty XP, with a slim chance at an ultra-rare Hunter's trophy." },
   { id: "keen_eye", name: "The Hunter's Eye", cost: 600, desc: "You learn the signs. Superior encounters appear roughly half again as often. (Requires Bigger & Badder.)" },
+  { id: "twin_marks", name: "Twin Marks", cost: 650, desc: "You learn to read a den, not a trail. While on a task, some kills (about one in eight) count TWICE toward your tally." },
+  { id: "reckoners_favour", name: "The Reckoner's Favour", cost: 900, desc: "Kaeda vouches for you at every board. Your hunt-streak bonus keeps climbing to +100% Marks (instead of stopping at +50%)." },
   { id: "wider_net", name: "Warden's Ledger", cost: 400, desc: "Kaeda lets you keep a longer list of refusals — your block list grows from 3 monsters to 6." },
 ];
