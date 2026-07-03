@@ -43,6 +43,9 @@ function groundItemImage(def: ItemDef): HTMLImageElement | null {
   return img.complete && img.naturalWidth > 0 ? img : null;
 }
 
+// When each ground-loot pile was first seen, driving its little drop-in bounce.
+const GROUND_SEEN = new Map<number, number>();
+
 // Which way the player last faced (kept across idle / vertical-only movement, so
 // the figure doesn't snap back to the default when you walk straight up or down).
 let playerFaceLeft = false;
@@ -69,7 +72,13 @@ export function setLootLabels(on: boolean): void { lootLabels = on; }
 // butterflies, surfacing water life) that cost draw calls every frame but add
 // no gameplay. Paired with a lower render resolution in the loop.
 let perfMode = false;
-export function setPerfMode(on: boolean): void { perfMode = on; }
+export function setPerfMode(on: boolean): void {
+  perfMode = on;
+  // The terrain cache is supersampled for hi-DPI crispness; perf mode drops it
+  // to 1:1 (quarter the pixels). Rebuild so the change takes effect.
+  chunkScale = on ? 1 : 2;
+  terrainChunks.clear();
+}
 
 /** How long the actual strike motion plays (ms). The rest of a weapon's interval
  *  is spent resting in a ready pose, so a swing reads as a quick chop + a pause
@@ -133,6 +142,78 @@ const TILE_COLORS: Record<TileType, [string, string]> = {
 function hash(x: number, y: number): number {
   const n = Math.sin(x * 127.1 + y * 311.7) * 43758.5453;
   return n - Math.floor(n);
+}
+
+// --- Terrain chunk cache -----------------------------------------------------
+// The static terrain (blended base, ground detail, walls, roofs) is identical
+// every frame, but repainting it tile-by-tile was the single biggest render
+// cost — hundreds of paths, gradients and fills per frame. Instead, 8×8-tile
+// chunks are painted ONCE into offscreen canvases and blitted with a single
+// drawImage each frame. Everything that moves (water, vegetation sway, ember
+// pulses, fireflies) is drawn live on top, so nothing visible goes still.
+const CHUNK = 8;                 // tiles per chunk side
+const CHUNK_PX = CHUNK * TILE;   // 320 world px
+let chunkScale = 2;              // supersample so DPR-2 screens stay crisp (1 in perf mode)
+const CHUNK_CAP = 48;            // ~view + headroom; LRU beyond that
+const terrainChunks = new Map<string, HTMLCanvasElement>();
+let chunkMapRef: unknown = null; // a new map object invalidates the whole cache
+
+// Chunks are painted with a one-tile APRON on every side: tile art may spill a
+// few pixels past its tile (snow drifts, boulders, roof edges), and without the
+// apron that spill would clip at chunk borders. Since the painters are fully
+// deterministic, the overlapping apron pixels are identical between neighbours,
+// so blitting them over one another changes nothing visible.
+const APRON = 1;
+const APRON_PX = APRON * TILE;
+
+function terrainChunk(map: WorldMap, cx: number, cy: number): HTMLCanvasElement {
+  if (chunkMapRef !== map.tiles) { terrainChunks.clear(); chunkMapRef = map.tiles; }
+  const key = `${cx},${cy}`;
+  let c = terrainChunks.get(key);
+  if (c) { // refresh LRU order
+    terrainChunks.delete(key); terrainChunks.set(key, c);
+    return c;
+  }
+  c = document.createElement("canvas");
+  c.width = (CHUNK_PX + 2 * APRON_PX) * chunkScale;
+  c.height = (CHUNK_PX + 2 * APRON_PX) * chunkScale;
+  const cg = c.getContext("2d")!;
+  cg.scale(chunkScale, chunkScale);
+  for (let j = -APRON; j < CHUNK + APRON; j++) {
+    const ty = cy * CHUNK + j;
+    if (ty < 0 || ty >= map.height) continue;
+    for (let i = -APRON; i < CHUNK + APRON; i++) {
+      const tx = cx * CHUNK + i;
+      if (tx < 0 || tx >= map.width) continue;
+      paintTileStatic(cg, map.tiles[ty * map.width + tx]!, (i + APRON) * TILE, (j + APRON) * TILE, tx, ty, map);
+    }
+  }
+  terrainChunks.set(key, c);
+  if (terrainChunks.size > CHUNK_CAP) {
+    const oldest = terrainChunks.keys().next().value;
+    if (oldest !== undefined) terrainChunks.delete(oldest);
+  }
+  return c;
+}
+
+// --- Pre-rendered gradient discs ---------------------------------------------
+// Soft radial glows (contact shadows, firelight pools, fireflies, mist) were
+// built with createRadialGradient EVERY frame per instance — a steady raster
+// cost. Each recipe is rendered once into a small sprite and blitted, with
+// per-instance strength via globalAlpha and size via the draw rect.
+const DISC_SPRITES = new Map<string, HTMLCanvasElement>();
+function discSprite(key: string, r: number, stops: [number, string][]): HTMLCanvasElement {
+  let c = DISC_SPRITES.get(key);
+  if (c) return c;
+  c = document.createElement("canvas");
+  c.width = c.height = Math.ceil(r * 2);
+  const cg = c.getContext("2d")!;
+  const grd = cg.createRadialGradient(r, r, 0, r, r, r);
+  for (const [o, col] of stops) grd.addColorStop(o, col);
+  cg.fillStyle = grd;
+  cg.fillRect(0, 0, c.width, c.height);
+  DISC_SPRITES.set(key, c);
+  return c;
 }
 
 // --- Organic ground painting -------------------------------------------------
@@ -404,15 +485,16 @@ function scatterVegetation(
   }
 }
 
-/** Paint one terrain tile, base fill plus type-specific detail. */
-function paintTile(
+/** Paint one terrain tile's STATIC art: base fill plus type-specific detail.
+ *  Everything here is time-independent so it can live in the chunk cache;
+ *  the moving parts (water, ore-vein pulses) are paintTileLive's job. */
+function paintTileStatic(
   g: CanvasRenderingContext2D,
   tile: TileType,
   px: number,
   py: number,
   x: number,
   y: number,
-  now: number,
   map: WorldMap,
 ): void {
   const [base, accent] = TILE_COLORS[tile];
@@ -434,60 +516,8 @@ function paintTile(
       return; // walls/roofs draw their own edges
     }
     case "water":
-    case "deep": {
-      // Living water: a dark under-swell that drifts, two WAVY highlight crests
-      // (sine-bent curves, phase-shifted per tile so they read as one surface
-      // across the lake), and an occasional sun-sparkle.
-      const t = now / 900;
-      g.strokeStyle = "rgba(8,20,34,0.35)"; // under-swell shadow
-      g.lineWidth = 3;
-      g.beginPath();
-      for (let i = 0; i <= 4; i++) {
-        const wx = px + (i / 4) * TILE;
-        const wy = py + TILE * 0.62 + Math.sin(t * 2 + (x + i / 4) * 1.7 + y * 0.9) * 3.5;
-        if (i === 0) g.moveTo(wx, wy); else g.lineTo(wx, wy);
-      }
-      g.stroke();
-      g.strokeStyle = accent; // twin crests
-      g.lineWidth = 1.6;
-      for (let c = 0; c < 2; c++) {
-        const sh = 0.5 + 0.5 * Math.sin(t * 2.4 + x * 1.3 + y * 0.7 + c * 2.6);
-        g.globalAlpha = 0.25 + 0.35 * sh;
-        g.beginPath();
-        for (let i = 0; i <= 4; i++) {
-          const wx = px + (i / 4) * TILE;
-          const wy = py + TILE * (0.25 + 0.38 * c + 0.1 * hv) + Math.sin(t * 2.2 + (x + i / 4) * 2.1 + y * 1.3 + c * 3) * 2.8;
-          if (i === 0) g.moveTo(wx, wy); else g.lineTo(wx, wy);
-        }
-        g.stroke();
-      }
-      // A cold sun-glint that winks on a few tiles at a time.
-      const wink = Math.sin(now / 700 + hv * 19 + x * 2 + y * 3);
-      if (wink > 0.75) {
-        g.globalAlpha = (wink - 0.75) * 3;
-        g.fillStyle = "#bfe0f2";
-        g.fillRect(px + TILE * (0.2 + 0.55 * hv), py + TILE * (0.3 + 0.35 * hash(x * 9, y * 4)), 3, 1.6);
-      }
-      g.globalAlpha = 1;
-      // Foam where the water laps against land — a soft, breathing highlight on
-      // any edge facing a walkable tile (completes the shoreline from both sides).
-      const wd = map.width;
-      const land = (tx: number, ty: number): boolean => {
-        if (tx < 0 || ty < 0 || tx >= wd || ty >= map.height) return false;
-        const t = map.tiles[ty * wd + tx];
-        return t !== "water" && t !== "deep";
-      };
-      if (land(x - 1, y) || land(x + 1, y) || land(x, y - 1) || land(x, y + 1)) {
-        g.globalAlpha = 0.22 + 0.14 * Math.sin(now / 700 + x * 0.9 + y);
-        g.fillStyle = "rgba(225,238,245,0.9)";
-        if (land(x - 1, y)) g.fillRect(px, py + 2, 2, TILE - 4);
-        if (land(x + 1, y)) g.fillRect(px + TILE - 2, py + 2, 2, TILE - 4);
-        if (land(x, y - 1)) g.fillRect(px + 2, py, TILE - 4, 2);
-        if (land(x, y + 1)) g.fillRect(px + 2, py + TILE - 2, TILE - 4, 2);
-        g.globalAlpha = 1;
-      }
-      return;
-    }
+    case "deep":
+      return; // the blended base is the static part — all motion is live
     case "mountain": {
       // High rock, varied by noise so the range reads as one massif instead of
       // wallpaper: talus fields, cracked slabs, and only the occasional true
@@ -659,26 +689,7 @@ function paintTile(
       g.globalAlpha = 1;
       if (tile === "cave_wall") {
         g.fillStyle = "rgba(255,255,255,0.05)"; g.fillRect(px, py, TILE, 2);
-        // A rare vein of glittering ore in the rock face — slowly pulsing, with a
-        // soft glow halo so the lode catches the eye in the dark.
-        if (hv > 0.84) {
-          const cyan = hv > 0.93;
-          const oy = py + TILE * (0.3 + 0.4 * hash(x, y + 9));
-          const ox = px + TILE * 0.3;
-          const pulse = 0.55 + 0.45 * Math.sin(now / 520 + x * 1.3 + y);
-          g.save();
-          g.globalCompositeOperation = "lighter";
-          const glow = cyan ? "120,205,215" : "210,170,90";
-          const grd = g.createRadialGradient(ox + 2, oy, 0, ox + 2, oy, 9);
-          grd.addColorStop(0, `rgba(${glow},${(0.40 * pulse).toFixed(2)})`);
-          grd.addColorStop(1, `rgba(${glow},0)`);
-          g.fillStyle = grd; g.beginPath(); g.arc(ox + 2, oy, 9, 0, Math.PI * 2); g.fill();
-          g.globalCompositeOperation = "source-over";
-          g.fillStyle = cyan ? `rgba(150,220,230,${(0.55 + 0.4 * pulse).toFixed(2)})` : `rgba(180,150,100,${(0.5 + 0.4 * pulse).toFixed(2)})`;
-          g.fillRect(ox, oy, 3, 2);
-          g.fillRect(ox + 3, oy - 2, 2, 2);
-          g.restore();
-        }
+        // (The rare pulsing ore vein is animated — paintTileLive draws it.)
       } else if (hv > 0.9) {
         // A faint mineral glint on the cave floor — a little life in the dark.
         g.fillStyle = "rgba(110,170,180,0.4)";
@@ -753,6 +764,194 @@ function paintTile(
   // (No per-tile grid stroke: organic ground reads as continuous terrain now —
   // the old faint grid was a big part of the "checkerboard" look. Masonry
   // draws its own mortar lines above.)
+}
+
+/**
+ * Batched water animation for the chunked overworld path: instead of three
+ * stroke() calls PER TILE (750+ path operations on a coast view), all visible
+ * water tiles are gathered into a handful of shared paths — one under-swell
+ * stroke, and the shimmering crests bucketed into three brightness bands.
+ * Same waves, same look, a fraction of the draw calls.
+ */
+function paintWaterBatch(
+  g: CanvasRenderingContext2D,
+  map: WorldMap,
+  cam: Camera,
+  minX: number, maxX: number, minY: number, maxY: number,
+  now: number,
+): void {
+  const t = now / 900;
+  const wd = map.width;
+  // In-bounds walkable ground (out-of-bounds is NOT land, so no foam at the
+  // map rim — matching the per-tile painter).
+  const land = (tx: number, ty: number): boolean => {
+    if (tx < 0 || ty < 0 || tx >= wd || ty >= map.height) return false;
+    const tt = map.tiles[ty * wd + tx];
+    return tt !== "water" && tt !== "deep";
+  };
+  const tiles: Array<[number, number, TileType]> = [];
+  for (let y = minY; y <= maxY; y++) {
+    for (let x = minX; x <= maxX; x++) {
+      const tile = map.tiles[y * wd + x]!;
+      if (tile === "water" || tile === "deep") tiles.push([x, y, tile]);
+    }
+  }
+  if (!tiles.length) return;
+
+  // Under-swell: one dark path across every water tile.
+  g.strokeStyle = "rgba(8,20,34,0.35)";
+  g.lineWidth = 3;
+  g.beginPath();
+  for (const [x, y] of tiles) {
+    const px = x * TILE - cam.x, py = y * TILE - cam.y;
+    for (let i = 0; i <= 4; i++) {
+      const wx = px + (i / 4) * TILE;
+      const wy = py + TILE * 0.62 + Math.sin(t * 2 + (x + i / 4) * 1.7 + y * 0.9) * 3.5;
+      if (i === 0) g.moveTo(wx, wy); else g.lineTo(wx, wy);
+    }
+  }
+  g.stroke();
+
+  // Twin crests, shimmer quantised into three alpha bands so each band strokes
+  // once. (The shimmer is animated noise — the stepping is invisible.)
+  const bands: Path2D[] = [new Path2D(), new Path2D(), new Path2D()];
+  for (const [x, y] of tiles) {
+    const px = x * TILE - cam.x, py = y * TILE - cam.y;
+    const hv = hash(x, y);
+    for (let c = 0; c < 2; c++) {
+      const sh = 0.5 + 0.5 * Math.sin(t * 2.4 + x * 1.3 + y * 0.7 + c * 2.6);
+      const band = bands[Math.min(2, Math.floor(sh * 3))]!;
+      for (let i = 0; i <= 4; i++) {
+        const wx = px + (i / 4) * TILE;
+        const wy = py + TILE * (0.25 + 0.38 * c + 0.1 * hv) + Math.sin(t * 2.2 + (x + i / 4) * 2.1 + y * 1.3 + c * 3) * 2.8;
+        if (i === 0) band.moveTo(wx, wy); else band.lineTo(wx, wy);
+      }
+    }
+  }
+  g.lineWidth = 1.6;
+  const CREST_ALPHA = [0.31, 0.43, 0.54]; // centres of the 0.25 + 0.35·sh range
+  for (let b = 0; b < 3; b++) {
+    // water/deep accents are close; the mid tone reads right over both
+    g.strokeStyle = "#356a94";
+    g.globalAlpha = CREST_ALPHA[b]!;
+    g.stroke(bands[b]!);
+  }
+  g.globalAlpha = 1;
+
+  // Glints + shoreline foam are sparse — per tile is fine.
+  for (const [x, y] of tiles) {
+    const px = x * TILE - cam.x, py = y * TILE - cam.y;
+    const hv = hash(x, y);
+    const wink = Math.sin(now / 700 + hv * 19 + x * 2 + y * 3);
+    if (wink > 0.75) {
+      g.globalAlpha = (wink - 0.75) * 3;
+      g.fillStyle = "#bfe0f2";
+      g.fillRect(px + TILE * (0.2 + 0.55 * hv), py + TILE * (0.3 + 0.35 * hash(x * 9, y * 4)), 3, 1.6);
+      g.globalAlpha = 1;
+    }
+    if (land(x - 1, y) || land(x + 1, y) || land(x, y - 1) || land(x, y + 1)) {
+      g.globalAlpha = 0.22 + 0.14 * Math.sin(now / 700 + x * 0.9 + y);
+      g.fillStyle = "rgba(225,238,245,0.9)";
+      if (land(x - 1, y)) g.fillRect(px, py + 2, 2, TILE - 4);
+      if (land(x + 1, y)) g.fillRect(px + TILE - 2, py + 2, 2, TILE - 4);
+      if (land(x, y - 1)) g.fillRect(px + 2, py, TILE - 4, 2);
+      if (land(x, y + 1)) g.fillRect(px + 2, py + TILE - 2, TILE - 4, 2);
+      g.globalAlpha = 1;
+    }
+  }
+}
+
+/** The ANIMATED overlay for tiles whose look moves — open water's swell,
+ *  crests, glints and shoreline foam, and the pulsing ore veins in cave rock.
+ *  Drawn live every frame over the cached static art. */
+function paintTileLive(
+  g: CanvasRenderingContext2D,
+  tile: TileType,
+  px: number,
+  py: number,
+  x: number,
+  y: number,
+  now: number,
+  map: WorldMap,
+): void {
+  if (tile === "water" || tile === "deep") {
+    const accent = TILE_COLORS[tile][1];
+    const hv = hash(x, y);
+    // Living water: a dark under-swell that drifts, two WAVY highlight crests
+    // (sine-bent curves, phase-shifted per tile so they read as one surface
+    // across the lake), and an occasional sun-sparkle.
+    const t = now / 900;
+    g.strokeStyle = "rgba(8,20,34,0.35)"; // under-swell shadow
+    g.lineWidth = 3;
+    g.beginPath();
+    for (let i = 0; i <= 4; i++) {
+      const wx = px + (i / 4) * TILE;
+      const wy = py + TILE * 0.62 + Math.sin(t * 2 + (x + i / 4) * 1.7 + y * 0.9) * 3.5;
+      if (i === 0) g.moveTo(wx, wy); else g.lineTo(wx, wy);
+    }
+    g.stroke();
+    g.strokeStyle = accent; // twin crests
+    g.lineWidth = 1.6;
+    for (let c = 0; c < 2; c++) {
+      const sh = 0.5 + 0.5 * Math.sin(t * 2.4 + x * 1.3 + y * 0.7 + c * 2.6);
+      g.globalAlpha = 0.25 + 0.35 * sh;
+      g.beginPath();
+      for (let i = 0; i <= 4; i++) {
+        const wx = px + (i / 4) * TILE;
+        const wy = py + TILE * (0.25 + 0.38 * c + 0.1 * hv) + Math.sin(t * 2.2 + (x + i / 4) * 2.1 + y * 1.3 + c * 3) * 2.8;
+        if (i === 0) g.moveTo(wx, wy); else g.lineTo(wx, wy);
+      }
+      g.stroke();
+    }
+    // A cold sun-glint that winks on a few tiles at a time.
+    const wink = Math.sin(now / 700 + hv * 19 + x * 2 + y * 3);
+    if (wink > 0.75) {
+      g.globalAlpha = (wink - 0.75) * 3;
+      g.fillStyle = "#bfe0f2";
+      g.fillRect(px + TILE * (0.2 + 0.55 * hv), py + TILE * (0.3 + 0.35 * hash(x * 9, y * 4)), 3, 1.6);
+    }
+    g.globalAlpha = 1;
+    // Foam where the water laps against land — a soft, breathing highlight on
+    // any edge facing a walkable tile (completes the shoreline from both sides).
+    const wd = map.width;
+    const land = (tx: number, ty: number): boolean => {
+      if (tx < 0 || ty < 0 || tx >= wd || ty >= map.height) return false;
+      const tt = map.tiles[ty * wd + tx];
+      return tt !== "water" && tt !== "deep";
+    };
+    if (land(x - 1, y) || land(x + 1, y) || land(x, y - 1) || land(x, y + 1)) {
+      g.globalAlpha = 0.22 + 0.14 * Math.sin(now / 700 + x * 0.9 + y);
+      g.fillStyle = "rgba(225,238,245,0.9)";
+      if (land(x - 1, y)) g.fillRect(px, py + 2, 2, TILE - 4);
+      if (land(x + 1, y)) g.fillRect(px + TILE - 2, py + 2, 2, TILE - 4);
+      if (land(x, y - 1)) g.fillRect(px + 2, py, TILE - 4, 2);
+      if (land(x, y + 1)) g.fillRect(px + 2, py + TILE - 2, TILE - 4, 2);
+      g.globalAlpha = 1;
+    }
+    return;
+  }
+  if (tile === "cave_wall") {
+    // A rare vein of glittering ore in the rock face — slowly pulsing, with a
+    // soft glow halo so the lode catches the eye in the dark.
+    const hv = hash(x, y);
+    if (hv <= 0.84) return;
+    const cyan = hv > 0.93;
+    const oy = py + TILE * (0.3 + 0.4 * hash(x, y + 9));
+    const ox = px + TILE * 0.3;
+    const pulse = 0.55 + 0.45 * Math.sin(now / 520 + x * 1.3 + y);
+    g.save();
+    g.globalCompositeOperation = "lighter";
+    const glow = cyan ? "120,205,215" : "210,170,90";
+    const sprite = discSprite(`ore-${cyan}`, 9, [[0, `rgba(${glow},0.40)`], [1, `rgba(${glow},0)`]]);
+    g.globalAlpha = pulse;
+    g.drawImage(sprite, ox + 2 - 9, oy - 9, 18, 18);
+    g.globalAlpha = 1;
+    g.globalCompositeOperation = "source-over";
+    g.fillStyle = cyan ? `rgba(150,220,230,${(0.55 + 0.4 * pulse).toFixed(2)})` : `rgba(180,150,100,${(0.5 + 0.4 * pulse).toFixed(2)})`;
+    g.fillRect(ox, oy, 3, 2);
+    g.fillRect(ox + 3, oy - 2, 2, 2);
+    g.restore();
+  }
 }
 
 /**
@@ -1290,17 +1489,49 @@ export function drawWorld(
   const homeInterior = !!(region && region.y0 === INTERIOR_TOP && !backyard);
   const floorSurf = homeInterior ? content.surfaces[state.player.home.floor ?? ""] : undefined;
   const wallSurf = homeInterior ? content.surfaces[state.player.home.wall ?? ""] : undefined;
-  for (let y = minY; y <= maxY; y++) {
-    for (let x = minX; x <= maxX; x++) {
-      if (!inRegion(x, y)) continue; // mask everything outside the current instance
-      if (outside(x, y)) continue;   // past the draw distance — leave it void
-      const tile = map.tiles[y * map.width + x]!;
-      const px = x * TILE - cam.x;
-      const py = y * TILE - cam.y;
-      paintTile(g, tile, px, py, x, y, now, map);
-      if (floorSurf && tile === "plank") paintHomeSurface(g, floorSurf, px, py, x, y);
-      else if (wallSurf && tile === "wall") paintHomeSurface(g, wallSurf, px, py, x, y);
-      scatterVegetation(g, tile, px, py, x, y, now);
+  // The open overworld blits cached terrain chunks (the static art) and then
+  // draws only the moving layers per tile. Instances (homes, arenas, dungeons)
+  // and a finite draw-distance circle keep the per-tile path — they mask or
+  // cull individual tiles, which a whole-chunk blit can't honour.
+  if (!region && dd2 === Infinity) {
+    const c0x = Math.floor(minX / CHUNK), c1x = Math.floor(maxX / CHUNK);
+    const c0y = Math.floor(minY / CHUNK), c1y = Math.floor(maxY / CHUNK);
+    // Blit each chunk's CORE region only. The apron tiles were painted so
+    // their art could spill INTO the core pixels (and this chunk's own spill
+    // into the apron is discarded — the neighbour captured the same spill in
+    // its core), so cores tile the view exactly with no overdraw.
+    for (let cy2 = c0y; cy2 <= c1y; cy2++) {
+      for (let cx2 = c0x; cx2 <= c1x; cx2++) {
+        g.drawImage(
+          terrainChunk(map, cx2, cy2),
+          APRON_PX * chunkScale, APRON_PX * chunkScale,
+          CHUNK_PX * chunkScale, CHUNK_PX * chunkScale,
+          cx2 * CHUNK_PX - cam.x, cy2 * CHUNK_PX - cam.y,
+          CHUNK_PX, CHUNK_PX,
+        );
+      }
+    }
+    paintWaterBatch(g, map, cam, minX, maxX, minY, maxY, now);
+    for (let y = minY; y <= maxY; y++) {
+      for (let x = minX; x <= maxX; x++) {
+        const tile = map.tiles[y * map.width + x]!;
+        scatterVegetation(g, tile, x * TILE - cam.x, y * TILE - cam.y, x, y, now);
+      }
+    }
+  } else {
+    for (let y = minY; y <= maxY; y++) {
+      for (let x = minX; x <= maxX; x++) {
+        if (!inRegion(x, y)) continue; // mask everything outside the current instance
+        if (outside(x, y)) continue;   // past the draw distance — leave it void
+        const tile = map.tiles[y * map.width + x]!;
+        const px = x * TILE - cam.x;
+        const py = y * TILE - cam.y;
+        paintTileStatic(g, tile, px, py, x, y, map);
+        paintTileLive(g, tile, px, py, x, y, now, map);
+        if (floorSurf && tile === "plank") paintHomeSurface(g, floorSurf, px, py, x, y);
+        else if (wallSurf && tile === "wall") paintHomeSurface(g, wallSurf, px, py, x, y);
+        scatterVegetation(g, tile, px, py, x, y, now);
+      }
     }
   }
 
@@ -1323,14 +1554,13 @@ export function drawWorld(
           const fy = py + TILE / 2 + Math.cos(ph * 1.3) * 10 - 4;
           const pulse = Math.max(0, Math.sin(ph * 3.1 + i));
           if (pulse < 0.2) continue;
-          const al = (0.5 * pulse * nightF).toFixed(3);
-          const grd2 = g.createRadialGradient(fx, fy, 0, fx, fy, 5);
-          grd2.addColorStop(0, `rgba(200,230,120,${al})`);
-          grd2.addColorStop(1, "rgba(200,230,120,0)");
-          g.fillStyle = grd2;
-          g.beginPath(); g.arc(fx, fy, 5, 0, Math.PI * 2); g.fill();
-          g.fillStyle = `rgba(228,244,170,${al})`;
+          const al = 0.5 * pulse * nightF;
+          const halo = discSprite("firefly", 5, [[0, "rgba(200,230,120,1)"], [1, "rgba(200,230,120,0)"]]);
+          g.globalAlpha = al;
+          g.drawImage(halo, fx - 5, fy - 5);
+          g.fillStyle = "rgba(228,244,170,1)";
           g.fillRect(fx - 0.8, fy - 0.8, 1.6, 1.6);
+          g.globalAlpha = 1;
         }
       }
     }
@@ -1358,7 +1588,27 @@ export function drawWorld(
     // kill's loot reads as its own pile rather than one merged heap.
     const ox = ((gi.id % 3) - 1) * 7;
     const oy = ((Math.floor(gi.id / 3) % 3) - 1) * 6;
-    drawGroundItem(g, px + TILE / 2 + ox, py + TILE / 2 + oy, now, gi.qty, content.items[gi.item]);
+    const cx = px + TILE / 2 + ox, cy = py + TILE / 2 + oy;
+    // New loot drops in: a short fall with a squash-and-settle, keyed to when
+    // this pile first came into view (so freshly killed drops bounce, and far
+    // piles bounce as you discover them).
+    let born = GROUND_SEEN.get(gi.id);
+    if (born === undefined) {
+      if (GROUND_SEEN.size > 512) GROUND_SEEN.clear(); // cheap prune; a re-pop is harmless
+      born = now;
+      GROUND_SEEN.set(gi.id, now);
+    }
+    const k = Math.min(1, (now - born) / 320);
+    if (k < 1) {
+      const ease = 1 - (1 - k) * (1 - k) * (1 - k);
+      const s = 0.55 + 0.45 * ease + 0.10 * Math.sin(k * Math.PI);
+      g.save();
+      g.translate(cx, cy - (1 - ease) * 9);
+      g.scale(s, s);
+      g.translate(-cx, -cy);
+    }
+    drawGroundItem(g, cx, cy, now, gi.qty, content.items[gi.item]);
+    if (k < 1) g.restore();
   }
 
   // OSRS-style floor-loot name labels, drawn in a second pass so they sit ON TOP
@@ -1464,7 +1714,17 @@ export function drawWorld(
         flip = FACING.get(def.id) ?? false;
       }
       const superior = def.kind === "monster" && obj.available && obj.superior === true;
+      // A faint breathing bob for every living thing (scaled about the feet),
+      // so idle creatures and NPCs read as alive rather than statuary. Phase
+      // keyed per creature so a crowd doesn't inhale in unison.
+      const breathing = def.kind === "npc" || def.kind === "critter" || (def.kind === "monster" && obj.available);
+      if (breathing) {
+        const bcx = px + TILE / 2, bfy = py + TILE - 4;
+        const b = 1 + 0.016 * Math.sin(now / 620 + ((def.x * 7 + def.y * 13) % 6.28));
+        g.save(); g.translate(bcx, bfy); g.scale(1, b); g.translate(-bcx, -bfy);
+      }
       drawObject(g, def, obj.available, px, py, now, !!obj.wanderTarget, monsterAttack(def, obj, state, content, now), flip, superior);
+      if (breathing) g.restore();
       if (hp) g.restore();
     }
     if (def.kind === "fire" || def.kind === "furnace" || def.kind === "cauldron") {
@@ -1970,13 +2230,11 @@ function drawDaylight(
     g.fillStyle = "rgba(20,16,28,0.34)";
     g.fillRect(0, 0, w, h);
     g.globalCompositeOperation = "lighter";
-    for (const [lx, ly] of lights) {
-      const r = 64;
-      const grd = g.createRadialGradient(lx, ly, 4, lx, ly, r);
-      grd.addColorStop(0, "rgba(235,165,85,0.34)");
-      grd.addColorStop(1, "rgba(235,165,85,0)");
-      g.fillStyle = grd; g.beginPath(); g.arc(lx, ly, r, 0, Math.PI * 2); g.fill();
-    }
+    const pool = discSprite("hearth-pool", 64,
+      [[0, "rgba(235,165,85,1)"], [0.06, "rgba(235,165,85,1)"], [1, "rgba(235,165,85,0)"]]);
+    g.globalAlpha = 0.34;
+    for (const [lx, ly] of lights) g.drawImage(pool, lx - 64, ly - 64);
+    g.globalAlpha = 1;
     g.globalCompositeOperation = "source-over";
     return;
   }
@@ -1990,14 +2248,11 @@ function drawDaylight(
     g.fillRect(0, 0, w, h);
     // Firelight: warm radial pools that lift the dark around hearths.
     g.globalCompositeOperation = "lighter";
-    for (const [lx, ly] of lights) {
-      const r = 70;
-      const grd = g.createRadialGradient(lx, ly, 4, lx, ly, r);
-      grd.addColorStop(0, `rgba(230,150,70,${(night * 0.7).toFixed(3)})`);
-      grd.addColorStop(1, "rgba(230,150,70,0)");
-      g.fillStyle = grd;
-      g.beginPath(); g.arc(lx, ly, r, 0, Math.PI * 2); g.fill();
-    }
+    const pool = discSprite("night-pool", 70,
+      [[0, "rgba(230,150,70,1)"], [0.06, "rgba(230,150,70,1)"], [1, "rgba(230,150,70,0)"]]);
+    g.globalAlpha = night * 0.7;
+    for (const [lx, ly] of lights) g.drawImage(pool, lx - 70, ly - 70);
+    g.globalAlpha = 1;
     g.globalCompositeOperation = "source-over";
   }
   if (twilight > 0.01) {
@@ -2111,15 +2366,15 @@ function drawWeather(g: CanvasRenderingContext2D, w: number, h: number, now: num
     }
     case "heartmoor": { // low mist banks drifting across
       g.globalCompositeOperation = "lighter";
+      const bank = discSprite("mist-bank", 64, [[0, "rgba(170,190,180,1)"], [1, "rgba(170,190,180,0)"]]);
+      g.globalAlpha = 0.05;
       for (let i = 0; i < 9; i++) {
         const r = 60 + frac(i * 2.9) * 80;
         const x = ((frac(i * 5.3) * (w + 300) + now * (6 + frac(i) * 6) / 1000)) % (w + 300) - 150;
         const y = frac(i * 8.1) * h;
-        const grd = g.createRadialGradient(x, y, 0, x, y, r);
-        grd.addColorStop(0, "rgba(170,190,180,0.05)");
-        grd.addColorStop(1, "rgba(170,190,180,0)");
-        g.fillStyle = grd; g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fill();
+        g.drawImage(bank, x - r, y - r, r * 2, r * 2);
       }
+      g.globalAlpha = 1;
       g.globalCompositeOperation = "source-over";
       break;
     }
@@ -2133,10 +2388,10 @@ function drawWeather(g: CanvasRenderingContext2D, w: number, h: number, now: num
         const a = (0.10 + 0.32 * tw) * glow;
         // A warm firefly core with a soft halo at night.
         if (night > 0.3) {
-          const grd = g.createRadialGradient(x, y, 0, x, y, 5);
-          grd.addColorStop(0, `rgba(240,236,140,${(a * 0.9).toFixed(2)})`);
-          grd.addColorStop(1, "rgba(240,236,140,0)");
-          g.fillStyle = grd; g.beginPath(); g.arc(x, y, 5, 0, Math.PI * 2); g.fill();
+          const halo = discSprite("wood-firefly", 5, [[0, "rgba(240,236,140,1)"], [1, "rgba(240,236,140,0)"]]);
+          g.globalAlpha = a * 0.9;
+          g.drawImage(halo, x - 5, y - 5);
+          g.globalAlpha = 1;
         }
         g.fillStyle = `rgba(235,238,${night > 0.3 ? 170 : 150},${a.toFixed(2)})`;
         g.beginPath(); g.arc(x, y, 1.4, 0, Math.PI * 2); g.fill();
@@ -5258,15 +5513,11 @@ function sunCast(): SunCast {
 /** A soft directional shadow cast from a thing's feet by the sun's position. */
 function castShadow(g: CanvasRenderingContext2D, cx: number, feetY: number, sv: SunCast): void {
   if (sv.alpha < 0.02) return;
-  g.save();
-  g.translate(cx + sv.ox, feetY + sv.oy);
-  g.scale(sv.len, 0.42);
-  const grd = g.createRadialGradient(0, 0, 0, 0, 0, 9);
-  grd.addColorStop(0, `rgba(0,0,0,${sv.alpha.toFixed(3)})`);
-  grd.addColorStop(1, "rgba(0,0,0,0)");
-  g.fillStyle = grd;
-  g.beginPath(); g.arc(0, 0, 9, 0, Math.PI * 2); g.fill();
-  g.restore();
+  const sprite = discSprite("cast-shadow", 16, [[0, "rgba(0,0,0,1)"], [1, "rgba(0,0,0,0)"]]);
+  const rx = 9 * sv.len, ry = 9 * 0.42;
+  g.globalAlpha = sv.alpha;
+  g.drawImage(sprite, cx + sv.ox - rx, feetY + sv.oy - ry, rx * 2, ry * 2);
+  g.globalAlpha = 1;
 }
 
 /** A gentle always-on bloom halo over fires and lamps, so flames glow softly by
@@ -5276,13 +5527,10 @@ function drawLightBloom(g: CanvasRenderingContext2D, lights: Array<[number, numb
   g.save();
   g.globalCompositeOperation = "lighter";
   const fl = 0.7 + 0.3 * Math.sin(now / 180);
-  for (const [lx, ly] of lights) {
-    const grd = g.createRadialGradient(lx, ly, 0, lx, ly, 26);
-    grd.addColorStop(0, `rgba(255,196,110,${(0.20 * fl).toFixed(3)})`);
-    grd.addColorStop(1, "rgba(255,196,110,0)");
-    g.fillStyle = grd;
-    g.beginPath(); g.arc(lx, ly, 26, 0, Math.PI * 2); g.fill();
-  }
+  const bloom = discSprite("light-bloom", 26, [[0, "rgba(255,196,110,1)"], [1, "rgba(255,196,110,0)"]]);
+  g.globalAlpha = 0.20 * fl;
+  for (const [lx, ly] of lights) g.drawImage(bloom, lx - 26, ly - 26);
+  g.globalAlpha = 1;
   g.globalCompositeOperation = "source-over";
   g.restore();
 }
@@ -5290,18 +5538,9 @@ function drawLightBloom(g: CanvasRenderingContext2D, lights: Array<[number, numb
 function shadow(g: CanvasRenderingContext2D, cx: number, cy: number, rx: number, ry: number): void {
   // A soft, feathered contact shadow (radial falloff) so things sit in the
   // world instead of floating on a hard grey disc.
-  g.save();
-  g.translate(cx, cy);
-  g.scale(1, ry / rx);
-  const grd = g.createRadialGradient(0, 0, 0, 0, 0, rx);
-  grd.addColorStop(0, "rgba(0,0,0,0.34)");
-  grd.addColorStop(0.7, "rgba(0,0,0,0.22)");
-  grd.addColorStop(1, "rgba(0,0,0,0)");
-  g.fillStyle = grd;
-  g.beginPath();
-  g.arc(0, 0, rx, 0, Math.PI * 2);
-  g.fill();
-  g.restore();
+  const sprite = discSprite("contact-shadow", 24,
+    [[0, "rgba(0,0,0,0.34)"], [0.7, "rgba(0,0,0,0.22)"], [1, "rgba(0,0,0,0)"]]);
+  g.drawImage(sprite, cx - rx, cy - ry, rx * 2, ry * 2);
 }
 
 // --- Trees: a shared stump when felled; species-specific canopy when standing ---

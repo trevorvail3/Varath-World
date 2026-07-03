@@ -1448,6 +1448,26 @@ body {
 .shop-backdrop:not(.hidden),
 .worldmap-backdrop:not(.hidden) { animation: ui-fade-in 0.14s ease; }
 .bank-modal, .shop-modal, .bounty-modal { animation: ui-pop-in 0.16s cubic-bezier(0.2, 0.9, 0.3, 1.2); }
+/* Vitals chips (hunt / special / trail) ease in instead of snapping into place. */
+.hunt-chip:not(.hidden), .spec-chip:not(.hidden), .clue-chip:not(.hidden) {
+  animation: chip-in 0.26s cubic-bezier(0.2, 0.9, 0.3, 1.25);
+}
+@keyframes chip-in {
+  from { opacity: 0; transform: translateY(-5px) scale(0.94); }
+  to { opacity: 1; transform: none; }
+}
+/* Switching dock tabs: the incoming panel fades up a touch. */
+.tab-panel.active { animation: panel-in 0.16s ease; }
+@keyframes panel-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: none; }
+}
+/* New log/chat lines slide in rather than popping. */
+.log-line { animation: log-in 0.22s ease; }
+@keyframes log-in {
+  from { opacity: 0; transform: translateX(-6px); }
+  to { opacity: 1; transform: none; }
+}
 
 /* Recipes above your level: dimmed, with their level requirement shown. */
 .ctx-item.ctx-locked { opacity: 0.5; }

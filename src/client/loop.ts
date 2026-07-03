@@ -2098,7 +2098,9 @@ export class Game {
       const t = (now - f.born) / (f.life ?? LIFE);
       const age = now - f.born;
       const px = f.x * TILE + TILE / 2 - this.cam.x;
-      const py = f.y * TILE + TILE / 2 - this.cam.y - t * 22;
+      // Ease-out rise: quick lift off the hit, then a gentle drift at the top.
+      const rise = 1 - (1 - t) * (1 - t);
+      const py = f.y * TILE + TILE / 2 - this.cam.y - rise * 26;
       // A quick pop on spawn: overshoot to ~1.5× then settle over the first 130ms.
       const pop = age < 130 ? 1 + 0.5 * (1 - age / 130) : 1;
       this.g.save();
@@ -2395,6 +2397,9 @@ export class Game {
       if (t.id !== undefined) intent.id = t.id;
       if (t.qty !== undefined) intent.qty = t.qty;
       this.dispatch(intent);
+      // A little glint where the pile was — the pocketing made visible.
+      const taken = t.id === undefined || !this.bridge.state.ground.some((gi) => gi.id === t.id);
+      if (taken) this.sparks.push({ x: t.x, y: t.y, born: performance.now(), color: "#e8c76a", n: 6 });
       this.pickupTarget = null;
     } else if (p.path.length === 0) {
       this.pickupTarget = null; // stopped short — give up
