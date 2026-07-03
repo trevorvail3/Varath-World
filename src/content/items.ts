@@ -1967,6 +1967,44 @@ export const items: Record<ItemId, ItemDef> = {
     "cat": "Combat",
     "sell": 0
   },
+  "vane_badge": {
+    "id": "vane_badge",
+    "name": "Serjeant Vane's Badge",
+    "description": "An Ironvale watch badge, polished to a shine even in hiding. The ninth bell is scratched into the back \u2014 the hour Vane rang the alarm nobody logged.",
+    "icon": "\ud83c\udf96",
+    "cat": "Quest",
+    "sell": 0
+  },
+  "vane_letter": {
+    "id": "vane_letter",
+    "name": "Vane's Letter",
+    "description": "Written fast and buried deep: 'I rang the ninth bell the night the chest was emptied. The ledgers say no bell rang. Only one man keeps the ledgers. If you're reading this, tell Hesta \u2014 the ninth bell was true.'",
+    "icon": "\ud83d\udcdc",
+    "cat": "Quest",
+    "sell": 0
+  },
+  "guards_signet": {
+    "id": "guards_signet",
+    "name": "Guard's Signet",
+    "description": "Captain Morn's own signet, given to the one who found the truth the watch-book missed. Weighty for a ring \u2014 most thanks are.",
+    "icon": "\ud83d\udc8d",
+    "cat": "Jewellery",
+    "slot": "ring",
+    "acc": 6,
+    "def": 4,
+    "sell": 0
+  },
+  "watchmans_buckler": {
+    "id": "watchmans_buckler",
+    "name": "Watchman's Buckler",
+    "description": "A guard-issue buckler from the garrison stores Brann bled dry \u2014 the arms he sold are how the hired blades got theirs. Solid early protection, and a story to tell.",
+    "icon": "\ud83d\udee1\ufe0f",
+    "cat": "Armour",
+    "slot": "offhand",
+    "tier": 3,
+    "def": 13,
+    "sell": 420
+  },
   "helm_1": {
     "id": "helm_1",
     "name": "Knucklestone Helm",

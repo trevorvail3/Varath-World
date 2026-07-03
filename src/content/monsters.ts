@@ -1338,6 +1338,42 @@ export const monsters: Record<string, MonsterStats> = {
     ],
   },
   // === The Boneman: a mid-tier quest boss — a serial killer's lair. ==========
+  // === The Ninth Bell questline: the quartermaster's hired muscle, and the
+  // quartermaster himself — Varath's ENTRY boss (combat 23), built to teach
+  // bossing: one clean telegraphed slam to step off, one enrage to respect.
+  "hired_blade": {
+    id: "hired_blade", name: "Hired Blade", level: 15, hp: 48,
+    acc: 42, def: 12, maxHit: 5, speed: 2800, xp: 85, attackStyle: "slash",
+    weakness: ["stab"],
+    desc: "Coin-bought muscle in unmarked leathers. Whoever pays them buys their silence too — but not their loyalty.",
+    drops: [
+      { item: "worn_coin", chance: 1, min: 15, max: 40, tier: "always" },
+      { item: "health_elixir", chance: 0.25, tier: "uncommon" },
+    ],
+  },
+  "quartermaster_brann": {
+    id: "quartermaster_brann", name: "Quartermaster Brann", level: 23, hp: 190,
+    acc: 78, def: 26, maxHit: 8, speed: 3200, xp: 420, attackStyle: "crush",
+    weakness: ["crush"],
+    boss: true,
+    bossHint: "The Ironvale quartermaster who robbed his own pay-chest and framed a better man for it. He guards his secret at the Coldstep Shack, in the far north-west where the maps run out. A crushing weapon dents his stolen plate best — and when he marks the ground, MOVE.",
+    desc: "Ironvale's quartermaster, in guard plate he signed out and never signed back. He kept the ledgers, so he knows exactly what a person's silence costs — and what a shield swung in anger can do. Step off the ground he marks.",
+    mechanics: [
+      // 1. Pay-Chest Slam — the teaching mechanic: a long, generous windup on
+      //    a marked tile. New bossers learn the golden rule: feet move first.
+      { type: "slam", every: 4, mult: 2.2, radius: 1, windupMs: 2800, tell: "Brann heaves his tower shield overhead — the ground you stand on darkens. STEP OFF IT!" },
+      // 2. Cornered — below a third he stops holding back.
+      { type: "enrage", below: 0.34, mult: 1.35, tell: "Brann stops pretending this is discipline — cornered now, and swinging like it." },
+    ],
+    drops: [
+      { item: "worn_coin", chance: 1, min: 60, max: 140, tier: "always" },
+      { item: "health_elixir", chance: 0.5, tier: "common" },
+      { item: "battle_ration", chance: 0.4, tier: "common" },
+      { item: "cut_gem", chance: 0.2, tier: "uncommon" },
+      // The chase piece for an entry boss: a solid early offhand.
+      { item: "watchmans_buckler", chance: 0.05, tier: "rare" },
+    ],
+  },
   "boneman": {
     id: "boneman", name: "The Boneman", level: 69, hp: 750,
     acc: 210, def: 58, maxHit: 30, speed: 3600, xp: 1400, attackStyle: "slash",

@@ -105,7 +105,8 @@ type Shape =
   | "arrow" | "arrowhead" | "shield" | "helm" | "body" | "legs" | "boot" | "cape"
   | "ring" | "amulet" | "gem" | "bead" | "vial" | "herb" | "seed" | "mushroom"
   | "fish" | "meat" | "cooked" | "bowl" | "bread" | "hide" | "pet" | "mount" | "coin"
-  | "scroll" | "key" | "trophy" | "powder" | "rivet" | "sack" | "rune";
+  | "scroll" | "key" | "trophy" | "powder" | "rivet" | "sack" | "rune"
+  | "hook" | "spike" | "horn" | "satchel";
 
 function classify(def: ItemDef): Shape {
   const id = def.id.toLowerCase();
@@ -146,6 +147,13 @@ function classify(def: ItemDef): Shape {
     has("plate") || has("mail") || has("jacket") || has(" top") || has("cuirass") ||
     has("body")
   ) return "body";
+
+  // The bounty board's field tools are cat "Combat" but aren't weapons — each
+  // gets its own icon instead of falling through to the generic sword.
+  if (id === "flensing_hook") return "hook";
+  if (id === "maw_spike") return "spike";
+  if (id === "hunters_horn") return "horn";
+  if (id === "hunters_kit") return "satchel";
 
   // weapons (mainhand, non-tool)
   if (slot === "mainhand" || cat.includes("Weapon") || cat === "Combat") {
@@ -345,6 +353,197 @@ function fishShape(p: Pal, id: string): string {
   }
 }
 
+/**
+ * Every pet gets a real portrait — a small SVG take on the same bespoke art
+ * its world sprite uses (drawSkillPet / the mini-boss followers in render.ts),
+ * so Old Bay looks like Old Bay in the bounty shop, the pack, and the
+ * collection log alike. Falls back to a generic critter for anything new.
+ */
+function petShape(p: Pal, id: string): string {
+  const eye = (x: number, y: number, r = 1.1, c = "#15100b"): string => `<circle cx="${x}" cy="${y}" r="${r}" fill="${c}"/>`;
+  const el = (cx: number, cy: number, rx: number, ry: number, f: string, rot = 0): string =>
+    `<ellipse cx="${cx}" cy="${cy}" rx="${rx}" ry="${ry}" fill="${f}"${rot ? ` transform="rotate(${rot} ${cx} ${cy})"` : ""}/>`;
+  switch (id) {
+    case "pet_bloodhound": // OLD BAY — long low hound, droopy ears, grey muzzle
+      return el(17, 19, 10, 6, "#6e4f33")
+        + el(8.5, 14, 4.8, 4.2, "#7c5a3a", -20)
+        + el(6.6, 17.5, 2, 4, "#5a4028", -12)   // long ear
+        + el(5.2, 13.5, 2.4, 1.9, "#8a6844", -20) // aged muzzle
+        + `<rect x="11" y="23" width="2.6" height="4.5" rx="1" fill="#4a3521"/><rect x="20" y="23" width="2.6" height="4.5" rx="1" fill="#4a3521"/>`
+        + el(27, 15.5, 2.6, 1.3, "#4a3521", 35)   // tail
+        + eye(8.6, 12.6);
+    case "pet_trail_wren": // TRAILWING WREN — round body, cocked tail
+      return el(16, 18, 6.5, 5.5, "#8a6a42")
+        + el(14, 19.5, 3.6, 3, "#a5845a")          // breast
+        + el(18, 17, 3.8, 2.6, "#6d5233", 20)      // wing
+        + `<rect x="21" y="10" width="6" height="2.2" rx="1" transform="rotate(-42 21 11)" fill="#57411f"/>` // cocked tail
+        + `<circle cx="10.5" cy="13.5" r="3.2" fill="#8a6a42"/>`
+        + `<polygon points="7.5,13.5 4.8,14.2 7.6,15" fill="#c9a256"/>` // beak
+        + `<rect x="13.5" y="23" width="1.4" height="3.4" fill="#c58a3f"/><rect x="17" y="23" width="1.4" height="3.4" fill="#c58a3f"/>`
+        + eye(10, 12.6, 0.9);
+    case "pet_mining": // ROCKLING — a living pebble with a crystal spine
+      return el(16, 19, 9.5, 7.5, "#6a6660")
+        + el(14, 15.5, 6, 4.5, "#7d786f")
+        + `<polygon points="17,8 20,14 13,14" fill="#8fd0e0"/><polygon points="22,11.5 24,16 19,16" fill="#8fd0e0"/>`
+        + `<rect x="10" y="24.5" width="3" height="2.8" rx="1" fill="#4f4b46"/><rect x="19" y="24.5" width="3" height="2.8" rx="1" fill="#4f4b46"/>`
+        + eye(11.5, 16.5) + eye(16.5, 16.5);
+    case "pet_smithing": // CINDER — coal-dark imp seamed with fire
+      return `<ellipse cx="16" cy="18" rx="8" ry="7.5" fill="#38302a" stroke="#5a4c40" stroke-width="1"/>`
+        + `<path d="M9,18 Q13,15 16,18 Q19,21 23,18" fill="none" stroke="#e8823a" stroke-width="1.3" opacity="0.9"/>`
+        + `<path d="M11,22 Q15,20 21,22.5" fill="none" stroke="#c85a28" stroke-width="1" opacity="0.8"/>`
+        + `<polygon points="11,10 13.5,13.5 9.5,13.5" fill="#38302a" stroke="#5a4c40" stroke-width="0.7"/><polygon points="21,10 22.5,13.5 18.5,13.5" fill="#38302a" stroke="#5a4c40" stroke-width="0.7"/>`
+        + eye(12.5, 15.5, 1.2, "#f2a848") + eye(19.5, 15.5, 1.2, "#f2a848");
+    case "pet_forestry": // BARKBACK — a walking seedling
+      return el(16, 20, 7, 6, "#6a4e30")
+        + el(16, 14.5, 4.6, 3.6, "#7c5c3a")
+        + `<path d="M16,11 Q16,7 16,5.5" stroke="#4d6a2e" stroke-width="1.6" fill="none"/>`
+        + `<path d="M16,7 Q11.5,4.5 9.5,6.5 Q13,9 16,7 Z" fill="#5e8240"/><path d="M16,6.5 Q20.5,3.5 22.5,5.8 Q19,8.5 16,6.5 Z" fill="#6f9a4c"/>`
+        + `<rect x="11.5" y="24.5" width="2.6" height="3" rx="1" fill="#4a3521"/><rect x="18" y="24.5" width="2.6" height="3" rx="1" fill="#4a3521"/>`
+        + eye(13.8, 14) + eye(18.2, 14);
+    case "pet_woodcraft": // SPLINTER — a carved wooden owl, ring-grained
+      return el(16, 17, 8, 9, "#8a6a44")
+        + `<circle cx="12.5" cy="13.5" r="3.4" fill="#a5845a"/><circle cx="19.5" cy="13.5" r="3.4" fill="#a5845a"/>`
+        + `<circle cx="12.5" cy="13.5" r="1.9" fill="none" stroke="#6d5233" stroke-width="0.8"/><circle cx="19.5" cy="13.5" r="1.9" fill="none" stroke="#6d5233" stroke-width="0.8"/>`
+        + `<path d="M11,22 Q16,25 21,22" fill="none" stroke="#6d5233" stroke-width="0.9"/><path d="M12,24.4 Q16,26.6 20,24.4" fill="none" stroke="#6d5233" stroke-width="0.9"/>`
+        + `<polygon points="16,15.5 14.4,18 17.6,18" fill="#57411f"/>`
+        + eye(12.5, 13.5, 1.2) + eye(19.5, 13.5, 1.2);
+    case "pet_hunter": // QUICKSNARE — fox kit, white tail tip
+      return el(16.5, 19, 8.5, 5.5, "#b0562c")
+        + `<circle cx="9.5" cy="14" r="4" fill="#bd6234"/>`
+        + `<polygon points="6.5,11 5.6,6 9.4,9.2" fill="#8a3f1e"/><polygon points="12,10.4 12.8,5.6 15,9.6" fill="#8a3f1e"/>`
+        + el(6.8, 15.8, 2, 1.5, "#e8dcc8", -18)   // white muzzle
+        + `<path d="M24,17 Q29,15 28.5,11" fill="none" stroke="#b0562c" stroke-width="3.4" stroke-linecap="round"/>`
+        + `<circle cx="28.4" cy="11.4" r="1.9" fill="#e8dcc8"/>` // tail tip
+        + eye(8.6, 13);
+    case "pet_fishing": // BOBBER — sleek otter with a silver catch
+      return el(17, 18.5, 9.5, 5.5, "#5e4630", -8)
+        + `<circle cx="9" cy="13.5" r="3.6" fill="#6d5233"/>`
+        + el(16, 20.5, 5.5, 3, "#8a7354")           // pale belly
+        + `<path d="M25.5,20 Q29.5,21.5 29,25" fill="none" stroke="#5e4630" stroke-width="2.8" stroke-linecap="round"/>`
+        + el(6, 15.8, 2.6, 1.1, "#b8c8d0", -25)     // the silver fish
+        + `<polygon points="3.8,16.6 2.6,15.4 2.8,17.8" fill="#93a5b0"/>`
+        + eye(8.2, 12.4);
+    case "pet_cooking": // ASHLING — plump flour-dusted hen, chef-hatted
+      return el(16, 19, 8, 6.5, "#e6ddcc")
+        + `<circle cx="10" cy="13" r="3.4" fill="#efe8da"/>`
+        + `<path d="M7.5,10.5 Q6.5,6.5 10,6.8 Q9.5,5 12.5,5.6 Q13.8,4.8 13.5,7 Q14.5,10 11,10.8 Z" fill="#f7f3ea" stroke="#c9c0ae" stroke-width="0.6"/>` // chef hat
+        + `<polygon points="7,13.6 4.6,14.4 7.2,15.2" fill="#d8963c"/>`
+        + el(19, 16.5, 4, 2.8, "#d9cfba", 15)        // wing
+        + `<rect x="13" y="24.5" width="1.4" height="3" fill="#c58a3f"/><rect x="17" y="24.5" width="1.4" height="3" fill="#c58a3f"/>`
+        + eye(9.4, 12.4, 0.9);
+    case "pet_farming": // SEEDLING — harvest mouse with a wheat sprig
+      return el(16, 19.5, 7, 5.5, "#9a7a52")
+        + `<circle cx="10" cy="15" r="3.6" fill="#a5845a"/>`
+        + `<circle cx="8.4" cy="11.4" r="1.9" fill="#8a6a42"/><circle cx="12.6" cy="11" r="1.9" fill="#8a6a42"/>` // round ears
+        + `<path d="M23,19 Q28,17.5 28.5,13.5" fill="none" stroke="#8a6a42" stroke-width="1.4" stroke-linecap="round"/>` // tail
+        + `<path d="M13,14 L18,8" stroke="#c9a24e" stroke-width="1.1"/>`
+        + `<path d="M18,8 L16.6,6.4 M18,8 L19.8,6.6 M17.4,9.4 L15.8,8 M17.4,9.4 L19.4,8.4" stroke="#d9b45e" stroke-width="1"/>` // wheat head
+        + eye(9.2, 14.4, 0.9);
+    case "pet_survivalist": // DUSKWING — green-dappled wild hare
+      return el(16, 19.5, 7.5, 5.5, "#7a7a52")
+        + `<circle cx="10.5" cy="14" r="3.4" fill="#8a8a5e"/>`
+        + `<rect x="8.4" y="5.5" width="2.2" height="7" rx="1" fill="#7a7a52" transform="rotate(-8 9.5 9)"/><rect x="12" y="5.2" width="2.2" height="7.4" rx="1" fill="#8a8a5e" transform="rotate(9 13 9)"/>`
+        + `<circle cx="14" cy="18" r="1.2" fill="#5e6a3c" opacity="0.8"/><circle cx="19" cy="21" r="1" fill="#5e6a3c" opacity="0.8"/><circle cx="17.5" cy="17" r="0.8" fill="#5e6a3c" opacity="0.7"/>` // dapples
+        + `<circle cx="23.5" cy="21" r="1.8" fill="#d8d2c0"/>`
+        + eye(9.6, 13.2, 0.9);
+    case "pet_herblore": // SPRIG — teal toad under a mushroom cap
+      return el(16, 20, 8, 5.5, "#4e8a80")
+        + `<circle cx="12" cy="15.5" r="1.7" fill="#5ea094"/><circle cx="20" cy="15.5" r="1.7" fill="#5ea094"/>`
+        + `<path d="M7,12 Q7,6 16,6 Q25,6 25,12 Q16,15 7,12 Z" fill="#a5563a" stroke="#7a3c28" stroke-width="0.8"/>` // mushroom cap
+        + `<circle cx="12" cy="9.5" r="1.1" fill="#e8dcc8" opacity="0.85"/><circle cx="19" cy="8.6" r="0.9" fill="#e8dcc8" opacity="0.8"/>`
+        + `<path d="M10,24.5 Q12,26.5 14,24.8 M18,24.8 Q20,26.6 22,24.5" fill="none" stroke="#3c6e66" stroke-width="1.6"/>`
+        + eye(12, 15.2, 0.9) + eye(20, 15.2, 0.9);
+    case "pet_construction": // MORTAR — square-backed beetle hauling a brick
+      return el(16, 20, 8.5, 5.5, "#4a4038")
+        + `<rect x="10" y="9.5" width="12" height="7" rx="1.4" fill="#9a5a42" stroke="#6e3c2c" stroke-width="0.8"/>` // the brick
+        + `<line x1="16" y1="10" x2="16" y2="16" stroke="#6e3c2c" stroke-width="0.7"/><line x1="10.5" y1="13" x2="21.5" y2="13" stroke="#6e3c2c" stroke-width="0.7"/>`
+        + `<path d="M9,23.5 L6.5,26 M13,24.5 L11.5,27 M19,24.5 L20.5,27 M23,23.5 L25.5,26" stroke="#332c26" stroke-width="1.4"/>`
+        + `<circle cx="7.8" cy="18" r="2.4" fill="#554a40"/>`
+        + eye(7, 17.4, 0.8);
+    case "pet_crafting": // THIMBLE — tortoise with a cut gem for a shell
+      return el(16, 21, 9, 4.5, "#8a8462")
+        + `<polygon points="16,7 23.5,13 21,19 11,19 8.5,13" fill="#7aa0c8" stroke="#4e6c8e" stroke-width="1"/>`
+        + `<polygon points="16,7 23.5,13 16,13.5 8.5,13" fill="#a8c6e4"/>`
+        + `<circle cx="26" cy="20.5" r="2.6" fill="#9a9470"/>`
+        + `<rect x="10" y="24" width="2.6" height="2.6" rx="1" fill="#6e6a4e"/><rect x="19.5" y="24" width="2.6" height="2.6" rx="1" fill="#6e6a4e"/>`
+        + eye(27, 19.8, 0.8);
+    case "pet_bounty": // TRACKER — the Reckoner's ledger hawk
+      return el(16, 17.5, 6.5, 7, "#5e564a")
+        + el(18.5, 16, 4, 6, "#4a4238", 15)          // folded wing
+        + `<circle cx="12" cy="10.5" r="3.4" fill="#6a6254"/>`
+        + `<polygon points="9,10.5 6.4,11.6 9.2,12.6" fill="#c9a24e"/>` // hooked beak
+        + `<path d="M12,24.5 L12,27 M16,24.5 L16,27" stroke="#c9a24e" stroke-width="1.4"/>`
+        + `<polygon points="20,23 25,27 19,26" fill="#3c362e"/>`        // tail
+        + eye(11.4, 9.8, 1, "#e8b84a");
+    case "pet_superior": // THE RECKONING WISP — black flame, gold mask
+      return `<path d="M16,4 Q21,10 19.5,15 Q23,14 21.5,20 Q20,26 16,26 Q12,26 10.5,20 Q9,14 12.5,15 Q11,10 16,4 Z" fill="#1c1822" stroke="#332c3e" stroke-width="0.8"/>`
+        + `<path d="M16,7 Q19,11.5 17.8,15.5 Q19.5,15 18.6,19" fill="none" stroke="#3e3450" stroke-width="1" opacity="0.8"/>`
+        + `<path d="M12,17 Q16,15 20,17 L19.4,20.4 Q16,19 12.6,20.4 Z" fill="#caa24a"/>`   // the gold mask
+        + eye(14, 18.2, 0.8, "#0d0a12") + eye(18, 18.2, 0.8, "#0d0a12");
+    case "pet_founder_wisp": // THE FIRST EMBER — a warm lantern-mote
+      return `<circle cx="16" cy="16" r="9.5" fill="#e8823a" opacity="0.18"/>`
+        + `<circle cx="16" cy="16" r="6" fill="#e8823a" opacity="0.4"/>`
+        + `<path d="M16,8 Q20,13 18.5,17.5 Q21,17 19.5,21.5 Q18.4,24.6 16,24.6 Q13.6,24.6 12.5,21.5 Q11,17 13.5,17.5 Q12,13 16,8 Z" fill="#f2a848"/>`
+        + `<path d="M16,12 Q18,15 17,18.5 Q16.4,21 16,21.4 Q14,19 14.6,16 Q15,13.5 16,12 Z" fill="#f8d890"/>`;
+    case "pet_boneman": // LITTLE MARROW — a skull pup
+      return el(16, 20, 7.5, 5.5, "#d9d2c0")
+        + `<path d="M9.5,12.5 Q9.5,7 15,7 Q20.5,7 20.5,12.5 Q20.5,15 18.8,16 L18.8,18 L11.2,18 L11.2,16 Q9.5,15 9.5,12.5 Z" fill="#efe8da" stroke="#b8b0a0" stroke-width="0.7"/>`
+        + `<circle cx="12.8" cy="12.5" r="1.6" fill="#2b2724"/><circle cx="17.2" cy="12.5" r="1.6" fill="#2b2724"/>`
+        + `<rect x="12.6" y="16" width="1.2" height="1.8" fill="#b8b0a0"/><rect x="15" y="16" width="1.2" height="1.8" fill="#b8b0a0"/><rect x="17.4" y="16" width="1.2" height="1.8" fill="#b8b0a0"/>`
+        + `<rect x="11" y="24" width="2.6" height="3" rx="1" fill="#c4bcaa"/><rect x="18.5" y="24" width="2.6" height="3" rx="1" fill="#c4bcaa"/>`;
+    case "pet_green_baron": // THE LITTLE HOOD — a hooded green mite
+      return el(16, 21, 7, 5.5, "#3e5c34")
+        + `<path d="M9,16 Q9,7.5 16,6 Q23,7.5 23,16 Q19.5,18.5 16,18.5 Q12.5,18.5 9,16 Z" fill="#4d6a3e" stroke="#2e4426" stroke-width="0.8"/>` // the hood
+        + `<path d="M16,6 Q17.5,4 19.5,4.5 Q18,6.5 16.8,6.6 Z" fill="#2e4426"/>`
+        + `<ellipse cx="16" cy="14.5" rx="4.2" ry="3.4" fill="#1e2a1a"/>`
+        + eye(14.2, 14, 1, "#b8e07a") + eye(17.8, 14, 1, "#b8e07a");
+    case "pet_hollow_prophet": // LITTLE HOLLOW — a dark cowl, one pale eye
+      return `<path d="M16,5 Q23,8 22.5,17 Q22,24 16,26.5 Q10,24 9.5,17 Q9,8 16,5 Z" fill="#241f2e" stroke="#3a3348" stroke-width="0.8"/>`
+        + `<ellipse cx="16" cy="15" rx="4.6" ry="5.4" fill="#141020"/>`
+        + `<circle cx="16" cy="14.5" r="2.2" fill="#cdbfd8" opacity="0.95"/><circle cx="16" cy="14.5" r="1" fill="#141020"/>`
+        + `<path d="M12,23.5 Q16,25.5 20,23.5" fill="none" stroke="#3a3348" stroke-width="0.9" opacity="0.8"/>`;
+    case "pet_vorlag": // THE LITTLE HUNGER — a round dark maw
+      return `<circle cx="16" cy="16" r="10" fill="#231c28" stroke="#3c2f42" stroke-width="1"/>`
+        + `<circle cx="16" cy="16.5" r="5.8" fill="#0d0a12"/>`
+        + `<polygon points="11.5,13.5 13,16.5 10.6,16" fill="#cdbfd8"/><polygon points="16,12 17.4,15.4 14.6,15.4 Z" fill="#cdbfd8"/><polygon points="20.5,13.5 21.4,16 19,16.5" fill="#cdbfd8"/>`
+        + `<polygon points="12.5,20.5 14,18 15,20.8" fill="#b0a2be"/><polygon points="18.5,20.8 19.5,18 21,20.3" fill="#b0a2be"/>`
+        + `<circle cx="10" cy="10" r="1.1" fill="#8a5fc0"/><circle cx="22" cy="10.5" r="1" fill="#8a5fc0"/>`;
+    case "pet_hollow_warden": // BARROWKIN — a pale barrow-wight mite
+      return el(16, 18, 7.5, 8, "#8e93a5")
+        + el(16, 12.5, 5, 4.2, "#a0a5b5")
+        + `<path d="M10,25 Q12,22.5 13.5,25.5 M15,25.8 Q16.5,23 18,25.8 M19.5,25.5 Q21,22.5 22.5,25" fill="none" stroke="#8e93a5" stroke-width="1.6"/>` // tattered hem
+        + eye(13.8, 12, 1.1, "#3e6ac8") + eye(18.2, 12, 1.1, "#3e6ac8");
+    case "pet_bog_warden": // MIREWISP — a green bog-light
+      return `<circle cx="16" cy="16" r="9" fill="#5e8a58" opacity="0.2"/>`
+        + `<path d="M16,6.5 Q20,12 18.5,16.5 Q21,16 19.8,20.5 Q18.6,24.5 16,24.5 Q13.4,24.5 12.2,20.5 Q11,16 13.5,16.5 Q12,12 16,6.5 Z" fill="#6fae72"/>`
+        + `<path d="M16,10.5 Q18,14 17,17.5 Q16.4,20.5 16,21 Q14.6,18 15.2,15 Q15.6,12.5 16,10.5 Z" fill="#b8e0a8"/>`
+        + eye(14.4, 16, 0.8, "#1e2a1a") + eye(17.6, 16, 0.8, "#1e2a1a");
+    case "pet_spine_warlord": // CAIRN — a stacked-stone beastling
+      return el(16, 22.5, 8.5, 4.5, "#5e5a64")
+        + el(16, 16, 6.5, 4, "#6a6672")
+        + el(16, 10.5, 4.5, 3.2, "#787384")
+        + `<polygon points="16,5.5 17.6,8.4 14.4,8.4" fill="#aeb8c6"/>` // snow-capped top
+        + `<line x1="10" y1="16.5" x2="13" y2="16" stroke="#4a4650" stroke-width="0.8"/><line x1="19" y1="22.5" x2="22.5" y2="22" stroke="#4a4650" stroke-width="0.8"/>`
+        + eye(14.2, 10.2, 0.9, "#cfe0ea") + eye(17.8, 10.2, 0.9, "#cfe0ea");
+    case "pet_marrow_keeper": // KEEPSAKE — a bone lantern, candle lit
+      return `<rect x="11" y="10" width="10" height="13" rx="2" fill="#d9d2c0" stroke="#b8b0a0" stroke-width="1"/>`
+        + `<rect x="13" y="12" width="6" height="9" rx="1" fill="#2b2520"/>`
+        + `<rect x="15.2" y="16.5" width="1.6" height="4" fill="#efe8da"/>`
+        + `<path d="M16,13.5 Q17.4,15.2 16,16.6 Q14.6,15.2 16,13.5 Z" fill="#f2a848"/>`
+        + `<path d="M13,10 Q13,7 16,7 Q19,7 19,10" fill="none" stroke="#b8b0a0" stroke-width="1.4"/>`
+        + `<rect x="12" y="23" width="8" height="2" rx="1" fill="#c4bcaa"/>`;
+    case "pet_ashen_wyrm": // EMBERLING — a small ember serpent
+      return `<path d="M5,21 Q9,24 13,21 Q17,18 15,14 Q13.5,11 16.5,9" fill="none" stroke="#5a3a30" stroke-width="4.6" stroke-linecap="round"/>`
+        + `<path d="M5,21 Q9,24 13,21 Q17,18 15,14" fill="none" stroke="#c85a28" stroke-width="1.2" opacity="0.85"/>`
+        + `<circle cx="18.5" cy="8" r="3.6" fill="#6a453a"/>`
+        + `<polygon points="20,5.2 22.5,3.4 22,6.6" fill="#c85a28"/>`
+        + `<polygon points="21.8,8.6 25,9.4 22,10.6" fill="#8a5040"/>`
+        + eye(18, 7.2, 0.9, "#f2a848");
+    default: // any new pet: the generic critter, until it earns its portrait
+      return `<ellipse cx="16" cy="20" rx="8" ry="7" fill="${p.base}" stroke="${p.edge}" stroke-width="1"/><circle cx="16" cy="12" r="5.5" fill="${p.base}" stroke="${p.edge}" stroke-width="1"/><polygon points="11,8 12.5,13 14,10" fill="${p.dark}"/><polygon points="21,8 19.5,13 18,10" fill="${p.dark}"/><circle cx="14" cy="12" r="1" fill="#1a1a1a"/><circle cx="18" cy="12" r="1" fill="#1a1a1a"/><circle cx="16" cy="14" r="0.9" fill="${p.dark}"/>`;
+  }
+}
+
 function draw(shape: Shape, p: Pal, id: string): string {
   const r = (hash(id) % 9) - 4; // gentle per-item rotation for lumpy shapes
   switch (shape) {
@@ -417,7 +616,7 @@ function draw(shape: Shape, p: Pal, id: string): string {
     case "bowl": return `<path d="M5,15 Q16,13 27,15 Q25,25 16,25 Q7,25 5,15 Z" fill="#7a5236" stroke="${p.edge}" stroke-width="1" stroke-linejoin="round"/><ellipse cx="16" cy="15" rx="11" ry="3" fill="${p.base}"/><circle cx="12" cy="15" r="1.2" fill="${p.light}"/><circle cx="19" cy="14.5" r="1" fill="${p.dark}"/>`;
     case "bread": return `<path d="M6,18 Q6,11 16,11 Q26,11 26,18 Q26,23 16,23 Q6,23 6,18 Z" fill="${p.base}" stroke="${p.edge}" stroke-width="1"/><line x1="11" y1="13" x2="9" y2="21" stroke="${p.dark}" stroke-width="0.8" opacity="0.5"/><line x1="16" y1="12.5" x2="16" y2="22" stroke="${p.dark}" stroke-width="0.8" opacity="0.5"/><line x1="21" y1="13" x2="23" y2="21" stroke="${p.dark}" stroke-width="0.8" opacity="0.5"/>`;
     case "hide": return `<path d="M16,5 Q21,7 20,12 Q26,14 24,19 Q26,24 20,24 Q18,28 16,24 Q14,28 12,24 Q6,24 8,19 Q6,14 12,12 Q11,7 16,5 Z" fill="${p.base}" stroke="${p.edge}" stroke-width="1" stroke-linejoin="round"/><ellipse cx="16" cy="16" rx="4" ry="6" fill="${p.light}" opacity="0.4"/>`;
-    case "pet": return `<ellipse cx="16" cy="20" rx="8" ry="7" fill="${p.base}" stroke="${p.edge}" stroke-width="1"/><circle cx="16" cy="12" r="5.5" fill="${p.base}" stroke="${p.edge}" stroke-width="1"/><polygon points="11,8 12.5,13 14,10" fill="${p.dark}"/><polygon points="21,8 19.5,13 18,10" fill="${p.dark}"/><circle cx="14" cy="12" r="1" fill="#1a1a1a"/><circle cx="18" cy="12" r="1" fill="#1a1a1a"/><circle cx="16" cy="14" r="0.9" fill="${p.dark}"/>`;
+    case "pet": return petShape(p, id);
     case "mount": {
       // Tack & cosmetics: their own glyphs, not a steed's head.
       if (id === "mount_blanket") {
@@ -470,6 +669,31 @@ function draw(shape: Shape, p: Pal, id: string): string {
     case "rivet": return `<circle cx="16" cy="10" r="5" fill="${p.base}" stroke="${p.edge}" stroke-width="1"/><polygon points="13,13 19,13 17,26 15,26" fill="${p.base}" stroke="${p.edge}" stroke-width="1"/><ellipse cx="14" cy="9" rx="1.6" ry="1" fill="${p.light}" opacity="0.6"/>`;
     case "sack": return `<path d="M9,12 Q9,9 16,9 Q23,9 23,12 L24,24 Q24,27 16,27 Q8,27 8,24 Z" fill="${p.base}" stroke="${p.edge}" stroke-width="1"/><path d="M11,11 Q16,7 21,11" fill="none" stroke="${p.dark}" stroke-width="1.4"/><line x1="16" y1="16" x2="16" y2="23" stroke="${p.dark}" stroke-width="0.8" opacity="0.5"/>`;
     case "rune": return `<polygon points="16,4 19,13 28,16 19,19 16,28 13,19 4,16 13,13" fill="${p.base}" stroke="${p.edge}" stroke-width="1" stroke-linejoin="round"/><circle cx="16" cy="16" r="2.5" fill="${p.light}"/>`;
+    case "hook": // the flensing hook: an eye-ringed shank curling into a barbed J
+      return `<circle cx="16" cy="6.5" r="2.6" fill="none" stroke="#caa24a" stroke-width="1.6"/>`
+        + `<path d="M16,9 L16,18 Q16,25 10.5,24 Q7,23.3 7.5,19.5" fill="none" stroke="${p.base}" stroke-width="3" stroke-linecap="round"/>`
+        + `<path d="M16,9 L16,18 Q16,25 10.5,24" fill="none" stroke="${p.light}" stroke-width="0.9" opacity="0.7" stroke-linecap="round"/>`
+        + `<polygon points="7.5,19.5 5,17.5 9.5,17.8" fill="${p.base}" stroke="${p.edge}" stroke-width="0.7"/>`
+        + `<polygon points="14.5,14 11.5,13 14.5,11.5" fill="${p.dark}"/>`;
+    case "spike": // the maw-spike: a squat forged wedge with a hammer-flat head
+      return `<polygon points="12,7 20,7 17.5,25 16,28 14.5,25" fill="${p.base}" stroke="${p.edge}" stroke-width="1" stroke-linejoin="round"/>`
+        + `<rect x="10.5" y="4.5" width="11" height="3.4" rx="1" fill="${p.dark}" stroke="${p.edge}" stroke-width="0.8"/>`
+        + `<line x1="15.4" y1="8" x2="15" y2="24" stroke="${p.light}" stroke-width="0.9" opacity="0.7"/>`
+        + `<rect x="12.6" y="12" width="6.8" height="1.8" fill="#caa24a"/>`;
+    case "horn": // the hunter's horn: a curved signal horn, banded, mouthpiece up
+      return `<path d="M10,6 Q9,18 16,23 Q22,27 27,24" fill="none" stroke="#7a5a3a" stroke-width="6.5" stroke-linecap="round"/>`
+        + `<path d="M10,6 Q9,18 16,23 Q22,27 27,24" fill="none" stroke="#94714b" stroke-width="4" stroke-linecap="round"/>`
+        + `<path d="M10.5,8 Q10,17 15.5,21.5" fill="none" stroke="#b08c5e" stroke-width="1.1" opacity="0.8"/>`
+        + `<circle cx="10" cy="5.8" r="2.2" fill="#caa24a" stroke="#8a6a2a" stroke-width="0.8"/>`
+        + `<path d="M25,25.8 Q27.5,26.6 29,24.4" fill="none" stroke="#caa24a" stroke-width="2.4" stroke-linecap="round"/>`
+        + `<rect x="12.4" y="12.6" width="5" height="2.4" rx="1" transform="rotate(24 15 14)" fill="#caa24a" opacity="0.9"/>`;
+    case "satchel": // the hunter's kit: a buckled field satchel with a strap
+      return `<path d="M6,14 Q6,11 9,11 L23,11 Q26,11 26,14 L26,23 Q26,26 23,26 L9,26 Q6,26 6,23 Z" fill="#7a5a3a" stroke="#3a2a1a" stroke-width="1"/>`
+        + `<path d="M6,14 Q6,9 11,9 L21,9 Q26,9 26,14 L26,17 L6,17 Z" fill="#94714b" stroke="#3a2a1a" stroke-width="1"/>`
+        + `<path d="M9,9.5 Q10,4 16,4 Q22,4 23,9.5" fill="none" stroke="#5a4028" stroke-width="2.2"/>`
+        + `<rect x="14" y="15" width="4" height="5" rx="1" fill="#caa24a" stroke="#8a6a2a" stroke-width="0.8"/>`
+        + `<line x1="16" y1="16.2" x2="16" y2="19" stroke="#8a6a2a" stroke-width="1"/>`
+        + `<line x1="8" y1="21.5" x2="24" y2="21.5" stroke="#5a4028" stroke-width="0.9" opacity="0.7"/>`;
   }
 }
 

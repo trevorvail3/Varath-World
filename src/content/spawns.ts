@@ -2517,6 +2517,74 @@ function buildDungeonDressing(): WorldObjectDef[] {
   ];
 }
 
+/**
+ * The Ninth Bell questline (FINAL map coordinates, not remapped): Captain Morn
+ * at Ironvale's north gate, Wick the charcoal-burner on the high dirt, the
+ * fence-tree cache, and the Coldstep Shack in the far north-west — Serjeant
+ * Vane in hiding, the blades that follow you to him, and Quartermaster Brann.
+ */
+const ninthBellObjects: WorldObjectDef[] = [
+  {
+    id: "captain_morn", kind: "npc", x: 60, y: 36, name: "Captain Hesta Morn",
+    lines: [
+      "Mind the road, traveller. We're a guard short on this gate — and the watch-book says worse about him than I'll repeat.",
+      "Garrick Vane. Twelve years on this wall, and the night the pay-chest was emptied he was gone by morning. The book calls it settled. Books don't blush.",
+    ],
+    reactiveLines: [
+      { requiresFlags: ["vane_cleared"], lines: [
+        "Vane stands the north wall again, and the watch-book has a page torn out and rewritten in my hand. That doesn't happen twice in a career.",
+        "Brann kept every ledger in this city, and it took an outsider to audit HIM. If you ever want honest work, the watch pays badly and thanks worse — but it remembers.",
+      ] },
+      { requiresFlags: ["vane_free"], lines: [
+        "The book still says Vane turned. You and I know what a book's word is worth now.",
+        "Somewhere north-west there's a shack that catches its own fish and answers to no bell. I don't go looking. Some debts are paid by not collecting them.",
+      ] },
+    ],
+  },
+  {
+    id: "wick_burner", kind: "npc", x: 29, y: 37, name: "Wick, a Charcoal-Burner",
+    lines: [
+      "Smoke and quiet, that's my trade. You learn to see a long way through both.",
+      "Folk pass. Most don't look up. The ones being hunted always do.",
+    ],
+  },
+  // The fence-tree: an old boundary oak that swallowed its fence-rail whole,
+  // with the serjeant's cache buried at its foot (revealed by Wick's riddle).
+  { id: "fence_tree", kind: "tree", x: 22, y: 20, name: "The Fence-Tree", levelReq: 99,
+    lines: ["An old boundary oak grown clean through a fence-rail — the wood swallowed the iron and kept growing. The earth at its foot has been turned, and not by roots."] },
+  {
+    id: "vane_cache", kind: "dungeon_chest", x: 21, y: 20, name: "Disturbed Earth",
+    requiresFlag: "vane_trail",
+    loot: [{ item: "vane_badge", qty: 1 }, { item: "vane_letter", qty: 1 }],
+    lines: ["Soft-dug soil under the fence-tree. Something square is buried a hand's width down."],
+  },
+  // The Coldstep Shack (carved in map.ts at 6..10 × 7..10).
+  {
+    id: "shack_sign", kind: "signpost", x: 11, y: 11, name: "The Coldstep Shack",
+    lines: ["No name, no bell, no watch-book. The last shack before the maps give up. Someone has re-hung the door — recently, and from the inside."],
+  },
+  {
+    id: "serjeant_vane", kind: "npc", x: 8, y: 9, name: "Serjeant Garrick Vane",
+    lines: [
+      "Twelve years I rang the hours on Ironvale's wall. Now I count them by which way the snow leans.",
+      "If you came for the reward, there isn't one. If you came for the truth, it's colder up here than the weather.",
+    ],
+    reactiveLines: [
+      { requiresFlags: ["vane_cleared"], lines: [
+        "Hesta tore the page out herself, they tell me. I'll stand the north wall again and no one will ever know what it cost — which is how a wall likes it.",
+        "You heard a bell nobody logged and went looking anyway. Whatever they pin on you someday — I'll be the one who doesn't believe it.",
+      ] },
+      { requiresFlags: ["vane_free"], lines: [
+        "Serjeant Vane is dead, and the fishing up here is better than the pay ever was. Some verdicts are kinder than the truth.",
+        "You kept a secret that would have bought you a citation and a parade. I don't know what to call that, so I'll call it a friend.",
+      ] },
+    ],
+  },
+  { id: "blade_1", kind: "monster", x: 11, y: 12, name: "Hired Blade", monster: "hired_blade", requiresFlag: "vane_door_open" },
+  { id: "blade_2", kind: "monster", x: 6, y: 12, name: "Hired Blade", monster: "hired_blade", requiresFlag: "vane_door_open" },
+  { id: "qm_brann", kind: "monster", x: 8, y: 13, name: "Quartermaster Brann", monster: "quartermaster_brann", requiresFlag: "brann_comes" },
+];
+
 export const objects: WorldObjectDef[] = [
   ...rawObjects.map(remapObject),
   ...newPois.map(scatterFill),
@@ -2524,6 +2592,7 @@ export const objects: WorldObjectDef[] = [
   ...buildDungeonSites(),
   ...buildDungeonDressing(),
   ...pierObjects,
+  ...ninthBellObjects,
 ].map(snapSpawn);
 
 /** Where the player first appears — a clearing in the Knuckle Hills, by Aldric

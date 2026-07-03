@@ -592,6 +592,137 @@ export class WorldMapModal {
   close(): void { this.open = false; this.backdrop.classList.add("hidden"); }
 
   /** Repaint terrain + player + view-rect each frame; markers are static DOM. */
+  /** The atlas layer — terrain, coastlines, relief, grain, frame, compass —
+   *  is static per map, so it's painted ONCE offscreen and blitted per frame. */
+  private atlas: HTMLCanvasElement | null = null;
+  private atlasFor: unknown = null;
+
+  private atlasTerrain(m: WorldState["map"]): HTMLCanvasElement {
+    if (this.atlas && this.atlasFor === m.tiles) return this.atlas;
+    const rows = OVERWORLD_HEIGHT;
+    const cell = this.g.canvas.width / m.width;
+    const W = this.g.canvas.width, H = this.g.canvas.height;
+    const c = document.createElement("canvas");
+    c.width = W; c.height = H;
+    const g = c.getContext("2d")!;
+    const hash = (x: number, y: number): number => {
+      const n = Math.sin(x * 127.1 + y * 311.7) * 43758.5453;
+      return n - Math.floor(n);
+    };
+    const t = (x: number, y: number): TileType | undefined =>
+      x < 0 || y < 0 || x >= m.width || y >= rows ? undefined : m.tiles[y * m.width + x];
+    const water = (x: number, y: number): boolean => { const v = t(x, y); return v === "water" || v === "deep"; };
+
+    // 1) The tile base (the honest map underneath everything).
+    g.fillStyle = "#0c0907";
+    g.fillRect(0, 0, W, H);
+    for (let y = 0; y < rows; y++) {
+      for (let x = 0; x < m.width; x++) {
+        g.fillStyle = MM_TILE[m.tiles[y * m.width + x]!];
+        g.fillRect(x * cell, y * cell, cell + 0.6, cell + 0.6);
+      }
+    }
+    // 2) Atlas coastlines: an inked edge on the land side, a pale shallows halo
+    //    on the water side — the single biggest "drawn map" tell.
+    for (let y = 0; y < rows; y++) {
+      for (let x = 0; x < m.width; x++) {
+        if (water(x, y)) {
+          const coast = !water(x - 1, y) || !water(x + 1, y) || !water(x, y - 1) || !water(x, y + 1);
+          if (coast) {
+            g.fillStyle = "rgba(140,180,200,0.22)"; // shallows
+            g.fillRect(x * cell, y * cell, cell + 0.6, cell + 0.6);
+          }
+        } else {
+          const edge = water(x - 1, y) || water(x + 1, y) || water(x, y - 1) || water(x, y + 1);
+          if (edge) {
+            g.fillStyle = "rgba(10,14,18,0.55)"; // the inked line
+            if (water(x - 1, y)) g.fillRect(x * cell, y * cell, 1, cell + 0.6);
+            if (water(x + 1, y)) g.fillRect((x + 1) * cell - 1, y * cell, 1, cell + 0.6);
+            if (water(x, y - 1)) g.fillRect(x * cell, y * cell, cell + 0.6, 1);
+            if (water(x, y + 1)) g.fillRect(x * cell, (y + 1) * cell - 1, cell + 0.6, 1);
+          }
+        }
+      }
+    }
+    // 3) Relief hatching, atlas-style: chevrons on the ranges, stipple in the
+    //    woods, glints on the snowfield, reed ticks in the moor.
+    for (let y = 0; y < rows; y++) {
+      for (let x = 0; x < m.width; x++) {
+        const tt = t(x, y);
+        const hv = hash(x, y);
+        const px = x * cell, py = y * cell;
+        if (tt === "mountain" && hv > 0.55) {
+          g.strokeStyle = "rgba(220,225,235,0.5)";
+          g.lineWidth = 1;
+          g.beginPath();
+          g.moveTo(px + cell * 0.15, py + cell * 0.8);
+          g.lineTo(px + cell * 0.5, py + cell * 0.15);
+          g.lineTo(px + cell * 0.85, py + cell * 0.8);
+          g.stroke();
+          g.strokeStyle = "rgba(0,0,0,0.35)";
+          g.beginPath();
+          g.moveTo(px + cell * 0.5, py + cell * 0.15);
+          g.lineTo(px + cell * 0.72, py + cell * 0.75);
+          g.stroke();
+        } else if ((tt === "moss" || (tt === "grass" && hv > 0.9)) && hv > 0.62) {
+          g.fillStyle = "rgba(12,22,10,0.5)"; // a wood's stipple crown
+          g.beginPath(); g.arc(px + cell * (0.3 + hv * 0.4), py + cell * 0.42, cell * 0.28, 0, Math.PI * 2); g.fill();
+          g.fillStyle = "rgba(90,120,70,0.35)";
+          g.beginPath(); g.arc(px + cell * (0.3 + hv * 0.4) - 0.5, py + cell * 0.36, cell * 0.18, 0, Math.PI * 2); g.fill();
+        } else if (tt === "snow" && hv > 0.9) {
+          g.fillStyle = "rgba(255,255,255,0.5)";
+          g.fillRect(px + cell * 0.4, py + cell * 0.4, 1.2, 1.2);
+        } else if (tt === "bog" && hv > 0.82) {
+          g.strokeStyle = "rgba(120,140,100,0.4)";
+          g.lineWidth = 0.8;
+          g.beginPath(); g.moveTo(px + cell * 0.3, py + cell * 0.75); g.lineTo(px + cell * 0.3, py + cell * 0.3);
+          g.moveTo(px + cell * 0.6, py + cell * 0.8); g.lineTo(px + cell * 0.6, py + cell * 0.4); g.stroke();
+        }
+      }
+    }
+    // 4) Paper grain + an aged wash, so it reads as a chart, not a screenshot.
+    for (let i = 0; i < 1400; i++) {
+      const rx = hash(i, 7) * W, ry = hash(3, i) * H;
+      g.fillStyle = i % 2 ? "rgba(240,220,180,0.025)" : "rgba(0,0,0,0.04)";
+      g.fillRect(rx, ry, 1.4, 1.4);
+    }
+    const wash = g.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.3, W / 2, H / 2, Math.max(W, H) * 0.72);
+    wash.addColorStop(0, "rgba(214,180,120,0.05)");
+    wash.addColorStop(1, "rgba(10,6,2,0.42)");
+    g.fillStyle = wash;
+    g.fillRect(0, 0, W, H);
+    // 5) The etched frame: a double border in the chart-maker's gold.
+    g.strokeStyle = "rgba(201,162,74,0.65)";
+    g.lineWidth = 2;
+    g.strokeRect(3, 3, W - 6, H - 6);
+    g.strokeStyle = "rgba(201,162,74,0.3)";
+    g.lineWidth = 1;
+    g.strokeRect(7.5, 7.5, W - 15, H - 15);
+    // 6) A compass rose, bottom-right.
+    const cx = W - 46, cy = H - 46, R = 26;
+    g.save();
+    g.translate(cx, cy);
+    g.globalAlpha = 0.9;
+    g.strokeStyle = "rgba(201,162,74,0.8)";
+    g.lineWidth = 1;
+    g.beginPath(); g.arc(0, 0, R, 0, Math.PI * 2); g.stroke();
+    g.beginPath(); g.arc(0, 0, R * 0.55, 0, Math.PI * 2); g.stroke();
+    g.fillStyle = "rgba(232,217,174,0.95)";
+    for (let i = 0; i < 4; i++) { // the four points
+      g.save(); g.rotate((i * Math.PI) / 2);
+      g.beginPath(); g.moveTo(0, -R + 3); g.lineTo(4, -6); g.lineTo(0, -9); g.lineTo(-4, -6); g.closePath(); g.fill();
+      g.restore();
+    }
+    g.font = "bold 11px 'Cinzel', serif";
+    g.textAlign = "center"; g.textBaseline = "middle";
+    g.fillStyle = "#e8d9ae";
+    g.fillText("N", 0, -R - 9);
+    g.restore();
+    this.atlas = c;
+    this.atlasFor = m.tiles;
+    return c;
+  }
+
   draw(
     state: WorldState,
     content: Content,
@@ -604,14 +735,7 @@ export class WorldMapModal {
     const cell = g.canvas.width / m.width;
     const rows = OVERWORLD_HEIGHT;
 
-    g.fillStyle = "#0c0907";
-    g.fillRect(0, 0, g.canvas.width, g.canvas.height);
-    for (let y = 0; y < rows; y++) {
-      for (let x = 0; x < m.width; x++) {
-        g.fillStyle = MM_TILE[m.tiles[y * m.width + x]!];
-        g.fillRect(x * cell, y * cell, cell + 0.6, cell + 0.6);
-      }
-    }
+    g.drawImage(this.atlasTerrain(m), 0, 0);
     // Deliberately NO live-hunt ring here either: the contract and the guide's
     // words name the ground; the map stays an honest map.
     void content;
@@ -620,11 +744,20 @@ export class WorldMapModal {
     // the map stays uncluttered. You follow the walked track on the ground itself.
     // The view-rect of what the main camera currently shows.
     if (cam.y / TILE < rows) {
-      g.strokeStyle = "rgba(255,255,255,0.3)";
+      g.strokeStyle = "rgba(232,217,174,0.45)";
       g.lineWidth = 1.5;
       g.strokeRect((cam.x / TILE) * cell, (cam.y / TILE) * cell, (viewW / TILE) * cell, (viewH / TILE) * cell);
     }
+    // You-are-here: the familiar dot, ringed by a slow gold pulse so the eye
+    // finds itself on a busy chart at once.
     const p = state.player.pos;
-    if (p.y < rows) drawPlayerDot(g, (p.x + 0.5) * cell, (p.y + 0.5) * cell);
+    if (p.y < rows) {
+      const px = (p.x + 0.5) * cell, py = (p.y + 0.5) * cell;
+      const ph = (performance.now() % 1600) / 1600;
+      g.strokeStyle = `rgba(242,207,107,${(0.75 * (1 - ph)).toFixed(3)})`;
+      g.lineWidth = 1.6;
+      g.beginPath(); g.arc(px, py, 4 + ph * 9, 0, Math.PI * 2); g.stroke();
+      drawPlayerDot(g, px, py);
+    }
   }
 }

@@ -1049,6 +1049,104 @@ export const quests: QuestDef[] = [
   // Bonewrought set and the Bonesaw.
   // ===========================================================================
   {
+    id: "q_ninth_bell",
+    name: "The Ninth Bell",
+    giver: "captain_morn",
+    requiresLevel: { level: 45 },
+    intro: [
+      "You've the look of someone who reads more than the watch-book. Good. The watch-book is lying to me.",
+      "Serjeant Garrick Vane. Twelve years on the north wall, steady as the stone under it. The night the garrison pay-chest was emptied, he vanished \u2014 and by dawn the book called him thief, deserter, case closed. Neat as a fresh stitch. TOO neat.",
+      "Here's what the book leaves out: I heard a bell that night. One ring, cut short \u2014 the ninth. No bell is logged. A guard who rings an alarm doesn't rob the chest, and a book that loses a bell has lost other things too.",
+      "I can't leave this gate and I can't be seen digging. You can do both. Wick, the charcoal-burner on the high ground north-west \u2014 nothing crosses that country without his chimney seeing it. Start there. Find my serjeant.",
+    ],
+    steps: [
+      { type: "talk", npc: "wick_burner", text: "Ask Wick, the charcoal-burner on the high dirt north-west, what his smoke saw" },
+      {
+        type: "choice",
+        npc: "wick_burner",
+        text: "Answer Wick's question \u2014 he talks to those who look properly",
+        prompt: "Wick feeds his mound and doesn't turn round. 'A man in guard colours came through in the dark, dug at a tree, and walked north like the cold owed him money. I'll point you to the digging \u2014 IF you can tell me which tree. I said it wears something no tree should.'",
+        options: [
+          {
+            label: "The oak that grew through the fence-rail \u2014 it wears iron.",
+            flags: ["vane_trail"],
+            reply: "Wick finally turns, and almost smiles. 'The fence-tree. Swallowed the rail whole, years back \u2014 wood over iron, like a scar. He dug at its foot. North-west of here; you'll know it when you see what it ate.'",
+          },
+          { label: "The tallest pine on the ridge.", flags: [], wrong: "'Tall is just old. I said it WEARS something. Look again at what I said, not how far you can see.'" },
+          { label: "The dead snag by your camp.", flags: [], wrong: "'That one wears crows and nothing else. Think \u2014 what does a tree grow through, out here, that was never a tree's?'" },
+        ],
+      },
+      { type: "visit", x: 22, y: 20, radius: 3, text: "Find the fence-tree north-west of Wick's camp" },
+      { type: "gather", item: "vane_badge", count: 1, text: "Dig up what the serjeant buried at the fence-tree" },
+      { type: "visit", x: 8, y: 11, radius: 4, text: "Follow the letter north-west to the shack where the maps run out" },
+      {
+        type: "choice",
+        npc: "serjeant_vane",
+        text: "Answer the voice behind the shack door",
+        prompt: "The door is barred from the inside. A tired voice, through the wood: 'Every knock up here is a knife with manners. The pay-chest night \u2014 you'd know, if Hesta sent you. WHICH BELL RANG TRUE?'",
+        options: [
+          { label: "The first bell.", flags: [], wrong: "'The first bell rings every dusk, friend. Anyone can buy THAT answer at the gate. Read what I wrote.'" },
+          {
+            label: "The ninth bell.",
+            flags: ["vane_door_open"],
+            reply: "A long silence. The bar scrapes back. Vane is grey at the temples and thinner than his badge remembers \u2014 but his eyes go past you, down your trail. 'The ninth. Then she heard it after all.' He stiffens. 'You weren't careful. Shapes on your backtrail \u2014 they let you find me. SWORDS OUT.'",
+          },
+          { label: "No bell rang \u2014 the watch lied.", flags: [], wrong: "'The watch didn't lie. The watch was LIED TO. There's a difference, and the difference rang once. Say it right.'" },
+        ],
+      },
+      { type: "kill", monster: "hired_blade", count: 2, text: "Hired blades followed you here \u2014 defend the shack! (0/2)" },
+      {
+        type: "choice",
+        npc: "serjeant_vane",
+        text: "Hear Vane out \u2014 and brace for who paid the blades",
+        prompt: "Vane turns a dead man's blade over with his boot. 'Unmarked leathers, garrison steel. Only one man signs steel out with no marks \u2014 the man who keeps the ledgers. Brann emptied the chest, and I rang the bell on him, and by morning the book said the bell never rang and I was the thief. He'll come himself now \u2014 he has to. Are you ready for him?'",
+        options: [
+          {
+            label: "Let him come. I'll be his audit.",
+            flags: ["brann_comes"],
+            reply: "Vane sets his back to the shack wall, blade low. 'He fights like he keeps books \u2014 patient, then all at once. When he marks the ground, be somewhere else. Here he comes.'",
+          },
+          { label: "Give me a moment to prepare.", flags: [], wrong: "Vane nods once. 'Eat. Breathe. The ground he marks kills the slow \u2014 come back to me when your feet know it.'" },
+        ],
+      },
+      { type: "kill", monster: "quartermaster_brann", count: 1, text: "Defeat Quartermaster Brann \u2014 step OFF the ground he marks (0/1)" },
+      {
+        type: "choice",
+        npc: "serjeant_vane",
+        text: "Decide what the truth is for",
+        prompt: "Brann is done, and the snow is already filing him under quiet. Vane looks at the badge in your hand a long time. 'That letter clears me. It also puts me back on a wall for men who believed a book over twelve years of me. So you choose, auditor \u2014 you earned the choosing. What do you carry back to Hesta?'",
+        options: [
+          {
+            label: "The truth. Ironvale owes you a wall and an apology.",
+            flags: ["vane_cleared"],
+            reply: "Something in his shoulders unclenches for the first time since the door. 'Then I'll want my old post. North wall. The cold up THERE is honest.' He almost laughs. 'Tell Hesta the ninth bell rings on time from now on.'",
+          },
+          {
+            label: "Nothing. Serjeant Vane died a thief \u2014 and lives free.",
+            flags: ["vane_free"],
+            reply: "He weighs it \u2014 the wall, the book, the years \u2014 and nods slowly. 'Dead men pay no dues and stand no watches. Tell Hesta... tell her the fishing's good, wherever I am. She'll understand more than the book ever did.'",
+          },
+        ],
+      },
+      { type: "deliver", npc: "captain_morn", item: "vane_badge", count: 1, text: "Carry the badge \u2014 and your answer \u2014 back to Captain Morn" },
+    ],
+    outro: [
+      "His badge. And Brann's name under the shortfall all along \u2014 I audited the arms ledger the hour your bird... the hour word reached me. Every missing blade signed out in a hand too neat to blush.",
+      "The book will say whatever I make it say tomorrow. That's the lesson of all this, and I hate it: a ledger is only as honest as its keeper. So Ironvale is changing keepers.",
+      "Take this signet. It opens exactly one thing \u2014 my door, whenever you knock. The watch pays badly and thanks worse, but by every quiet bell of this city: thank you.",
+    ],
+    reward: {
+      xp: [
+        { skill: "vitality", amount: 3000 },
+        { skill: "edge", amount: 1500 },
+        { skill: "ward", amount: 900 },
+      ],
+      items: [{ item: "guards_signet", qty: 1 }],
+      gold: 500,
+      flags: ["q_ninth_bell_complete"],
+    },
+  },
+  {
     id: "q_boneman",
     name: "The Bone Collector",
     giver: "town_guard",

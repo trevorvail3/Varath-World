@@ -278,7 +278,9 @@ export class BountyUI {
       const def = this.content.items[line.item];
       if (!def) continue;
       const afford = b.marks >= line.cost;
-      const bundle = line.qty > 1 ? ` ×${line.qty}` : "";
+      // Bundle tag — skipped when the label already spells its own count
+      // ("Flensing Hooks ×10" must not render as "×10 ×10").
+      const bundle = line.qty > 1 && !line.label.includes("×") ? ` ×${line.qty}` : "";
       html += `
         <div class="bounty-shop-row">
           <span class="bounty-shop-swatch" data-inspect="${line.item}" data-cost="${line.cost}" data-qty="${line.qty}">${itemIconSVG(def)}</span>

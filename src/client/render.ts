@@ -6096,6 +6096,11 @@ function drawMonsterBody(
       return H("#3a3a40", "#4c4c54"); // heavy iron
     case "outlaw_captain":
       return H("#5a2630", "#763440"); // maroon captain
+    // --- The Ninth Bell: bought blades + the crooked quartermaster ---
+    case "hired_blade":
+      return H("#3a3630", "#4e483e"); // unmarked oiled leathers
+    case "quartermaster_brann":
+      return H("#4a4436", "#6e6448"); // guard plate gone tarnished-brass
     // --- Settlement guards (watchmen) + farmers ---
     case "town_guard":
       return H("#3f4a58", "#586a7e"); // steel-blue watch tabard

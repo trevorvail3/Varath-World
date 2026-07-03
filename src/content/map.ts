@@ -182,19 +182,23 @@ export function homeLayout(ox: number): HomeLayout {
   };
 }
 
-/** Each home: its interior origin column + its overworld lot tiles (lot tiles
- *  are legacy coords run through remap() so they sit with the shifted city). */
-const HOME_LOTS_LEGACY: { plot: string; ox: number; marker: V; door: V; exit: V }[] = [
-  { plot: "home_redmouth", ox: 2, marker: { x: 81, y: 64 }, door: { x: 84, y: 65 }, exit: { x: 84, y: 66 } },
-  { plot: "home_drover", ox: 20, marker: { x: 74, y: 73 }, door: { x: 77, y: 74 }, exit: { x: 77, y: 75 } },
-  { plot: "home_fold", ox: 38, marker: { x: 59, y: 8 }, door: { x: 62, y: 9 }, exit: { x: 62, y: 10 } },
+/** Each home: its interior origin column + its overworld lot tiles, in FINAL
+ *  map coordinates. The three lots are deliberately spread across Varath so
+ *  owning a home is also choosing where you live: the Redmouth by Ironvale's
+ *  south road, the Fold on the high road under the Spine, and the Drover's
+ *  Rest in a moss clearing by the Greyoak waystone. (Only the overworld lot
+ *  tiles differ — every home shares the same interior band layout.) */
+const HOME_LOTS: { plot: string; ox: number; marker: V; door: V; exit: V }[] = [
+  { plot: "home_redmouth", ox: 2, marker: { x: 101, y: 90 }, door: { x: 104, y: 91 }, exit: { x: 104, y: 92 } },
+  { plot: "home_drover", ox: 20, marker: { x: 11, y: 70 }, door: { x: 14, y: 71 }, exit: { x: 14, y: 72 } },
+  { plot: "home_fold", ox: 38, marker: { x: 79, y: 34 }, door: { x: 82, y: 35 }, exit: { x: 82, y: 36 } },
 ];
 export const HOMES: {
   plot: string; ox: number;
   lot: { marker: V; door: V; exit: V };
-}[] = HOME_LOTS_LEGACY.map((h) => ({
+}[] = HOME_LOTS.map((h) => ({
   plot: h.plot, ox: h.ox,
-  lot: { marker: remap(h.marker.x, h.marker.y), door: remap(h.door.x, h.door.y), exit: remap(h.exit.x, h.exit.y) },
+  lot: { marker: h.marker, door: h.door, exit: h.exit },
 }));
 export { HOUSE_W as HOME_WIDTH };
 
@@ -616,6 +620,18 @@ function decode(): WorldMap {
   }
   //    A flagged town square around the crossroads, for the fountain + crowds.
   cc(58, 50, 62, 54, "stone");
+
+  // 4c) The Coldstep Shack — an abandoned watch shack in the far north-west,
+  //     where the maps run out (The Ninth Bell questline). A ruined one-room
+  //     hut: dirt floor, wall shell with the north face fallen in, doorway on
+  //     the south. Roofless by design — outside the city nothing roofs walls,
+  //     so it reads as long-abandoned.
+  //     (carve/set take FINAL coords — cc() is only for legacy city carves.)
+  carve(5, 6, 11, 11, "dirt");          // the trampled yard
+  carve(6, 7, 10, 10, "wall");
+  carve(7, 8, 9, 9, "dirt");            // the room floor
+  set(8, 10, "dirt");                   // the south doorway
+  set(7, 7, "dirt"); set(9, 7, "dirt"); // the fallen-in north face
 
   // 4b) Countryside features around the city (the bible's named Knuckle Hills
   //     landmarks) — shifted with the central complex.

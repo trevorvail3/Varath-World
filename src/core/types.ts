@@ -563,6 +563,10 @@ export type ItemId =
   | "flensing_hook"
   | "maw_spike"
   | "hunters_horn"
+  | "vane_badge"
+  | "vane_letter"
+  | "guards_signet"
+  | "watchmans_buckler"
   | "stalker_fangs"
   | "houndhide_cloak"
   | "wraithbone_staff"
@@ -2311,6 +2315,9 @@ export interface QuestChoice {
   label: string;
   /** Story flags this choice sets when taken. */
   flags: string[];
+  /** A WRONG answer (riddle steps): picking it speaks this hint and the quest
+   *  does NOT advance — the question can be tried again. Real puzzles. */
+  wrong?: string;
   /** A line acknowledging the choice. */
   reply?: string;
   /** Coins granted for picking this option (e.g. selling the shard). */

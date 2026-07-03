@@ -4666,6 +4666,10 @@ function handleNpcTalk(
     if (obj.type === "deliver" && obj.npc === npcId) {
       if (countItem(player, obj.item) >= obj.count) {
         for (let i = 0; i < obj.count; i++) removeOneItem(player, obj.item);
+        // Mark the relic handed over, so anti-softlock re-grants (a quest
+        // chest's false bottom) know it reached its owner and stay shut.
+        const df = `delivered_${obj.item}`;
+        if (!player.flags.includes(df)) player.flags.push(df);
         return advanceQuest(state, content, def, st, events);
       }
       return [`Bring me ${obj.count} ${content.items[obj.item].name} — ${obj.text.toLowerCase()}.`];
@@ -4933,6 +4937,12 @@ function applyChoice(
   if (!obj || obj.type !== "choice") return;
   const pick = obj.options[option];
   if (!pick) return;
+  // A riddle's wrong answer: speak the hint and stay on the step — the player
+  // can come back and try again. Nothing else about the pick applies.
+  if (pick.wrong) {
+    events.push({ type: "LOG", message: pick.wrong });
+    return;
+  }
   for (const f of pick.flags) if (!player.flags.includes(f)) player.flags.push(f);
   // A "sell" option hands over an item for coin — only pay if it's in the pack.
   let paid = true;
