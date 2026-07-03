@@ -1943,6 +1943,22 @@ export const items: Record<ItemId, ItemDef> = {
     "cat": "Combat",
     "sell": 150
   },
+  "flensing_hook": {
+    "id": "flensing_hook",
+    "name": "Flensing Hook",
+    "description": "A barbed guild hook that finds the seam in a Hollow Hound's impossible hide. One is spent on every hound felled — unless you own the Flensing Mastery.",
+    "icon": "🪝",
+    "cat": "Combat",
+    "sell": 0
+  },
+  "maw_spike": {
+    "id": "maw_spike",
+    "name": "Maw-Spike",
+    "description": "A hardened spike the guild forges for one job: wedging an Iron Maw's plates apart. One is spent on every Maw felled — unless you own the Spike Mastery.",
+    "icon": "🗡️",
+    "cat": "Combat",
+    "sell": 0
+  },
   "helm_1": {
     "id": "helm_1",
     "name": "Knucklestone Helm",

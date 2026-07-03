@@ -1247,6 +1247,10 @@ export class Hud {
     } else if (def.slot && WEARABLE.has(def.slot)) {
       audio.play("ui");
       this.dispatch({ type: "EQUIP", slot: index });
+    } else if (def.buryXp) {
+      // Bones: a tap buries them on the spot (the common action); crushing,
+      // dropping and the rest stay on the long-press menu.
+      this.dispatch({ type: "BURY", slot: index });
     } else {
       this.inspectItem(index, screenX, screenY);
     }

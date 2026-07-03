@@ -32,7 +32,9 @@ export const bountyGuides: BountyGuide[] = [
     icon: "🗡️",
     desc: "A scarred warrior stationed at the Spine passes. Assigns tasks in rougher territory for seasoned hunters.",
     levelReq: 30,
-    zones: ["spine", "heartmoor", "outlaws", "warrens"],
+    // Overlaps Rook only on Greyoak's beasts, and Mourne only on the Warrens —
+    // OSRS-style: each guide keeps a pool of their own with a small shared rim.
+    zones: ["spine", "heartmoor", "outlaws", "greyoak_wood", "warrens"],
     xpMult: 1.6,
     marksMult: 1.6,
   },
@@ -261,6 +263,12 @@ export const bountyShop: BountyShopListing[] = [
   { item: "hunters_cloak", cost: 1500, qty: 1, label: "Hunter's Cloak", desc: "A cape of a hundred contracts — solid all-style stats, and proof you did the work. Marks only; no gold price exists." },
   { item: "bounty_helm_g", cost: 2500, qty: 1, label: "Greater Bounty Helm", desc: "The Bounty Helm remade — +18% damage against your active task's creature, and heavier plate besides. The board's richest ware." },
   { item: "hunters_kit", cost: 150, qty: 1, label: "Hunter's Kit", desc: "Hold one when you claim a task: +50% Bounty XP, consumed on claim." },
+  // Hunt-tool consumables — spent on every gated kill (see the masteries below
+  // to be done with them forever).
+  { item: "flensing_hook", cost: 15, qty: 1, label: "Flensing Hook", desc: "Required to harm a Hollow Hound; one is spent per kill." },
+  { item: "flensing_hook", cost: 130, qty: 10, label: "Flensing Hooks ×10", desc: "A task's worth of hooks at a bulk rate." },
+  { item: "maw_spike", cost: 25, qty: 1, label: "Maw-Spike", desc: "Required to harm an Iron Maw; one is spent per kill." },
+  { item: "maw_spike", cost: 220, qty: 10, label: "Maw-Spikes ×10", desc: "A task's worth of spikes at a bulk rate." },
   { item: "battle_ration", cost: 60, qty: 1, label: "Battle Ration", desc: "Field food — heals on the spot, no cooking needed." },
   { item: "health_elixir", cost: 40, qty: 1, label: "Health Elixir", desc: "Restores health instantly." },
   { item: "arrow_ashiron", cost: 25, qty: 15, label: "Ashiron Arrows ×15", desc: "A bundle of fifteen ashiron-tipped arrows." },
@@ -283,4 +291,6 @@ export const bountyUnlocks: BountyUnlock[] = [
   { id: "twin_marks", name: "Twin Marks", cost: 650, desc: "You learn to read a den, not a trail. While on a task, some kills (about one in eight) count TWICE toward your tally." },
   { id: "reckoners_favour", name: "The Reckoner's Favour", cost: 900, desc: "Kaeda vouches for you at every board. Your hunt-streak bonus keeps climbing to +100% Marks (instead of stopping at +50%)." },
   { id: "wider_net", name: "Warden's Ledger", cost: 400, desc: "Kaeda lets you keep a longer list of refusals — your block list grows from 3 monsters to 6." },
+  { id: "flensing_mastery", name: "Flensing Mastery", cost: 2000, desc: "You learn the seam in a Hollow Hound's hide by feel. Flensing Hooks are never needed — or spent — again." },
+  { id: "spike_mastery", name: "Spike Mastery", cost: 3000, desc: "You learn where an Iron Maw's plates breathe. Maw-Spikes are never needed — or spent — again." },
 ];

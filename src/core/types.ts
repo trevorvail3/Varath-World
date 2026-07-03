@@ -548,6 +548,8 @@ export type ItemId =
   | "bounty_helm_g"
   | "hunters_cloak"
   | "creeper_eye"
+  | "flensing_hook"
+  | "maw_spike"
   | "stalker_fangs"
   | "houndhide_cloak"
   | "wraithbone_staff"

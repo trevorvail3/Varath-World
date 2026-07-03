@@ -1433,10 +1433,15 @@ const rawObjects: WorldObjectDef[] = [
     ],
   },
   {
-    id: "kaeda", kind: "npc", bountyGuide: "kaeda", x: 88, y: 55, name: "Kaeda, the Reckoner",
+    // Kaeda keeps her ledger at the Old Quarry now, over the mouth of the Hunt
+    // Warrens — the guild's slayer grounds are her natural post, and it spreads
+    // the guides across the map instead of stacking two at Redmouth.
+    // (legacy 98,29 → final ~118,55, two tiles west of the Warrens shaft.)
+    id: "kaeda", kind: "npc", bountyGuide: "kaeda", x: 98, y: 29, name: "Kaeda, the Reckoner",
     lines: [
       "Stand still. I'm reckoning whether you're worth an entry in my ledger, or a line in someone else's.",
       "Every named thing in Varath is written in this book — the Boneman, the wardens, the wyrm on its hoard, the two the songs got wrong. Beside each, the hunters who put it down. Most pages are empty.",
+      "I keep the ledger here, over the Warrens' mouth, because this is where hunters are made or eaten. Down that shaft is every grade of quarry the guild recognises. Know your level before you take the ladder.",
       "I don't hand out rat-work. I post one name at a time, and I pay in marks the fat-guild would faint at. Reach Bounty sixty, come back, and I'll set you against something that has a name worth taking.",
     ],
   },

@@ -1453,7 +1453,17 @@ export function drawWorld(
         g.translate(hp.ox, hp.oy);
         g.translate(cx, cy); g.scale(hp.s, hp.s); g.translate(-cx, -cy);
       }
-      drawObject(g, def, obj.available, px, py, now, !!obj.wanderTarget, monsterAttack(def, obj, state, content, now));
+      // Creatures face the way they walk (and keep facing it while they stand),
+      // instead of one fixed direction forever.
+      let flip = false;
+      if (def.kind === "monster" && obj.available) {
+        const lx = obj.pos?.x ?? def.x;
+        const prev = FACING_X.get(def.id);
+        if (prev !== undefined && Math.abs(lx - prev) > 0.005) FACING.set(def.id, lx < prev);
+        FACING_X.set(def.id, lx);
+        flip = FACING.get(def.id) ?? false;
+      }
+      drawObject(g, def, obj.available, px, py, now, !!obj.wanderTarget, monsterAttack(def, obj, state, content, now), flip);
       if (hp) g.restore();
     }
     if (def.kind === "fire" || def.kind === "furnace" || def.kind === "cauldron") {
@@ -2453,6 +2463,11 @@ function drawPatch(
   g.globalAlpha = 1;
 }
 
+/** Last seen world-x + current facing per creature, so a monster keeps facing
+ *  the way it last walked instead of snapping back between wander legs. */
+const FACING_X = new Map<string, number>();
+const FACING = new Map<string, boolean>(); // true = mirrored (walking -x)
+
 function drawObject(
   g: CanvasRenderingContext2D,
   def: WorldObjectDef,
@@ -2462,6 +2477,7 @@ function drawObject(
   now: number,
   moving = false,
   attack?: MonsterAttack,
+  flip = false,
 ): void {
   const cx = px + TILE / 2;
   const cy = py + TILE / 2;
@@ -2492,7 +2508,15 @@ function drawObject(
       drawNpc(g, cx, cy, now, moving, def.x, def.y);
       break;
     case "monster":
-      drawMonster(g, def.monster, available, cx, cy, now, moving, attack);
+      if (flip) {
+        // Mirror about the creature's own centre line so it faces its travel.
+        g.save();
+        g.translate(cx, 0); g.scale(-1, 1); g.translate(-cx, 0);
+        drawMonster(g, def.monster, available, cx, cy, now, moving, attack);
+        g.restore();
+      } else {
+        drawMonster(g, def.monster, available, cx, cy, now, moving, attack);
+      }
       break;
 
     case "shrine":
@@ -6655,10 +6679,14 @@ function drawPlayer(
     const K = 1.7;
     shadow(g, cx, cy + TILE / 2 - 2, 14 * K, 5.5);
     drawMountRig(g, cx, cy, now, moving, !flip, mount, K);
-    // Seat the rider over the saddle (rig-local x −1 → mirrored when facing
-    // left), hips up at the scaled saddle height.
-    const seatX = cx + (flip ? 2 : -2);
-    drawAvatar(g, seatX, cy - 17, 1, withDefaults(look), { now, moving, flip, riding: true, ...(action ? { action } : {}) }, gear);
+    // Seat the rider ON the saddle. The saddle sits at rig-local (−1, −10),
+    // scaled ×K about the ground line (local y=11): screen y = cy + 11 +
+    // (−10 − 11)·K ≈ cy − 24.7. The avatar's hip line is at its cy + 5, so
+    // anchoring the avatar at cy − 29.5 puts the hips right on the leather.
+    // The rig is drawn with INVERTED flip, so its local −1 lands on +K when
+    // the player faces right — the rider matches that side.
+    const seatX = cx + (flip ? -1.7 : 1.7);
+    drawAvatar(g, seatX, cy - 29.5, 1, withDefaults(look), { now, moving, flip, riding: true, ...(action ? { action } : {}) }, gear);
     return;
   }
   shadow(g, cx, cy + TILE / 2 - 4, 9, 3.5); // grounds the player on the terrain

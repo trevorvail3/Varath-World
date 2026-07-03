@@ -155,7 +155,9 @@ function drawAvatarInner(
   const riding = anim.riding ?? false;
   // In the saddle the rider doesn't walk: no walk-bounce (the mount's gallop
   // carries them) and no arm swing — hands stay on the reins.
-  const bob = riding ? -(moving ? Math.abs(Math.sin(t / 130)) * 1.6 : Math.sin(t / 460) * 0.6)
+  // The rider's bob mirrors the mount rig's gallop bob — which draws at 1.7x
+  // scale, so the rider matches the SCALED amplitude or they bounce apart.
+  const bob = riding ? -(moving ? Math.abs(Math.sin(t / 130)) * 2.7 : Math.sin(t / 460) * 1.0)
     : acting ? Math.sin(t / 280) * 0.5
     : moving ? -Math.abs(Math.sin(step)) * 1.4 : Math.sin(t / 200) * 0.9;
   const swing = moving && !riding ? Math.sin(step) * 0.5 : (!acting ? Math.sin(t / 340) * 0.05 : 0);

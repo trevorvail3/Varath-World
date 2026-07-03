@@ -33,7 +33,7 @@ export class BountyUI {
     this.backdrop.innerHTML = `
       <div class="shop-modal bounty-modal">
         <div class="shop-head">
-          <span class="shop-title"><span class="title-ic">${iconize("🎯")}</span> Bounty Board</span>
+          <span class="shop-title"><span class="title-ic">${iconize("🎯")}</span> The Hunt Ledger</span>
           <span class="bounty-marks">0 <span class="mark-ic">${iconize("🎯")}</span></span>
           <button class="shop-close" type="button">✕</button>
         </div>
@@ -203,7 +203,7 @@ export class BountyUI {
       html += `
         <div class="bounty-contract">
           <div class="bounty-task-name">Slay ${t.required} ${this.monsterName(t.monster)}</div>
-          <div class="bounty-task-from">Issued by ${guide?.name ?? "your guide"} · claimable at any board</div>
+          <div class="bounty-task-from">Issued by ${guide?.name ?? "your guide"} · claim with any guide</div>
           ${whereLine}
           <div class="bounty-progress"><div class="bounty-progress-fill" style="width:${pct}%"></div></div>
           <div class="bounty-task-count">${t.progress} / ${t.required}${done ? " — ready to claim" : ""}</div>

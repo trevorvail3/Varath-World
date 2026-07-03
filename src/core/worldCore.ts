@@ -1679,42 +1679,42 @@ export function applyIntent(
       break;
     }
     case "BOUNTY_TASK": {
-      if (!atStation(player, "bounty", "the bounty board", events)) break;
+      if (!atStation(player, "bounty", "a bounty guide", events)) break;
       takeBountyTask(state, content, intent.guideId, ctx, events);
       break;
     }
     case "BOUNTY_CLAIM": {
-      if (!atStation(player, "bounty", "the bounty board", events)) break;
+      if (!atStation(player, "bounty", "a bounty guide", events)) break;
       claimBountyTask(state, content, ctx, events);
       break;
     }
     case "BOUNTY_ABANDON": {
-      if (!atStation(player, "bounty", "the bounty board", events)) break;
+      if (!atStation(player, "bounty", "a bounty guide", events)) break;
       abandonBountyTask(player, events);
       break;
     }
     case "BOUNTY_BUY": {
-      if (!atStation(player, "bounty", "the bounty board", events)) break;
+      if (!atStation(player, "bounty", "a bounty guide", events)) break;
       buyBountyItem(player, content, intent.item, events);
       break;
     }
     case "BOUNTY_SKIP": {
-      if (!atStation(player, "bounty", "the bounty board", events)) break;
+      if (!atStation(player, "bounty", "a bounty guide", events)) break;
       skipBountyTask(player, content, events);
       break;
     }
     case "BOUNTY_BLOCK": {
-      if (!atStation(player, "bounty", "the bounty board", events)) break;
+      if (!atStation(player, "bounty", "a bounty guide", events)) break;
       blockBountyTask(player, content, events);
       break;
     }
     case "BOUNTY_UNBLOCK": {
-      if (!atStation(player, "bounty", "the bounty board", events)) break;
+      if (!atStation(player, "bounty", "a bounty guide", events)) break;
       unblockBountyMonster(player, content, intent.monster, events);
       break;
     }
     case "BOUNTY_UNLOCK": {
-      if (!atStation(player, "bounty", "the bounty board", events)) break;
+      if (!atStation(player, "bounty", "a bounty guide", events)) break;
       buyBountyUnlock(player, content, intent.id, events);
       break;
     }
@@ -2467,11 +2467,18 @@ function startInteraction(
     }
 
     case "npc": {
-      // A bounty guide is the board made flesh: the default action opens their
-      // contract panel (focused on them); "talk" still gives their dialogue, and
-      // a quest that needs them takes priority over the bounty panel.
+      // A bounty guide IS the bounty system: their panel is the only place to
+      // take, claim and spend. "talk" still gives their dialogue, and a quest
+      // that needs them takes priority over the contract panel.
       if (def.bountyGuide && mode !== "talk" && !questStepTargets(player, content, def.id)) {
-        // Opening a guide's board highlights them — but never while a task is
+        // A guide above your level turns you away at the door, OSRS-style —
+        // no browsing a ledger you haven't earned.
+        const guide = content.bountyGuides.find((g) => g.id === def.bountyGuide);
+        if (guide && skillLvl(player, "bounty") < guide.levelReq) {
+          events.push({ type: "LOG", message: `${guide.name} looks you over once and goes back to their ledger. "Come back at Bounty ${guide.levelReq}. The work I post would eat you alive."` });
+          break;
+        }
+        // Opening a guide's ledger highlights them — but never while a task is
         // live, or the contract would appear to belong to the wrong guide.
         if (!player.bounty.task) player.bounty.guideId = def.bountyGuide;
         player.station = { kind: "bounty" };
@@ -2549,6 +2556,14 @@ function startInteraction(
       const gate = monsterFor(content, def)?.bountyReq;
       if (gate && skillLvl(player, "bounty") < gate) {
         events.push({ type: "LOG", message: `You can't read this creature's movements — it takes Bounty ${gate} to hunt a ${def.name}.` });
+        return;
+      }
+      // Tool gates, OSRS-style (broad arrows, leaf-bladed spears): some quarry
+      // can't be harmed without the right ware from a guide's shop — either the
+      // consumable (spent on each kill) or its permanent mastery unlock.
+      const hg = HUNT_GATES[def.monster ?? ""];
+      if (hg && !player.bounty.unlocks.includes(hg.unlock) && !hasItem(player, hg.item)) {
+        events.push({ type: "LOG", message: `Your blows just skate off the ${def.name}. The guides sell ${hg.toolName}s for this work — or buy the mastery once and never carry them again.` });
         return;
       }
       // Each side keeps its own swing clock: the player swings on weapon speed,
@@ -4667,6 +4682,14 @@ function advanceKillQuests(
 
 // --- Bounty: a slay-task board, ported from the idle game's bounty loop -------
 
+/** OSRS-style hunt-tool gates: quarry that can't be harmed without the right
+ *  ware from a guide's shop. The consumable is spent on EACH kill; the
+ *  mastery unlock (dear, permanent) retires the consumable forever. */
+export const HUNT_GATES: Record<string, { item: ItemId; unlock: string; toolName: string }> = {
+  hollow_hound: { item: "flensing_hook", unlock: "flensing_mastery", toolName: "Flensing Hook" },
+  iron_maw: { item: "maw_spike", unlock: "spike_mastery", toolName: "Maw-Spike" },
+};
+
 /** Twin Marks unlock: this share of on-task kills counts double. */
 const TWIN_MARKS_CHANCE = 0.12;
 /** The Tracker (the Bounty skilling pet) only ever appears mid-hunt: each
@@ -4704,7 +4727,7 @@ function trackBountyKill(
   const name = content.monsters[monster]?.name ?? monster;
   const twinNote = twin ? " (Twin Marks — it counts twice!)" : "";
   if (task.progress >= task.required) {
-    events.push({ type: "LOG", message: `Bounty complete${twinNote} — return to the board to claim it.` });
+    events.push({ type: "LOG", message: `Bounty complete${twinNote} — see any guide to claim it.` });
   } else {
     events.push({ type: "LOG", message: `Bounty: ${task.progress}/${task.required} ${name}.${twinNote}` });
   }
@@ -4735,9 +4758,14 @@ function takeBountyTask(
     return;
   }
   const pool: BountyTaskDef[] = [];
+  const cl = combatLevel(player);
   for (const zone of guide.zones) {
     for (const t of content.bountyTasks[zone] ?? []) {
       if (level < t.minLevel) continue;
+      // OSRS-style: a guide sizes you up before writing your name — no
+      // contract for quarry far beyond your combat level.
+      const mLvl = content.monsters[t.monster]?.level ?? 1;
+      if (mLvl > cl + 10) continue;
       // Boss bounties are gated behind their unlock quest — never assign a task
       // for a boss the hunter can't yet reach.
       if (t.requiresFlag && !player.flags.includes(t.requiresFlag)) continue;
@@ -4747,7 +4775,7 @@ function takeBountyTask(
     }
   }
   if (pool.length === 0) {
-    events.push({ type: "LOG", message: "No tasks available yet — earn more Bounty levels, or take work from a lower-tier guide." });
+    events.push({ type: "LOG", message: `${guide.name} has nothing you're ready for — train Bounty and your combat, or see a lower-tier guide.` });
     return;
   }
   const pick = pool[Math.floor(ctx.rng() * pool.length)]!;
@@ -5396,6 +5424,14 @@ function checkKill(
   advanceKillQuests(state, content, def.monster, events);
   trackBountyKill(state, content, def.monster, ctx, events);
   rollSuperiorBounty(state, content, def.monster, drop.x, drop.y, ctx, events);
+  // A tool-gated kill spends its consumable — unless the mastery is owned.
+  const hgk = HUNT_GATES[def.monster ?? ""];
+  if (hgk && !player.bounty.unlocks.includes(hgk.unlock)) {
+    removeOneItem(player, hgk.item);
+    if (!hasItem(player, hgk.item)) {
+      events.push({ type: "LOG", message: `That was your last ${hgk.toolName} — buy more from a guide, or the mastery to be done with them.` });
+    }
+  }
   clearActivity(player);
 }
 
