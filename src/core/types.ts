@@ -1316,17 +1316,18 @@ export interface BountyTaskDef {
  * A bounty monster's home ground — the one named place where it reliably
  * lives (OSRS-Slayer style). Individuals still wander their patch, and a few
  * strays may roam the wider world, but the ground is where a hunter is TOLD
- * to look: the contract names it and the maps mark it while the task is live.
+ * to look: the guide and the contract name it in words, and that's all the
+ * help you get — no arrows, no map rings. Finding it is the adventure.
  */
 export interface HuntingGround {
-  /** The place's name, e.g. "Bearwallow" — shown on the contract and the map. */
+  /** The place's name, e.g. "Bearwallow" — quoted by the guide and contract. */
   name: string;
   /** A guide's one-line direction to it, e.g. "southern Greyoak, below the snares". */
   hint: string;
-  /** Centre tile of the ground (world coordinates). */
+  /** Centre tile of the ground (world coordinates) — the spawn cluster's anchor. */
   x: number;
   y: number;
-  /** Rough radius of the ground in tiles (drawn as the hunt ring on maps). */
+  /** Rough radius of the ground in tiles — how far its residents range. */
   r: number;
 }
 

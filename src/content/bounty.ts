@@ -145,10 +145,10 @@ export const bountyTasks: Record<string, BountyTaskDef[]> = {
 /**
  * Where each bounty monster reliably lives — its named hunting ground
  * (OSRS-Slayer style: hill giants have their places, so do our bears). The
- * spawn tables cluster each species here, the contract card quotes the place,
- * and the minimap/world map ring it while the task is live. A few strays of
- * the common species still wander the wider wilds for flavour; the ground is
- * simply where a hunter is *guaranteed* to find them.
+ * spawn tables cluster each species here, and the guide/contract quote the
+ * place IN WORDS — that's the only help given; nothing is drawn on the maps.
+ * A few strays of the common species still wander the wider wilds for
+ * flavour; the ground is simply where a hunter is *guaranteed* to find them.
  *
  * Coordinates are final world tiles (post-remap). Keep them honest: if a
  * species' spawns move, move its ground.

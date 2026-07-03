@@ -318,31 +318,8 @@ export class Minimap {
       drawObjShape(g, def.kind, sx(p.x + 0.5), sy(p.y + 0.5), Math.max(1.6, cell * 0.32), tint);
     }
 
-    // The live hunt: while a bounty task is on, ring the quarry's hunting
-    // ground — and when it's beyond the window, point to it from the map edge
-    // (a hunter's bearing, not a quest arrow: only ever for an accepted hunt).
-    const task = state.player.bounty.task;
-    const ground = task ? content.huntingGrounds[task.monster] : undefined;
-    if (!region && task && ground) {
-      const gx = sx(ground.x + 0.5), gy = sy(ground.y + 0.5);
-      g.strokeStyle = "rgba(224,96,60,0.9)";
-      g.setLineDash([3, 2]);
-      g.lineWidth = 1.2;
-      g.beginPath(); g.arc(gx, gy, ground.r * cell, 0, Math.PI * 2); g.stroke();
-      g.setLineDash([]);
-      if (gx < 0 || gx > S || gy < 0 || gy > S) {
-        const ang = Math.atan2(gy - S / 2, gx - S / 2);
-        const ex = S / 2 + Math.cos(ang) * (S / 2 - 7);
-        const ey = S / 2 + Math.sin(ang) * (S / 2 - 7);
-        g.fillStyle = "rgba(224,96,60,0.95)";
-        g.beginPath();
-        g.moveTo(ex + Math.cos(ang) * 5, ey + Math.sin(ang) * 5);
-        g.lineTo(ex + Math.cos(ang + 2.5) * 4, ey + Math.sin(ang + 2.5) * 4);
-        g.lineTo(ex + Math.cos(ang - 2.5) * 4, ey + Math.sin(ang - 2.5) * 4);
-        g.closePath();
-        g.fill();
-      }
-    }
+    // Deliberately NO live-hunt overlay (no ring, no bearing arrow): the guide
+    // TELLS you where the quarry lives, OSRS-style, and finding it is on you.
 
     // Other players (ghosts), live, with their name above the dot.
     for (const gh of currentGhosts()) {
@@ -635,27 +612,9 @@ export class WorldMapModal {
         g.fillRect(x * cell, y * cell, cell + 0.6, cell + 0.6);
       }
     }
-    // The live hunt: while a bounty task is on, ring the quarry's named
-    // hunting ground and label it, so "where do rats live?" has one answer.
-    const task = state.player.bounty.task;
-    const ground = task ? content.huntingGrounds[task.monster] : undefined;
-    if (task && ground && ground.y < rows) {
-      const gx = (ground.x + 0.5) * cell, gy = (ground.y + 0.5) * cell;
-      const gr = Math.max(ground.r * cell, 10);
-      g.strokeStyle = "rgba(226,96,64,0.95)";
-      g.setLineDash([5, 3]);
-      g.lineWidth = 2;
-      g.beginPath(); g.arc(gx, gy, gr, 0, Math.PI * 2); g.stroke();
-      g.setLineDash([]);
-      const label = `Hunt: ${ground.name}`;
-      g.font = "700 11px 'Cinzel', serif";
-      g.textAlign = "center";
-      g.fillStyle = "rgba(0,0,0,0.75)";
-      g.fillText(label, gx + 1, gy - gr - 5 + 1);
-      g.fillStyle = "#f0a080";
-      g.fillText(label, gx, gy - gr - 5);
-      g.textAlign = "start";
-    }
+    // Deliberately NO live-hunt ring here either: the contract and the guide's
+    // words name the ground; the map stays an honest map.
+    void content;
     // The Varathian Trail is deliberately NOT drawn across the world map — only
     // its start (the "Varathian Trail" head marker in the POI list) is shown, so
     // the map stays uncluttered. You follow the walked track on the ground itself.

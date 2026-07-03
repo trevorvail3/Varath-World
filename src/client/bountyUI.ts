@@ -181,11 +181,11 @@ export class BountyUI {
       const t = b.task;
       const done = t.progress >= t.required;
       const pct = Math.min(100, Math.round((t.progress / t.required) * 100));
-      // The guide tells you WHERE the quarry lives — its named hunting ground —
-      // and the maps ring that ground while the hunt is live.
+      // The guide tells you WHERE the quarry lives — its named hunting ground.
+      // That's all the help you get, OSRS-style: no arrows, no map rings.
       const ground = this.content.huntingGrounds[t.monster];
       const whereLine = ground
-        ? `<div class="bounty-task-where">${iconize("🐾")} Found at <b>${ground.name}</b> — ${ground.hint}. Ringed on your map while the hunt is live.</div>`
+        ? `<div class="bounty-task-where">${iconize("🐾")} Found at <b>${ground.name}</b> — ${ground.hint}.</div>`
         : "";
       html += `
         <div class="bounty-contract">
