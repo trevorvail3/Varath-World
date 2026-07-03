@@ -771,6 +771,50 @@ function openNest(
 }
 
 // ---------------------------------------------------------------------------
+// Combat draughts off kills — Varath's stat potions (Edge, Vigour, Ward,
+// ranging and Devotion brews) seep into EVERY foe's pockets, the way clue
+// scrolls do: one global roll on each kill instead of 75 hand-edited tables.
+// Rare enough that Herblore stays the real source (~1 kill in 16 sheds a
+// dose), generous enough that a session of fighting keeps a few in the pack.
+// The pool tiers by the foe's level: low roamers carry single doses of the
+// basic three; tougher foes add ranging and grace; past level 30 the full
+// two-dose brews (and eventually Deepgrace) join at lower weight.
+// ---------------------------------------------------------------------------
+const POTION_POOL: { item: ItemId; w: number; minLevel: number }[] = [
+  { item: "pot_battlemind_1", w: 3, minLevel: 1 },  // Edge — accuracy
+  { item: "pot_warrior_1", w: 3, minLevel: 1 },     // Vigour — damage
+  { item: "pot_ironhide_1", w: 3, minLevel: 1 },    // Ward — defence
+  { item: "pot_archer_1", w: 3, minLevel: 8 },      // ranging
+  { item: "potion_grace_1", w: 2, minLevel: 8 },    // Devotion — grace
+  { item: "pot_battlemind", w: 1, minLevel: 30 },   // the full brews, up-tier
+  { item: "pot_warrior", w: 1, minLevel: 30 },
+  { item: "pot_ironhide", w: 1, minLevel: 30 },
+  { item: "pot_archer", w: 1, minLevel: 30 },
+  { item: "pot_deepgrace_1", w: 1, minLevel: 45 },
+];
+const POTION_DROP_ODDS = 16; // 1-in-16 kills sheds a dose
+
+/** Roll a combat draught off a kill: level-gated weighted pick, dropped to the
+ *  floor with the rest of the creature's loot. */
+function rollPotionDrop(
+  state: WorldState,
+  x: number,
+  y: number,
+  stats: MonsterStats,
+  ctx: Ctx,
+): void {
+  if (ctx.rng() >= 1 / POTION_DROP_ODDS) return;
+  const lvl = stats.level ?? 1;
+  const pool = POTION_POOL.filter((p) => lvl >= p.minLevel);
+  if (pool.length === 0) return;
+  const total = pool.reduce((n, p) => n + p.w, 0);
+  let roll = ctx.rng() * total;
+  let pick = pool[0]!.item;
+  for (const p of pool) { roll -= p.w; if (roll <= 0) { pick = p.item; break; } }
+  dropToGround(state, pick, 1, x, y, ctx, false);
+}
+
+// ---------------------------------------------------------------------------
 // Trail clues — the treasure-trail repeatable. A monster kill can shed a
 // sealed trail scroll (tier by the creature's level, one held per tier);
 // its riddle points at one real landmark. Interacting with that landmark
@@ -6504,4 +6548,6 @@ function rollDrops(
       });
     }
   }
+  // Every foe can shed a combat draught on top of its own table.
+  rollPotionDrop(state, x, y, stats, ctx);
 }
