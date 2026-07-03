@@ -274,6 +274,56 @@ body {
 }
 .spec-chip.hidden { display: none; }
 
+/* The trail chip: a scroll waiting in the pack; tap re-reads the riddle. */
+.clue-chip {
+  margin-top: 4px;
+  font-family: "Cinzel", serif;
+  font-size: 10px;
+  color: #cbb98a;
+  background: rgba(24, 20, 12, 0.72);
+  border: 1px solid rgba(190, 160, 90, 0.35);
+  border-radius: 5px;
+  padding: 1px 7px;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+  width: 100%;
+}
+.clue-chip.hidden { display: none; }
+
+/* "Today in Varath" — the quest tab's daily beats. */
+.today-block {
+  background: rgba(20, 16, 11, 0.5);
+  border: 1px solid rgba(201, 162, 74, 0.2);
+  border-radius: 6px;
+  padding: 5px 8px;
+  margin-bottom: 8px;
+}
+.today-row {
+  font-size: 12px;
+  color: #c9b88f;
+  padding: 2px 0;
+  display: flex;
+  gap: 6px;
+  align-items: baseline;
+}
+.today-row.ready { color: #cfe0b0; }
+.today-row.ready .today-dot { color: #9fd07a; }
+.today-row.waiting { color: #8f866f; }
+.today-row.waiting .today-dot { color: #6b6157; }
+
+/* Collection-log chase meter. */
+.coll-meter { margin: 4px 0 8px; }
+.coll-meter-top {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  color: #c9b88f;
+  margin-bottom: 3px;
+}
+
 .hud-vitals.low {
   border-color: #c44a3a;
   box-shadow: 0 0 14px rgba(196, 58, 42, 0.4);

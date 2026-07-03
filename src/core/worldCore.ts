@@ -357,6 +357,9 @@ const BASE_MAX_HP = 10;
 
 // Special attacks: the bar charges as your blows land and is spent whole on
 // one armed finisher — melee SUNDER, bow TWIN SHOT, staff GRACE SURGE.
+// The bounty daily-double window: 20 hours, rolling (see claimBountyTask).
+export const DAILY_WINDOW_MS = 20 * 3_600_000;
+
 const SPEC_MAX = 100;
 const SPEC_GAIN_PER_HIT = 12;
 const SPEC_MELEE_MULT = 1.5;   // Sunder: a sure hit, half again the damage
@@ -5159,10 +5162,14 @@ function claimBountyTask(
   // Milestone: the 10th/50th/100th lifetime task pays a multiplier.
   const mult = bountyMilestoneMult(player.bounty.tasksDone);
   const milestoneBonus = task.marks * (mult - 1);
-  // Daily: the first claim of each real day pays double base marks.
-  const day = Math.floor((ctx.epoch ?? 0) / 86_400_000);
-  const daily = day > 0 && day !== player.bounty.lastClaimDay;
-  if (day > 0) player.bounty.lastClaimDay = day;
+  // Daily: the first claim in any rolling 20 hours pays double base marks —
+  // OSRS-style, keyed to your own play rhythm rather than a UTC midnight that
+  // could be straddled for two doubles minutes apart. (The field keeps its old
+  // save key; pre-window saves hold a small day-index, which reads as "long
+  // ago" and simply grants one fresh daily.)
+  const epochNow = ctx.epoch ?? 0;
+  const daily = epochNow > 0 && epochNow - (player.bounty.lastClaimDay ?? 0) >= DAILY_WINDOW_MS;
+  if (daily) player.bounty.lastClaimDay = epochNow;
   const dailyBonus = daily ? task.marks : 0;
   player.bounty.marks += task.marks + streakBonus + milestoneBonus + dailyBonus;
   player.bounty.task = null;
@@ -6277,8 +6284,9 @@ function moveWorldBoss(state: WorldState, content: Content, ctx: Ctx, events: Wo
   events.push({ type: "WORLD_BOSS_MOVED", name: def.name, hint: compassHint(content, next) });
 }
 
-/** A coarse "where" for a world-boss sighting — a compass corner of the map. */
-function compassHint(content: Content, p: Vec2): string {
+/** A coarse "where" for a world-boss sighting — a compass corner of the map.
+ *  Exported for the client (the quest tab's Today panel names the wilds). */
+export function compassHint(content: Content, p: Vec2): string {
   const { width, height } = content.map;
   const ns = p.y < height / 3 ? "north" : p.y > (2 * height) / 3 ? "south" : "";
   const ew = p.x < width / 3 ? "west" : p.x > (2 * width) / 3 ? "east" : "";
@@ -6293,7 +6301,7 @@ function compassHint(content: Content, p: Vec2): string {
 // ---------------------------------------------------------------------------
 const DELVE_WAVES = 4;
 /** Full cache once per this much PLAYED time (can't be gamed by the clock). */
-const DELVE_FULL_LOCKOUT_MS = 90 * 60_000;
+export const DELVE_FULL_LOCKOUT_MS = 90 * 60_000; // exported for the Today panel
 
 function delveFlag(w: number): string { return `delve_wave_${w}`; }
 

@@ -30,7 +30,7 @@ import { setPerfMode } from "./render.ts";
 import { audio } from "./audio.ts";
 import { reportBug } from "./ops.ts";
 import { glyph, iconize } from "./glyph.ts";
-import { bossMilestones, combatLevel, equipRequirement, evalAchievement } from "../core/worldCore.ts";
+import { bossMilestones, combatLevel, compassHint, DAILY_WINDOW_MS, DELVE_FULL_LOCKOUT_MS, equipRequirement, evalAchievement } from "../core/worldCore.ts";
 import { SkillDetailModal } from "./skillDetail.ts";
 import { LEVEL_CAP, XP_CAP } from "../content/xpCurve.ts";
 import { HiscoresUI } from "./hiscoresUI.ts";
@@ -125,6 +125,7 @@ export class Hud {
   private hpFill!: HTMLElement;
   private huntChip!: HTMLElement;
   private specChip!: HTMLElement;
+  private clueChip!: HTMLElement;
   private hpBar!: HTMLElement;
   private graceFill!: HTMLElement;
   private graceBar!: HTMLElement;
@@ -288,12 +289,22 @@ export class Hud {
         </div>
       </div>
       <div class="hunt-chip hidden" title="Your active bounty task"></div>
-      <button class="spec-chip hidden" type="button" title="Special attack — the bar charges as your blows land; tap at full to arm the next swing"></button>`;
+      <button class="spec-chip hidden" type="button" title="Special attack — the bar charges as your blows land; tap at full to arm the next swing"></button>
+      <button class="clue-chip hidden" type="button" title="A trail scroll in your pack — tap to read its riddle again"></button>`;
     this.huntChip = vitals.querySelector(".hunt-chip") as HTMLElement;
     this.specChip = vitals.querySelector(".spec-chip") as HTMLElement;
     this.specChip.addEventListener("click", (e) => {
       e.stopPropagation();
       this.dispatch({ type: "SPECIAL" });
+    });
+    this.clueChip = vitals.querySelector(".clue-chip") as HTMLElement;
+    this.clueChip.addEventListener("click", (e) => {
+      e.stopPropagation();
+      for (const t of ["clue_easy", "clue_medium", "clue_hard"] as const) {
+        if (this.lastState?.player.inventory.some((d) => d?.item === t)) {
+          this.log(`The trail reads: \u201c${this.clueRiddle(t)}\u201d`);
+        }
+      }
     });
     this.hpFill = vitals.querySelector(".hp-fill") as HTMLElement;
     this.hpBar = vitals.querySelector(".hp-bar") as HTMLElement;
@@ -1653,6 +1664,16 @@ export class Hud {
       this.specChip.classList.add("hidden");
     }
 
+    // The trail chip: a quiet reminder that a scroll is waiting in the pack.
+    const heldClues = ["easy", "medium", "hard"].filter((t) =>
+      player.inventory.some((d) => d?.item === `clue_${t}`));
+    if (heldClues.length) {
+      this.clueChip.textContent = `\ud83d\udcdc Trail: ${heldClues.join(" · ")}`;
+      this.clueChip.classList.remove("hidden");
+    } else {
+      this.clueChip.classList.add("hidden");
+    }
+
     // Hitpoints (always-on bar) + low-HP warning.
     const pct = Math.max(0, Math.min(1, player.hp / player.maxHp));
     this.hpFill.style.width = `${pct * 100}%`;
@@ -1799,6 +1820,39 @@ export class Hud {
       const def = quests.find((q) => q.id === id);
       return def ? `<div class="quest-done">✓ ${escapeHtml(def.name)}</div>` : "";
     };
+
+    // "Today in Varath": the standing daily beats, surfaced where players
+    // already look. Each line is a fact the systems track anyway — this panel
+    // just says it out loud (no timers invented, no play done for you).
+    {
+      const rows: string[] = [];
+      const row = (ready: boolean, text: string): string =>
+        `<div class="today-row ${ready ? "ready" : "waiting"}"><span class="today-dot">${ready ? "●" : "○"}</span> ${text}</div>`;
+      // Daily contract double (rolling 20h window).
+      const sinceDaily = Date.now() - (player.bounty?.lastClaimDay ?? 0);
+      rows.push(sinceDaily >= DAILY_WINDOW_MS
+        ? row(true, "Daily hunt bonus ready — your next contract claim pays double Marks")
+        : row(false, `Daily hunt bonus returns in ${Math.ceil((DAILY_WINDOW_MS - sinceDaily) / 3_600_000)}h`));
+      // The Delve cache (playtime lockout).
+      const sinceCache = player.playMs - (player.delveLastFullPlayMs ?? -Infinity);
+      rows.push(sinceCache >= DELVE_FULL_LOCKOUT_MS
+        ? row(true, "The Marrow Delve's full cache is ready — clear the waves to claim it")
+        : row(false, `Delve cache recharges after ${Math.ceil((DELVE_FULL_LOCKOUT_MS - sinceCache) / 60_000)}m more play`));
+      // The roaming world boss, by compass corner.
+      const st = this.lastState;
+      const bossDef = this.content.objects.find((o) => o.kind === "monster" && o.patrol && o.patrol.length > 1);
+      const bossObj = bossDef ? st?.objects[bossDef.id] : undefined;
+      if (bossDef && bossObj) {
+        rows.push(bossObj.available
+          ? row(true, `${escapeHtml(bossDef.name ?? "The world boss")} prowls ${escapeHtml(compassHint(this.content, bossObj.pos ?? { x: bossDef.x, y: bossDef.y }))}`)
+          : row(false, `${escapeHtml(bossDef.name ?? "The world boss")} is slain — it will rise and roam again`));
+      }
+      // Open trail scrolls in the pack.
+      const held = ["easy", "medium", "hard"].filter((t) =>
+        player.inventory.some((d) => d?.item === `clue_${t}`));
+      if (held.length) rows.push(row(true, `Unsolved trail scroll${held.length > 1 ? "s" : ""} in your pack: ${held.join(", ")}`));
+      parts.push(`<div class="quest-cat">Today in Varath</div><div class="today-block">${rows.join("")}</div>`);
+    }
 
     // The active Bounty contract, pinned at the top so you can check your
     // slay-task and its progress from anywhere — not only at a guide's board.
@@ -2014,7 +2068,7 @@ export class Hud {
     for (const d of collItems) { const c = d.cat!; if (!collCats.includes(c)) collCats.push(c); }
     collCats.sort();
     let collDone = 0, collTotal = 0;
-    const collBody = collCats.map((cat) => {
+    const collCatsBody = collCats.map((cat) => {
       const rows = collItems.filter((d) => d.cat === cat).sort((a, b) => a.name.localeCompare(b.name));
       const have = rows.filter((d) => owned.has(d.id)).length;
       collDone += have; collTotal += rows.length;
@@ -2024,6 +2078,12 @@ export class Hud {
           return `<span class="coll-cell ${got ? "got" : "locked"}" title="${escapeHtml(got ? d.name : "???")}">${itemIconSVG(d)}</span>`;
         }).join("") + `</div>`);
     }).join("");
+    // The chase meter: how much of Varath's ledger this account has touched.
+    const collPct = collTotal ? Math.floor((collDone / collTotal) * 100) : 0;
+    const collBody =
+      `<div class="coll-meter"><div class="coll-meter-top"><span>Logged</span><span>${collDone} / ${collTotal} · ${collPct}%</span></div>` +
+      `<div class="char-cape-bar"><div class="char-cape-fill" style="width:${collPct}%"></div></div></div>` +
+      collCatsBody;
 
     // The top-level sections.
     const section = (key: string, title: string, count: string, body: string): string => {
@@ -2033,7 +2093,7 @@ export class Hud {
 
     this.recordsEl.innerHTML =
       section("bosslog", "Boss Log", `${bossSlain}/${bosses.length}`, bossBody) +
-      section("collection", "Collection Log", `${collDone}/${collTotal}`, collBody) +
+      section("collection", "Collection Log", `${collDone}/${collTotal} \u00b7 ${collPct}%`, collBody) +
       section("cape", "Cape of Varath", capeOwned ? "Earned" : `${capeMaxed}/${skillIds.length}`, capeBody) +
       section("companions", "Companions", `${compOwned}/${comps.length}`, compBody) +
       section("achievements", "Achievements", `${player.achievements.length}/${achTotal}`, achBody) +

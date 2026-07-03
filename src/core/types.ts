@@ -1399,6 +1399,8 @@ export interface BountyState {
   tasksDone: number;
   /** The wall-clock day (floor(epoch / 86,400,000)) of the last claim — the
    *  first claim of each real day pays double base Marks. Persisted. */
+  /** Epoch ms of the last daily-double claim (rolling 20h window; the old
+   *  save key name is kept — stale day-index values read as 'long ago'). */
   lastClaimDay: number;
   /** Monster ids the hunter has blocked — never rolled into a task. Capped at a
    *  base allotment, widened by the "wider_net" unlock. */

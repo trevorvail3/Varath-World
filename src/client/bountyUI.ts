@@ -15,7 +15,7 @@
 import type { Content, Intent, ItemId, WorldState } from "../core/types.ts";
 import { itemIconSVG } from "./itemIcon.ts";
 import { iconize } from "./glyph.ts";
-import { equipRequirement, bountyMilestoneMult } from "../core/worldCore.ts";
+import { equipRequirement, bountyMilestoneMult, DAILY_WINDOW_MS } from "../core/worldCore.ts";
 
 export class BountyUI {
   private backdrop: HTMLElement;
@@ -178,12 +178,11 @@ export class BountyUI {
     // --- 2) The contract ---
     html += `<div class="bounty-section-label">Contract</div>`;
     // The hunter's record: lifetime tally, and what the NEXT claim is worth.
-    // Milestone claims (10th/50th/100th) multiply Marks; the first claim of
-    // each real day doubles them — both stack with the streak.
+    // Milestone claims (10th/50th/100th) multiply Marks; the first claim in any rolling
+    // 20 hours doubles them — both stack with the streak.
     const nextN = b.tasksDone + 1;
     const nextMult = bountyMilestoneMult(nextN);
-    const today = Math.floor(Date.now() / 86_400_000);
-    const daily = today !== b.lastClaimDay;
+    const daily = Date.now() - (b.lastClaimDay ?? 0) >= DAILY_WINDOW_MS;
     const perks: string[] = [];
     if (nextMult > 1) perks.push(`<span class="bounty-perk hot">${iconize("🏅")} Task #${nextN} — a milestone: ×${nextMult} Marks on claim!</span>`);
     if (daily) perks.push(`<span class="bounty-perk">${iconize("🌅")} First claim of the day: double Marks.</span>`);
