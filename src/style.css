@@ -241,6 +241,39 @@ body {
 .hunt-chip.done { color: #9fd07a; border-color: rgba(140, 200, 110, 0.5); }
 .hunt-chip.hidden { display: none; }
 
+/* The special-attack chip: charge readout that becomes a button at full. */
+.spec-chip {
+  margin-top: 4px;
+  font-family: "Cinzel", serif;
+  font-size: 10px;
+  color: #a8b4c8;
+  background: rgba(16, 18, 24, 0.72);
+  border: 1px solid rgba(130, 150, 190, 0.35);
+  border-radius: 5px;
+  padding: 1px 7px;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+  width: 100%;
+}
+.spec-chip.ready {
+  color: #cfe0ff;
+  border-color: rgba(150, 180, 240, 0.7);
+  box-shadow: 0 0 8px rgba(120, 160, 240, 0.35);
+}
+.spec-chip.armed {
+  color: #ffe9a8;
+  border-color: rgba(240, 200, 100, 0.8);
+  animation: specPulse 0.9s ease-in-out infinite;
+}
+@keyframes specPulse {
+  0%, 100% { box-shadow: 0 0 6px rgba(240, 200, 100, 0.3); }
+  50% { box-shadow: 0 0 14px rgba(240, 200, 100, 0.65); }
+}
+.spec-chip.hidden { display: none; }
+
 .hud-vitals.low {
   border-color: #c44a3a;
   box-shadow: 0 0 14px rgba(196, 58, 42, 0.4);
@@ -605,6 +638,21 @@ body {
 
 .quest-prog {
   color: var(--ember, #d2742c);
+}
+
+/* Recommended combat level chip on a quest row — red while it outclasses you. */
+.quest-lvl {
+  font-size: 11px;
+  color: #9fb87f;
+  border: 1px solid #4a5238;
+  border-radius: 8px;
+  padding: 0 5px;
+  margin-left: 4px;
+  white-space: nowrap;
+}
+.quest-lvl.over {
+  color: #e08a7a;
+  border-color: #6e3f36;
 }
 
 .quest-done {

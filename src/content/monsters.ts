@@ -1976,6 +1976,43 @@ export const monsters: Record<string, MonsterStats> = {
     ],
   },
 
+  // === VORLAG, THE HUNGER BELOW — the level-125 apex, past the fifth seal ===
+  // When the pass opened, a crack opened with it at the Undergate's mouth: the
+  // thing the five seals were FOR, waking hungry. Varath's hardest fight —
+  // weak only to magic, so Devotion finally headlines an endgame encounter.
+  "vorlag": {
+    id: "vorlag", name: "Vorlag, the Hunger Below", icon: "🕳️", level: 125, hp: 2600,
+    acc: 480, def: 96, maxHit: 68, speed: 2600, xp: 6000, attackStyle: "crush",
+    weakness: ["magic"],
+    boss: true,
+    bossHint: "The thing the five seals held. Its lair — the Hollow Below — opened at the Undergate's mouth the day the pass did. It shrugs off steel and arrows alike; bring your Devotion, a staff that means it, and everything your bank will carry.",
+    desc: "The Hunger Below. Old Varath did not seal the north road to keep travellers out — it starved the road so THIS would sleep. The pass is open now. It is not sleeping now. Steel rings off its hide; only Grace burns it.",
+    mechanics: [
+      // 1. The floor buckles — a telegraphed ground-surge every 3rd swing.
+      { type: "slam", every: 3, mult: 2.6, radius: 1, windupMs: 2200, tell: "The floor BUCKLES — the Hunger surges beneath where you stand. MOVE!" },
+      // 2. Waking fury — under a third of its blood, it stops being patient.
+      { type: "enrage", below: 0.33, mult: 1.5, tell: "Vorlag opens — all the way open — and the dark inside it HOWLS." },
+      // 3. A hide of sealed centuries: melee and arrows glance unless you bring
+      //    its one weakness (magic), OSRS-style.
+      { type: "scaleguard", reduce: 0.45 },
+    ],
+    drops: [
+      { item: "big_bones", chance: 1, tier: "always" },
+      { item: "worn_coin", chance: 1, min: 900, max: 2200, tier: "always" },
+      // The whelp: a fist of the dark that imprinted on its parent's killer.
+      { item: "pet_vorlag", chance: 0.001, tier: "legendary" },
+      // The uniques: the best stab blade, wall and cape in Varath, equal rates.
+      { item: "hunger_fang", chance: 0.03, tier: "legendary" },
+      { item: "sealbreaker_bulwark", chance: 0.03, tier: "legendary" },
+      { item: "mantle_of_the_below", chance: 0.025, tier: "legendary" },
+      // A dry kill still pays like the endgame it is.
+      { item: "hearthite_bar", chance: 0.5, min: 2, max: 4, tier: "uncommon" },
+      { item: "cut_gem", chance: 0.5, min: 2, max: 4, tier: "uncommon" },
+      { item: "marrow_shard", chance: 0.3, tier: "rare" },
+      { item: "shard_of_orun", chance: 0.05, tier: "legendary" },
+    ],
+  },
+
   // === THE HUNT WARRENS — warren-bred quarry, each gated by Bounty level ====
   // OSRS-Slayer style: without the huntcraft you can't fight them at all
   // (bountyReq), and each tier pays better than the last, topped by a unique

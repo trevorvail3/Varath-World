@@ -326,6 +326,10 @@ export const shops: ShopDef[] = [
       { item: "trail_vest", price: 0, qty: 1, costItem: "agility_mark", costQty: 20 },
       { item: "trail_legs", price: 0, qty: 1, costItem: "agility_mark", costQty: 16 },
       { item: "trail_boots", price: 0, qty: 1, costItem: "agility_mark", costQty: 12 },
+      // Standing exits once the set is bought: run-fuel by the lap, and the
+      // wren — a marks-only prestige companion at the top of the ladder.
+      { item: "pot_runner", price: 0, qty: 1, costItem: "agility_mark", costQty: 2 },
+      { item: "pet_trail_wren", price: 0, qty: 1, costItem: "agility_mark", costQty: 120 },
     ],
   },
   {

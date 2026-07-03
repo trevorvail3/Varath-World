@@ -281,6 +281,10 @@ export const bountyShop: BountyShopListing[] = [
   { item: "bloodore_arrow", cost: 60, qty: 15, label: "Bloodore Arrows ×15", desc: "A bundle of fifteen bloodore arrows." },
   { item: "arrow_hearthite", cost: 130, qty: 20, label: "Hearthite Arrows ×20", desc: "A bundle of twenty hearthite-tipped arrows — for the hardest hunts." },
   { item: "hunters_kit", cost: 400, qty: 3, label: "Hunter's Kit ×3", desc: "Three field kits at a bulk rate. Bank them for your biggest claims." },
+  // Standing exits for a full purse: a repeatable crate, and the guides' old
+  // hound — a Marks-only prestige companion at the top of the ladder.
+  { item: "bounty_crate", cost: 100, qty: 1, label: "Bounty Supply Crate", desc: "A stamped crate of field supplies — rations, elixirs, arrows, and now and then something better." },
+  { item: "pet_bloodhound", cost: 4000, qty: 1, label: "Old Bay, the guides' hound", desc: "The guides' retired bloodhound, sold for Marks alone. The Hunt's highest honour that walks." },
 ];
 
 /**

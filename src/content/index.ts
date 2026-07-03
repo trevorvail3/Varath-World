@@ -14,6 +14,7 @@ import { monsters } from "./monsters.ts";
 import { quests } from "./quests.ts";
 import { spells } from "./spells.ts";
 import { lore } from "./lore.ts";
+import { clueSpots } from "./clues.ts";
 import { shops } from "./shops.ts";
 import { factions } from "./factions.ts";
 import { achievements } from "./achievements.ts";
@@ -36,6 +37,7 @@ export const content: Content = {
   quests,
   spells,
   lore,
+  clueSpots,
   shops,
   factions,
   achievements,

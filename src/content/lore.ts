@@ -140,4 +140,81 @@ export const lore: LoreDef[] = [
     ],
     reward: { gold: 120 },
   },
+
+  // === THE HUNT — the guides, the Warrens, and what hunting costs ==========
+  {
+    id: "lore_hunt_first_guide",
+    title: "The First Guide's Rule",
+    category: "The Hunt",
+    text: [
+      "— burned into a board hung at the Warrens' mouth, re-lettered many times but never re-worded —",
+      "Rule the first and only: the hunt ends. You track it, you take it, you thank it, you stop. A hunt that does not stop is not a hunt. It is a hunger, and hungers go to the Warrens to grow.",
+      "That is why there are guides. Not to help you find the beast. Any fool with a nose finds the beast. The guide is there to make sure you come back UP.",
+    ],
+    reward: { gold: 65 },
+  },
+  {
+    id: "lore_hunt_warrens_dig",
+    title: "A Digger's Confession",
+    category: "The Hunt",
+    text: [
+      "— folded small and shoved between bricks in the Warrens' entry hall —",
+      "We did not dig the Warrens. Mind that. We dug INTO the Warrens, which were already there, which is a different confession entirely.",
+      "The burrows go down in rings, and the rings get older as they go, and the oldest ring is not made of digging at all. It is made of swallowing. I have been a miner thirty years and I know a tunnel from a throat.",
+      "The guides pay well and the beasts come up fat and strange. Nobody asks what they are fat ON. That is the whole economy of the place, and I have taken my last coin of it.",
+    ],
+    reward: { gold: 85 },
+  },
+
+  // === THE SEALS — the Pale roads, and what broke when the pass opened =====
+  {
+    id: "lore_seal_toll",
+    title: "The Toll-Keeper's Margin Notes",
+    category: "The Five Seals",
+    text: [
+      "— written sideways in the margins of a ruined toll-ledger, under the high pass —",
+      "Year on year the entries thin. Fewer carts. Fewer heads. The road north was the country's throat, and something closed a hand around it slowly enough that no single year felt like choking.",
+      "The last entry is not a count. It is a sentence, in the Pale hand: THE ROAD IS SENTENCED. FIVE SEALS. And under it, smaller, in common letters, a toll-keeper's own hand: 'but a road remembers being walked.'",
+      "The pass stands open now. Roads remember. Pray that is all they do.",
+    ],
+    reward: { gold: 110 },
+  },
+  {
+    id: "lore_seal_warden_watch",
+    title: "What the Warden Kept",
+    category: "The Five Seals",
+    text: [
+      "— a rubbing taken from the fifth seal's ring, after —",
+      "The wolf-sign, over and over, ring within ring: UNTIL THE WOLF RUNS HOME. The scholars read it as a term of service. A wolf runs home when the hunt is done; the Warden stands until then; very tidy.",
+      "Here is what the tidy reading skips. A wolf runs home in two cases: when the hunt is done — and when something bigger has taken the kill.",
+      "The Warden did not look relieved, they say, at the end. It looked like a sentry does when the relief arrives and the relief is wearing the wrong face.",
+    ],
+    reward: { gold: 140 },
+  },
+
+  // === THE ROADS & WATERS — the trail, and the sea that has no eyes ========
+  {
+    id: "lore_trail_runner",
+    title: "The Long Lap",
+    category: "Roads & Waters",
+    text: [
+      "— pinned under a stone at the head of the Varathian Trail —",
+      "People ask why I run the whole country when a waystone would take me in a blink. I tell them: the waystone takes YOU. The road GIVES you. These are different trades.",
+      "Every lap the land hands you something small — a fox print, a new fall of rock, the moon lining up with the Spine's notch just so. The stone under this note is my thousandth lap. The land knows my step by now.",
+      "I like to think it listens for me. Vanity, probably. Run it a hundred times and tell me it isn't listening.",
+    ],
+    reward: { gold: 60 },
+  },
+  {
+    id: "lore_eyeless_chart",
+    title: "A Chart of the Eyeless",
+    category: "Roads & Waters",
+    text: [
+      "— the corner of a sea-chart, salt-stiff, recovered from a cod's belly at the Drowned Pier —",
+      "The old charts mark the deep water EYELESS because nothing that lives down there has kept its eyes. The dark took them back, the way disuse takes anything.",
+      "But the chart's maker drew one thing in the deepest sounding, and drew it with eyes. Big ones. Open ones. And beside it, in a shaking hand: SHE WATCHES FROM ABOVE. IT WATCHES FROM BELOW. WE LIVE IN THE BETWEEN.",
+      "Fishermen do not repeat this. They just salt their lines and stay in the shallows past dusk, every one of them, and call it habit.",
+    ],
+    reward: { gold: 95 },
+  },
 ];

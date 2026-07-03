@@ -68,4 +68,31 @@ export const diaries: DiaryDef[] = [
       { label: "Cook a feast at Cooking 50", cond: { type: "skillLevel", skill: "cooking", level: 50 } },
     ],
   },
+  {
+    id: "diary_knuckle", reward: 8000, name: "The Knuckle Hills", icon: "🌄",
+    tasks: [
+      { label: "Settle Aldric's strange old coin", cond: { type: "questDone", quest: "q_ash_and_knuckle" } },
+      { label: "Work the first seams at Mining 15", cond: { type: "skillLevel", skill: "mining", level: 15 } },
+      { label: "Claim five of Rook's contracts", cond: { type: "bountyTasks", count: 5 } },
+      { label: "Reach Combat level 20 among the wolves", cond: { type: "combatLevel", level: 20 } },
+    ],
+  },
+  {
+    id: "diary_ironvale", reward: 40000, name: "Ironvale", icon: "🏙️",
+    tasks: [
+      { label: "Claim a homestead of your own", cond: { type: "flag", flag: "homesteader" } },
+      { label: "Stand a forge apprenticeship", cond: { type: "questDone", quest: "q_forge_apprentice" } },
+      { label: "Work the city forge at Smithing 45", cond: { type: "skillLevel", skill: "smithing", level: 45 } },
+      { label: "Earn a trader's fortune — 250,000 gold", cond: { type: "goldEarned", amount: 250000 } },
+    ],
+  },
+  {
+    id: "diary_deeps", reward: 75000, name: "The Deep Roads", icon: "🕯️",
+    tasks: [
+      { label: "Break the fifth seal beneath the pass", cond: { type: "questDone", quest: "q_undergate" } },
+      { label: "Slay Cindrath in the Marrow Deeps", cond: { type: "bossKills", boss: "ashen_wyrm", count: 1 } },
+      { label: "Slay the Delve Horror", cond: { type: "bossKills", boss: "delve_horror", count: 1 } },
+      { label: "Claim twenty-five Bounty contracts", cond: { type: "bountyTasks", count: 25 } },
+    ],
+  },
 ];

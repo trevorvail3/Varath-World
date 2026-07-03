@@ -4208,6 +4208,41 @@ function drawSkillPet(
   shadow(g, cx, cy + 9, 9, 3);
   const eye = (ex: number, ey: number, r = 1.2, col = "#15100b"): void => { g.fillStyle = col; circle(g, ex, ey, r); };
   switch (id) {
+    case "pet_bloodhound": { // OLD BAY — the guides' grizzled bloodhound
+      g.fillStyle = "#6e4f33"; // long low body
+      g.beginPath(); g.ellipse(cx + 1, y + 1, 9.5, 5.5, 0, 0, Math.PI * 2); g.fill();
+      g.fillStyle = "#7c5a3a"; // head, muzzle down like he's on a scent
+      g.beginPath(); g.ellipse(cx - 7, y - 1, 4.5, 4, -0.35, 0, Math.PI * 2); g.fill();
+      g.fillStyle = "#5a4028"; // long hound ears
+      g.beginPath(); g.ellipse(cx - 8.5, y + 1.5, 1.8, 3.6, -0.2, 0, Math.PI * 2); g.fill();
+      g.fillStyle = "#8a6844"; // grey muzzle of age
+      g.beginPath(); g.ellipse(cx - 10, y, 2.2, 1.7, -0.3, 0, Math.PI * 2); g.fill();
+      g.fillStyle = "#4a3521"; // legs + tail tip
+      g.fillRect(cx - 4, cy + 6, 2.5, 4); g.fillRect(cx + 4, cy + 6, 2.5, 4);
+      g.beginPath(); g.ellipse(cx + 10, y - 2, 2.5, 1.2, 0.6, 0, Math.PI * 2); g.fill();
+      eye(cx - 7.5, y - 2, 1.1);
+      break;
+    }
+    case "pet_trail_wren": { // TRAILWING WREN — a quick brown trail-bird
+      const hop = moving ? Math.abs(Math.sin(now / 110)) * 2.5 : 0;
+      const wy = y - hop;
+      g.fillStyle = "#8a6a42"; // round body
+      g.beginPath(); g.ellipse(cx, wy, 5.5, 4.5, 0, 0, Math.PI * 2); g.fill();
+      g.fillStyle = "#a5845a"; // breast
+      g.beginPath(); g.ellipse(cx - 1.5, wy + 1, 3, 2.6, 0, 0, Math.PI * 2); g.fill();
+      g.fillStyle = "#6d5233"; // wing, barred
+      g.beginPath(); g.ellipse(cx + 1.5, wy - 0.5, 3.2, 2.2, 0.3, 0, Math.PI * 2); g.fill();
+      g.strokeStyle = "#57411f"; g.lineWidth = 0.7;
+      g.beginPath(); g.moveTo(cx, wy - 1); g.lineTo(cx + 3.5, wy); g.stroke();
+      g.fillStyle = "#57411f"; // cocked tail — the wren signature
+      g.save(); g.translate(cx + 5, wy - 1); g.rotate(-0.9); g.fillRect(0, -0.9, 4.5, 1.8); g.restore();
+      g.fillStyle = "#8a6a42"; circle(g, cx - 4.5, wy - 2.5, 2.6); // head
+      g.fillStyle = "#c9a256"; // beak
+      g.beginPath(); g.moveTo(cx - 7, wy - 2.5); g.lineTo(cx - 9, wy - 2); g.lineTo(cx - 7, wy - 1.6); g.closePath(); g.fill();
+      g.fillStyle = "#c58a3f"; g.fillRect(cx - 2, cy + 7.5, 1.2, 2.5); g.fillRect(cx + 1, cy + 7.5, 1.2, 2.5);
+      eye(cx - 5, wy - 3, 0.9);
+      break;
+    }
     case "pet_mining": { // ROCK PUP — a living pebble with a crystal spine
       g.fillStyle = "#6a6660";
       g.beginPath(); g.ellipse(cx, y + 2, 9, 7, 0, 0, Math.PI * 2); g.fill();
@@ -5670,6 +5705,8 @@ const MONSTER_SCALE: Record<string, number> = {
   pale_wight: 1.1, pale_gatekeeper: 1.25, pale_herald: 1.25, pale_warden: 1.5,
   // The Hunt Warrens: each grade of quarry reads a size up from the last.
   dusk_stalker: 1.15, hollow_hound: 1.25, warren_shade: 1.2, iron_maw: 1.5,
+  // The Hollow Below: the level-125 apex towers over everything.
+  vorlag: 2.1,
 };
 
 /** A coloured ground-glow per boss — presence you can feel a screen away. */
@@ -5693,6 +5730,7 @@ const BOSS_AURA: Record<string, string> = {
   pale_gatekeeper: "200,198,190",  // pale stone
   pale_herald: "210,205,195",
   pale_warden: "228,224,214",      // the last seal's cold light
+  vorlag: "96,40,120",             // the dark under the mountain
 };
 
 /** Draw a monster, scaled up (about its planted foot) by MONSTER_SCALE. */
@@ -5868,6 +5906,8 @@ function drawMonsterBody(
       return drawWisp(g, cx, cy, now, "#9fc4e8"); // knotted weather
     case "aerie_harpy":
       return drawBat(g, cx, cy, now); // a stooping shape out of the dark
+    case "vorlag":
+      return drawHunger(g, cx, cy, now); // the level-125 apex
     default:
       return drawRat(g, cx, cy, now);
   }
@@ -5893,6 +5933,71 @@ function drawWisp(g: CanvasRenderingContext2D, cx: number, cy: number, now: numb
   g.fillStyle = tint + "aa";
   g.beginPath(); g.arc(cx - 5, y + 4 + bob * 0.4, 1.1, 0, Math.PI * 2); g.fill();
   g.beginPath(); g.arc(cx + 4, y + 6 - bob * 0.3, 0.9, 0, Math.PI * 2); g.fill();
+}
+
+/** Vorlag, the Hunger Below: a vast pale ring-maw risen through the floor —
+ *  segmented hide the colour of sealed centuries, a crown of grasping feelers,
+ *  and a mouth that is most of it. Drawn big and scaled bigger (2.1×). */
+function drawHunger(g: CanvasRenderingContext2D, cx: number, cy: number, now: number): void {
+  const heave = Math.sin(now / 520) * 2.2;     // slow breathing of the whole mass
+  const gape = 0.75 + 0.25 * Math.sin(now / 340); // the maw never quite closes
+  const y = cy + heave * 0.4;
+  shadow(g, cx, cy + 15, 20, 6);
+  // Broken earth around where it rose
+  g.fillStyle = "#3a3230";
+  g.beginPath(); g.ellipse(cx, cy + 14, 18, 5, 0, 0, Math.PI * 2); g.fill();
+  g.fillStyle = "#4c423d";
+  for (const [dx, dy, r] of [[-14, 12, 2.5], [13, 13, 3], [-8, 15, 2], [9, 15, 2.2]] as const) {
+    g.beginPath(); g.arc(cx + dx, cy + dy, r, 0, Math.PI * 2); g.fill();
+  }
+  // The risen body: stacked pale segments, widest at the maw
+  const seg = (yy: number, rx: number, tone: string): void => {
+    g.fillStyle = tone;
+    g.beginPath(); g.ellipse(cx, yy, rx, rx * 0.42, 0, 0, Math.PI * 2); g.fill();
+  };
+  seg(y + 10, 15, "#8f867c");
+  seg(y + 5, 16.5, "#9a9186");
+  seg(y - 1, 17.5, "#a59b8e");
+  seg(y - 7, 18, "#b0a598");
+  // Feelers crowning the rim, each swaying on its own clock
+  g.strokeStyle = "#8f867c"; g.lineWidth = 2.2; g.lineCap = "round";
+  for (let i = 0; i < 7; i++) {
+    const a = -Math.PI * (0.15 + 0.7 * (i / 6));
+    const sway = Math.sin(now / 300 + i * 1.3) * 3;
+    const bx = cx + Math.cos(a) * 16, by = y - 8 + Math.sin(a) * 7;
+    g.beginPath(); g.moveTo(bx, by);
+    g.quadraticCurveTo(bx + sway, by - 8, bx + sway * 1.6, by - 13 - (i % 2) * 3);
+    g.stroke();
+  }
+  // The maw: a dark ring of a mouth, ringed with teeth, darker the deeper
+  g.fillStyle = "#241d20";
+  g.beginPath(); g.ellipse(cx, y - 7, 13 * gape, 6.5 * gape, 0, 0, Math.PI * 2); g.fill();
+  g.fillStyle = "#0f0a10";
+  g.beginPath(); g.ellipse(cx, y - 6.5, 9 * gape, 4.2 * gape, 0, 0, Math.PI * 2); g.fill();
+  // Ring teeth, in around the rim
+  g.fillStyle = "#d8cfc2";
+  for (let i = 0; i < 10; i++) {
+    const a = (i / 10) * Math.PI * 2 + now / 4000;
+    const tx = cx + Math.cos(a) * 11 * gape, ty = y - 7 + Math.sin(a) * 5.2 * gape;
+    g.beginPath();
+    g.moveTo(tx, ty);
+    g.lineTo(tx + Math.cos(a) * -3.2, ty + Math.sin(a) * -2.2);
+    g.lineTo(tx + Math.cos(a + 0.5) * -1.4, ty + Math.sin(a + 0.5) * -1.2);
+    g.closePath(); g.fill();
+  }
+  // A violet gleam breathing out of the throat — the dark inside is awake
+  const gl = 0.35 + 0.3 * Math.sin(now / 260);
+  const glow = g.createRadialGradient(cx, y - 6.5, 1, cx, y - 6.5, 10);
+  glow.addColorStop(0, `rgba(150,80,190,${gl})`);
+  glow.addColorStop(1, "rgba(150,80,190,0)");
+  g.fillStyle = glow;
+  g.beginPath(); g.ellipse(cx, y - 6.5, 9 * gape, 4.2 * gape, 0, 0, Math.PI * 2); g.fill();
+  // Old seal-scars on the hide: five pale rings, one broken
+  g.strokeStyle = "#cfc6b8"; g.lineWidth = 1;
+  for (let i = 0; i < 5; i++) {
+    const sx = cx - 10 + i * 5, sy = y + 4 + (i % 2) * 3;
+    g.beginPath(); g.arc(sx, sy, 2, 0, i === 4 ? Math.PI * 1.3 : Math.PI * 2); g.stroke();
+  }
 }
 
 /** Cindrath, the Ashen Wyrm: a large winged dragon with glowing ember scales,

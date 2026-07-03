@@ -4310,6 +4310,109 @@ export const items: Record<ItemId, ItemDef> = {
     "cat": "Materials",
     "sell": 500
   },
+  "clue_easy": {
+    "id": "clue_easy",
+    "name": "Trail Scroll (easy)",
+    "description": "A sealed scroll of riddling directions, dropped by something that had no business carrying it. Tap to read the trail; solve it where it points.",
+    "icon": "📜",
+    "cat": "Trails",
+    "sell": 0
+  },
+  "clue_medium": {
+    "id": "clue_medium",
+    "name": "Trail Scroll (medium)",
+    "description": "A sealed scroll of riddling directions — a proper walk's worth. Tap to read the trail; solve it where it points.",
+    "icon": "📜",
+    "cat": "Trails",
+    "sell": 0
+  },
+  "clue_hard": {
+    "id": "clue_hard",
+    "name": "Trail Scroll (hard)",
+    "description": "A sealed scroll of riddling directions into the deep places. Tap to read the trail; solve it where it points — and go armed.",
+    "icon": "📜",
+    "cat": "Trails",
+    "sell": 0
+  },
+  "casket_easy": {
+    "id": "casket_easy",
+    "name": "Trail Casket (easy)",
+    "description": "A little strongbox that was waiting where the riddle said. Tap to prise it open.",
+    "icon": "🎁",
+    "cat": "Trails",
+    "container": true,
+    "sell": 100
+  },
+  "casket_medium": {
+    "id": "casket_medium",
+    "name": "Trail Casket (medium)",
+    "description": "A banded strongbox that was waiting where the riddle said. Tap to prise it open.",
+    "icon": "🎁",
+    "cat": "Trails",
+    "container": true,
+    "sell": 300
+  },
+  "casket_hard": {
+    "id": "casket_hard",
+    "name": "Trail Casket (hard)",
+    "description": "An iron-bound strongbox from the deep places. Heavy in the good way. Tap to prise it open.",
+    "icon": "🎁",
+    "cat": "Trails",
+    "container": true,
+    "sell": 800
+  },
+  "wayfarers_hat": {
+    "id": "wayfarers_hat",
+    "name": "Wayfarer's Hat",
+    "description": "A traveller's hat with a jaunty brim, found only at the end of a trail. Proof you can read a riddle and walk a road.",
+    "icon": "👒",
+    "cat": "Trails",
+    "slot": "helmet",
+    "def": 3,
+    "rarity": "rare",
+    "sell": 1200
+  },
+  "pale_mask": {
+    "id": "pale_mask",
+    "name": "Pale Mask",
+    "description": "A smooth mask of pale stone in the old north style, found only at the end of the hardest trails. Wearing a nameless face is an Underloft courtesy; on the living it simply unsettles everyone.",
+    "icon": "🎭",
+    "cat": "Trails",
+    "slot": "helmet",
+    "def": 6,
+    "acc": 2,
+    "rarity": "legendary",
+    "sell": 4000
+  },
+  "bounty_crate": {
+    "id": "bounty_crate",
+    "name": "Bounty Supply Crate",
+    "description": "A guide-stamped crate of field supplies — rations, elixirs, arrows, and now and then something better. Tap to prise it open.",
+    "icon": "📦",
+    "cat": "Combat Items",
+    "container": true,
+    "sell": 40
+  },
+  "pet_bloodhound": {
+    "id": "pet_bloodhound",
+    "name": "Old Bay",
+    "description": "A grizzled bloodhound retired from the guides' service, sold for Marks alone to a hunter with a hundred contracts behind them. He knows every trail in Varath and follows yours now.",
+    "icon": "🐕",
+    "cat": "Skilling Pets",
+    "slot": "companion",
+    "rarity": "legendary",
+    "sell": 0
+  },
+  "pet_trail_wren": {
+    "id": "pet_trail_wren",
+    "name": "Trailwing Wren",
+    "description": "A quick brown wren that paces the Varathian Trail's runners for the joy of it. Sold by the trailkeeper for marks alone — proof of a hundred laps.",
+    "icon": "🐦",
+    "cat": "Skilling Pets",
+    "slot": "companion",
+    "rarity": "legendary",
+    "sell": 0
+  },
   "bird_nest": {
     "id": "bird_nest",
     "name": "Bird Nest",
@@ -4692,6 +4795,64 @@ export const items: Record<ItemId, ItemDef> = {
     "rarity": "legendary",
     "lore": "ashen_wyrm",
     "sell": 6000
+  },
+  "hunger_fang": {
+    "id": "hunger_fang",
+    "name": "Hunger's Fang",
+    "description": "A tooth of Vorlag ground to a point that never dulls, because it remembers being hungry. The finest stabbing blade in Varath.",
+    "icon": "🗡️",
+    "cat": "Legendary Weapons",
+    "slot": "mainhand",
+    "acc": 70,
+    "dmg": 33,
+    "speed": 2000,
+    "attackStyle": "stab",
+    "wepType": "dagger",
+    "equipLevel": 85,
+    "rarity": "legendary",
+    "lore": "vorlag",
+    "sell": 8000
+  },
+  "sealbreaker_bulwark": {
+    "id": "sealbreaker_bulwark",
+    "name": "Sealbreaker Bulwark",
+    "description": "A shield cut whole from a plate of Vorlag's hide. It held five seals' worth of patience; it will hold a blow or two of yours.",
+    "icon": "🛡️",
+    "cat": "Legendary Armour",
+    "slot": "offhand",
+    "def": 58,
+    "equipLevel": 85,
+    "rarity": "legendary",
+    "lore": "vorlag",
+    "sell": 8000
+  },
+  "mantle_of_the_below": {
+    "id": "mantle_of_the_below",
+    "name": "Mantle of the Below",
+    "description": "A cape woven from the dark that lives under the mountain. It weighs nothing and remembers everything. The strongest back in Varath wears this.",
+    "icon": "🧥",
+    "cat": "Legendary Armour",
+    "slot": "cape",
+    "def": 9,
+    "acc": 5,
+    "rngAcc": 5,
+    "magAcc": 5,
+    "equipLevel": 85,
+    "rarity": "legendary",
+    "lore": "vorlag",
+    "sell": 8000
+  },
+  "pet_vorlag": {
+    "id": "pet_vorlag",
+    "name": "The Little Hunger",
+    "description": "A fist-sized bud of the Hunger Below that imprinted on whoever felled its parent. It eats one pebble a day and looks at you like you hung the moon it has never seen.",
+    "icon": "🕳️",
+    "cat": "Boss Pets",
+    "slot": "companion",
+    "rarity": "legendary",
+    "meta": {
+      "petBoss": "vorlag"
+    }
   },
   "wyrm_blade": {
     "id": "wyrm_blade",

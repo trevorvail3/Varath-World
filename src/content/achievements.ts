@@ -44,4 +44,29 @@ export const achievements: AchievementDef[] = [
   { id: "ach_homesteader", name: "Homesteader", desc: "Claim a homestead of your own.", icon: "🏡", category: "Home", cond: { type: "flag", flag: "homesteader" } },
   { id: "ach_house_proud", name: "House Proud", desc: "Furnish a home into a Manor.", icon: "🏠", category: "Home", cond: { type: "flag", flag: "home_manor" } },
   { id: "ach_palatial", name: "Palatial", desc: "Furnish a home into a Palace.", icon: "🏰", category: "Home", cond: { type: "flag", flag: "home_palace" } },
+
+  // --- Bosses (per-boss firsts and farms; kill counts come from the boss log) ---
+  { id: "ach_wyrmslayer", name: "Wyrmslayer", desc: "Slay Cindrath, the Ashen Wyrm.", icon: "🐉", category: "Bosses", cond: { type: "bossKills", boss: "ashen_wyrm", count: 1 } },
+  { id: "ach_wyrmbane", name: "Wyrmbane", desc: "Slay Cindrath twenty-five times.", icon: "🔥", category: "Bosses", cond: { type: "bossKills", boss: "ashen_wyrm", count: 25 } },
+  { id: "ach_eye_closed", name: "The Eye, Closed", desc: "Slay the Delve Horror.", icon: "👁️", category: "Bosses", cond: { type: "bossKills", boss: "delve_horror", count: 1 } },
+  { id: "ach_seal_broken", name: "Seal-Breaker", desc: "Defeat the Pale Warden upon the fifth seal.", icon: "🐺", category: "Bosses", cond: { type: "bossKills", boss: "pale_warden", count: 1 } },
+  { id: "ach_unsealed", name: "What the Seals Held", desc: "Slay Vorlag, the Hunger Below.", icon: "🕳️", category: "Bosses", cond: { type: "bossKills", boss: "vorlag", count: 1 } },
+
+  // --- The Hunt (Bounty's ledger) ---
+  { id: "ach_first_contract", name: "First Contract", desc: "Claim your first Bounty contract.", icon: "🎯", category: "The Hunt", cond: { type: "bountyTasks", count: 1 } },
+  { id: "ach_guides_regular", name: "The Guides' Regular", desc: "Claim twenty-five Bounty contracts.", icon: "📜", category: "The Hunt", cond: { type: "bountyTasks", count: 25 } },
+  { id: "ach_long_hunt", name: "The Long Hunt", desc: "Claim one hundred Bounty contracts.", icon: "🏹", category: "The Hunt", cond: { type: "bountyTasks", count: 100 } },
+  { id: "ach_superior", name: "The Bigger They Are", desc: "Fell a Superior beast risen mid-hunt.", icon: "⭐", category: "The Hunt", cond: { type: "flag", flag: "slew_superior" } },
+
+  // --- Trails (clue caskets) ---
+  { id: "ach_first_casket", name: "X Marks Varath", desc: "Solve a trail and open its casket.", icon: "🗝️", category: "Trails", cond: { type: "flag", flag: "clue_solved" } },
+  { id: "ach_cartographer", name: "The Cartographer", desc: "Solve a hard trail.", icon: "🗺️", category: "Trails", cond: { type: "flag", flag: "clue_solved_hard" } },
+
+  // --- Late-game milestones ---
+  { id: "ach_mastery", name: "Mastery", desc: "Bring one skill to level 100.", icon: "💯", category: "Skills", cond: { type: "anySkillLevel", level: 100 } },
+  { id: "ach_scholar_of_varath", name: "Scholar of Varath", desc: "Reach a total level of 1,000.", icon: "📜", category: "Skills", cond: { type: "totalLevel", total: 1000 } },
+  { id: "ach_warlord", name: "Warlord", desc: "Reach combat level 100.", icon: "🗡️", category: "Combat", cond: { type: "combatLevel", level: 100 } },
+  { id: "ach_millionaire", name: "Millionaire", desc: "Earn 1,000,000 gold.", icon: "💎", category: "Wealth", cond: { type: "goldEarned", amount: 1000000 } },
+  { id: "ach_pale_record", name: "The Pale Record", desc: "Read the first Pale Tablet.", icon: "🜛", category: "Story", cond: { type: "questDone", quest: "q_pale_script" } },
+  { id: "ach_north_open", name: "The North Road Stands Open", desc: "Break the fifth seal and open the pass.", icon: "🚪", category: "Story", cond: { type: "questDone", quest: "q_undergate" } },
 ];

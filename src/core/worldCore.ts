@@ -355,6 +355,14 @@ const COMBAT = {
 /** Base max HP before the Vitality level is added. */
 const BASE_MAX_HP = 10;
 
+// Special attacks: the bar charges as your blows land and is spent whole on
+// one armed finisher — melee SUNDER, bow TWIN SHOT, staff GRACE SURGE.
+const SPEC_MAX = 100;
+const SPEC_GAIN_PER_HIT = 12;
+const SPEC_MELEE_MULT = 1.5;   // Sunder: a sure hit, half again the damage
+const SPEC_RANGED_MULT = 1.75; // Twin Shot: two shafts strike as one
+const SPEC_MAGIC_MULT = 1.8;   // Grace Surge: the bolt arrives ALL at once
+
 const INVENTORY_SIZE = 28;
 
 /** A small starting purse so the market isn't dead on arrival. */
@@ -519,6 +527,9 @@ export function createWorld(
     // one mainhand slot is never a chore — and there's a clear upgrade path.
     equipment: { mainhand: "hatchet_1" },
     quiver: 0,
+    spec: 0,
+    specArmed: false,
+    clues: {},
     combatStyle: "vigour",
     running: true,
     energy: ENERGY_MAX,
@@ -754,6 +765,147 @@ function openNest(
   const qty = ctx.rng() < 0.15 ? 3 : ctx.rng() < 0.5 ? 2 : 1;
   addItem(player, pick, qty, events);
   events.push({ type: "LOG", message: `You pick apart the nest and find ${qty}× ${content.items[pick].name}.` });
+}
+
+// ---------------------------------------------------------------------------
+// Trail clues — the treasure-trail repeatable. A monster kill can shed a
+// sealed trail scroll (tier by the creature's level, one held per tier);
+// its riddle points at one real landmark. Interacting with that landmark
+// while carrying the scroll turns it into a casket of the tier.
+// ---------------------------------------------------------------------------
+const CLUE_TIERS = [
+  { tier: "easy" as const, item: "clue_easy" as ItemId, casket: "casket_easy" as ItemId, maxLevel: 29, odds: 35 },
+  { tier: "medium" as const, item: "clue_medium" as ItemId, casket: "casket_medium" as ItemId, maxLevel: 69, odds: 45 },
+  { tier: "hard" as const, item: "clue_hard" as ItemId, casket: "casket_hard" as ItemId, maxLevel: Infinity, odds: 55 },
+];
+
+/** Roll a trail scroll off a kill: tier by monster level, 1-in-odds, and only
+ *  when the player isn't already holding (pack or bank) a scroll of that tier. */
+function rollClueDrop(
+  state: WorldState,
+  content: Content,
+  stats: MonsterStats,
+  ctx: Ctx,
+  events: WorldEvent[],
+): void {
+  const { player } = state;
+  const t = CLUE_TIERS.find((c) => (stats.level ?? 1) <= c.maxLevel)!;
+  if (ctx.rng() >= 1 / t.odds) return;
+  if (hasItem(player, t.item) || (player.bank[t.item] ?? 0) > 0) return; // one per tier
+  const spots = content.clueSpots[t.tier];
+  if (!spots || spots.length === 0 || !canAddItem(player, t.item)) return;
+  const pick = spots[Math.floor(ctx.rng() * spots.length)]!;
+  player.clues[t.tier] = pick.target;
+  addItem(player, t.item, 1, events);
+  events.push({ type: "LOG", message: `Tucked in the remains: a sealed ${content.items[t.item].name}. Tap it to read the trail.` });
+}
+
+/** Solve a trail at its landmark: the carried scroll becomes a casket. */
+function tryClueSolve(
+  state: WorldState,
+  content: Content,
+  def: WorldObjectDef,
+  events: WorldEvent[],
+): boolean {
+  const { player } = state;
+  for (const t of CLUE_TIERS) {
+    if (player.clues[t.tier] !== def.id || !hasItem(player, t.item)) continue;
+    removeItems(player, t.item, 1);
+    delete player.clues[t.tier];
+    if (canAddItem(player, t.casket)) addItem(player, t.casket, 1, events);
+    else player.bank[t.casket] = (player.bank[t.casket] ?? 0) + 1;
+    if (!player.flags.includes("clue_solved")) player.flags.push("clue_solved");
+    if (t.tier === "hard" && !player.flags.includes("clue_solved_hard")) player.flags.push("clue_solved_hard");
+    events.push({ type: "LOG", message: `The riddle meant HERE. Wedged out of sight: a ${content.items[t.casket].name}!` });
+    return true;
+  }
+  return false;
+}
+
+/** One weighted line of a container's loot table. */
+interface CrateLine { item: ItemId; w: number; min?: number; max?: number }
+
+/** What each openable container holds — a weighted pick per opening (plus a
+ *  guaranteed coin purse). Caskets (clue trails) pay better with tier. */
+const CONTAINER_TABLES: Record<string, { rolls: number; coins: [number, number]; lines: CrateLine[] }> = {
+  bounty_crate: {
+    rolls: 2, coins: [20, 80],
+    lines: [
+      { item: "battle_ration", w: 30, min: 2, max: 4 },
+      { item: "health_elixir", w: 25, min: 2, max: 3 },
+      { item: "arrow_ashiron", w: 18, min: 20, max: 40 },
+      { item: "bloodore_arrow", w: 10, min: 10, max: 25 },
+      { item: "hunters_kit", w: 8 },
+      { item: "cut_gem", w: 6, min: 1, max: 2 },
+      { item: "hunters_horn", w: 3 },
+    ],
+  },
+  casket_easy: {
+    rolls: 2, coins: [150, 400],
+    lines: [
+      { item: "battle_ration", w: 25, min: 2, max: 4 },
+      { item: "health_elixir", w: 20, min: 1, max: 3 },
+      { item: "rough_gem", w: 15, min: 1, max: 2 },
+      { item: "seed_ashweed", w: 12, min: 2, max: 4 },
+      { item: "ashiron_bar", w: 12, min: 1, max: 3 },
+      { item: "bird_nest", w: 8 },
+      { item: "wayfarers_hat", w: 3 },
+    ],
+  },
+  casket_medium: {
+    rolls: 3, coins: [400, 900],
+    lines: [
+      { item: "cut_gem", w: 20, min: 1, max: 2 },
+      { item: "gold_bar", w: 18, min: 1, max: 2 },
+      { item: "bloodore_bar", w: 15, min: 1, max: 2 },
+      { item: "health_elixir", w: 14, min: 2, max: 4 },
+      { item: "seed_stonewood", w: 10 },
+      { item: "bloodore_arrow", w: 12, min: 15, max: 30 },
+      { item: "wayfarers_hat", w: 6 },
+    ],
+  },
+  casket_hard: {
+    rolls: 3, coins: [900, 2000],
+    lines: [
+      { item: "cut_gem", w: 20, min: 2, max: 4 },
+      { item: "hearthite_bar", w: 16, min: 1, max: 3 },
+      { item: "marrow_shard", w: 12 },
+      { item: "gold_bar", w: 14, min: 2, max: 4 },
+      { item: "arrow_hearthite", w: 12, min: 15, max: 30 },
+      { item: "seed_deeproot", w: 8 },
+      { item: "pale_mask", w: 5 },
+    ],
+  },
+};
+
+/** Prise open a container in the pack: roll its table, hand over the haul. */
+function openContainer(
+  state: WorldState,
+  content: Content,
+  slot: number,
+  ctx: Ctx,
+  events: WorldEvent[],
+): void {
+  const { player } = state;
+  const held = player.inventory[slot];
+  const table = held ? CONTAINER_TABLES[held.item] : undefined;
+  if (!held || !table) return;
+  removeItems(player, held.item, 1);
+  const coins = randInt(ctx, table.coins[0], table.coins[1]);
+  player.gold += coins;
+  player.stats.goldEarned += coins;
+  const got: string[] = [`${coins} gold`];
+  for (let r = 0; r < table.rolls; r++) {
+    const total = table.lines.reduce((n, l) => n + l.w, 0);
+    let roll = ctx.rng() * total;
+    let pick = table.lines[0]!;
+    for (const l of table.lines) { roll -= l.w; if (roll <= 0) { pick = l; break; } }
+    const qty = pick.min !== undefined ? randInt(ctx, pick.min, pick.max ?? pick.min) : 1;
+    if (canAddItem(player, pick.item)) addItem(player, pick.item, qty, events);
+    else player.bank[pick.item] = (player.bank[pick.item] ?? 0) + qty;
+    got.push(`${qty > 1 ? `${qty}× ` : ""}${content.items[pick.item]?.name ?? pick.item}`);
+  }
+  events.push({ type: "LOG", message: `You prise it open: ${got.join(", ")}.` });
 }
 
 /** The Founder's Cache: the cosmetic-only items a supporter claims once. The
@@ -1517,6 +1669,10 @@ export function applyIntent(
       fertilizePatch(state, content, intent.patchId, intent.slot, events);
       break;
     }
+    case "OPEN_CONTAINER": {
+      openContainer(state, content, intent.slot, ctx, events);
+      break;
+    }
     case "FOUNDER_CLAIM": {
       claimFounder(state, events);
       break;
@@ -1833,6 +1989,20 @@ export function applyIntent(
       setSurface(state, content, intent.surfaceId, events);
       break;
     }
+    case "SPECIAL": {
+      // Arm (or disarm) the special: the next swing spends the full bar on the
+      // wielded weapon family's finisher. Below full charge it politely waits.
+      if (player.specArmed) {
+        player.specArmed = false;
+        events.push({ type: "LOG", message: "You ease off — the special is stood down." });
+      } else if (player.spec >= SPEC_MAX) {
+        player.specArmed = true;
+        events.push({ type: "LOG", message: "You set yourself — your NEXT blow spends the whole bar." });
+      } else {
+        events.push({ type: "LOG", message: `Not yet charged — landing blows builds the bar (${Math.floor(player.spec)}/${SPEC_MAX}).` });
+      }
+      break;
+    }
     case "RECALL": {
       // The free escape teleport: no reagents, no requirements, 30-minute
       // wall-clock cooldown. Works from anywhere — its whole job is to save a
@@ -2092,8 +2262,9 @@ function allSkillsMaxed(player: Player): boolean {
  * weighted /2, matching two melee skills at /4 — so a pure archer, a pure
  * caster and a pure warrior of equal investment reach the same combat level.
  * You're credited for your STRONGEST style, as OSRS does. (Bounty and Agility
- * are non-combat, like Slayer/Agility in OSRS, so they don't count.) */
-function combatLevel(player: Player): number {
+ * are non-combat, like Slayer/Agility in OSRS, so they don't count.)
+ * Exported for the client (quest journal's recommended-level chips). */
+export function combatLevel(player: Player): number {
   const e = skillLvl(player, "edge");
   const v = skillLvl(player, "vigour");
   const w = skillLvl(player, "ward");
@@ -2427,6 +2598,10 @@ function startInteraction(
   // Any fresh interaction abandons a fish still on the line at the pier (the
   // minigame normally resolves it; this guards walking off mid-fight).
   if (player.hooked && def.kind !== "pier_spot") player.hooked = null;
+
+  // Trail clues: if a carried scroll's riddle points at THIS landmark, the
+  // interaction solves the trail — the scroll becomes a casket on the spot.
+  if (tryClueSolve(state, content, def, events)) return;
 
   switch (def.kind) {
     case "tree": {
@@ -4685,6 +4860,10 @@ export function evalAchievement(
       return done(companionCount(player, content), cond.count);
     case "anyRepAtLeast":
       return done(Math.max(...Object.values(player.reputation)), cond.amount);
+    case "bossKills":
+      return done(player.bossKills[cond.boss] ?? 0, cond.count);
+    case "bountyTasks":
+      return done(player.bounty?.tasksDone ?? 0, cond.count);
   }
 }
 
@@ -5170,6 +5349,7 @@ function paySuperiorBounty(
   const bonusXp = Math.max(200, Math.round((task?.xp ?? 400) * 0.5));
   player.bounty.marks += bonusMarks;
   grantXp(state, content, "bounty", bonusXp, events);
+  if (!player.flags.includes("slew_superior")) player.flags.push("slew_superior"); // first-Superior achievement
   events.push({ type: "LOG", message: `The Superior ${name} falls! +${bonusMarks} Hunt Marks · +${bonusXp} Bounty XP.` });
   if (ctx.rng() < 1 / SUPERIOR_UNIQUE_ODDS) {
     const unique = SUPERIOR_UNIQUES[Math.floor(ctx.rng() * SUPERIOR_UNIQUES.length)]!;
@@ -5507,8 +5687,24 @@ function playerSwing(
     if (!cast) maxHit = Math.max(1, Math.round(maxHit * BASIC_BOLT_FACTOR));
   }
 
+  // An armed, fully-charged special turns THIS swing into the weapon family's
+  // finisher: a sure hit at the family's multiplier. Twin Shot looses a second
+  // arrow (spent if you have one); Grace Surge amplifies whatever bolt this is.
+  const special = player.specArmed && player.spec >= SPEC_MAX;
+  if (special) {
+    player.specArmed = false;
+    player.spec = 0;
+    if (ranged && player.quiver > 0) player.quiver -= 1; // the paired shaft
+    events.push({
+      type: "LOG",
+      message: ranged ? "TWIN SHOT — two shafts leave the string as one!"
+        : magic ? "GRACE SURGE — the whole casting arrives at once!"
+        : "SUNDER — you put the whole bar behind one blow!",
+    });
+  }
+
   const mechs = stats.mechanics ?? [];
-  if (ctx.rng() < hitChance(acc, effectiveDef(obj, stats, ctx.now))) {
+  if (special || ctx.rng() < hitChance(acc, effectiveDef(obj, stats, ctx.now))) {
     const top = Math.max(1, maxHit);
     const floor = Math.max(1, Math.round(top * COMBAT.dmgMinFrac));
     const base = randInt(ctx, Math.min(floor, top), top);
@@ -5533,6 +5729,9 @@ function playerSwing(
     if (helmEdge > 1 && player.bounty.task?.monster === stats.id) {
       dmg = Math.round(dmg * helmEdge);
     }
+    // The special's payoff — and an ordinary landed blow feeds the next bar.
+    if (special) dmg = Math.max(1, Math.round(dmg * (ranged ? SPEC_RANGED_MULT : magic ? SPEC_MAGIC_MULT : SPEC_MELEE_MULT)));
+    else player.spec = Math.min(SPEC_MAX, player.spec + SPEC_GAIN_PER_HIT);
     obj.hp -= dmg;
     events.push({ type: "DAMAGE", targetId: obj.id, amount: dmg, weak: exploits });
     // OSRS-style combat XP, earned per point of damage dealt (not on the kill):
@@ -5604,6 +5803,8 @@ function checkKill(
   }
   player.stats.monstersSlain += 1;
   if (stats.boss) player.bossKills[stats.id] = (player.bossKills[stats.id] ?? 0) + 1;
+  // A trail scroll can be tucked in any creature's remains (tier by level).
+  rollClueDrop(state, content, stats, ctx, events);
   // UNIQUE — the Barrow-King's Signet: every kill knits the wearer's wounds.
   if (player.equipment.ring === "barrow_king_signet" && player.hp < player.maxHp) {
     const heal = Math.max(3, Math.round(player.maxHp * 0.08));

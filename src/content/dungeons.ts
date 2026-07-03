@@ -326,6 +326,34 @@ const WARRENS_ROWS = [
   "                            ", // 42
 ];
 
+// ============================================================================
+// SITE 7 — THE HOLLOW BELOW (the level-125 lair)
+// When the fifth seal broke and the pass opened, something under the mountain
+// exhaled — and a crack opened at the Undergate's mouth that was not there the
+// day before. A short entry gallery, a throat of bare earth, and one vast pit
+// chamber where Vorlag, the Hunger Below, waits. No puzzles. No keys. The gate
+// was the seal, and the seal is gone.
+//     0         1         2
+//     0123456789012345678901234567890
+const HOLLOW_BELOW_ROWS = [
+  "                              ", // 0
+  "  ........                    ", // 1
+  "  ........                    ", // 2
+  "  ........                    ", // 3
+  "      ,,                      ", // 4
+  "      ,,                      ", // 5
+  "      ,,,                     ", // 6
+  "   ,,,,,,,,,,,,,,,,,,,,,,     ", // 7
+  "  ~~,,,,,,,,,,,,,,,,,,,,,~~   ", // 8
+  "  ~,,,,,,,,,,,,,,,,,,,,,,,~   ", // 9
+  "  ,,,,,,,,,,,,,,,,,,,,,,,,,   ", // 10
+  "  ,,,,,,,,,,,,,,,,,,,,,,,,,   ", // 11
+  "  ~,,,,,,,,,,,,,,,,,,,,,,,~   ", // 12
+  "  ~~,,,,,,,,,,,,,,,,,,,,,~~   ", // 13
+  "   ,,,,,,,,,,,,,,,,,,,,,,     ", // 14
+  "                              ", // 15
+];
+
 export const DUNGEON_LAYOUTS: DungeonLayout[] = [
   {
     id: "hollow_barrows",
@@ -378,6 +406,15 @@ export const DUNGEON_LAYOUTS: DungeonLayout[] = [
     x0: 130,
     row0: 30,
     rows: WARRENS_ROWS,
+    entry: { x: 5, y: 2 },
+    exit: { x: 3, y: 1 },
+  },
+  {
+    id: "hollow_below",
+    name: "The Hollow Below",
+    x0: 130,
+    row0: 80,
+    rows: HOLLOW_BELOW_ROWS,
     entry: { x: 5, y: 2 },
     exit: { x: 3, y: 1 },
   },

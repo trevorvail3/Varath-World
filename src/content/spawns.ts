@@ -401,6 +401,14 @@ const rawObjects: WorldObjectDef[] = [
       "Grow strong enough to walk into places that were sealed on purpose, and come find me. I'll have work for you.",
     ],
     reactiveLines: [
+      { requiresFlags: ["endgame_shard_secured"], lines: [
+        "Sealed unread, in the Order's own vault. As an antiquarian I should be FURIOUS — the find of five lifetimes, shelved where no scholar will ever touch it.",
+        "And yet. Every tablet I've ever pulled from the dark was somebody's attempt to keep a thing safe from the future. You did the same, only better. Perhaps that's what the Record is FOR.",
+      ] },
+      { requiresFlags: ["endgame_shard_walked_away"], lines: [
+        "You simply... set it down. Do you know, of every outcome I catalogued, that was the one no precedent covered? A thousand years of Pale script and not one verse about someone declining.",
+        "I've started a new page for it. The heading gives me trouble. 'The Quiet Ending' is the best I have — Sera says the trouble I'm having with the title IS the title. Insufferable woman. She's right.",
+      ] },
       { requiresFlags: ["act2_pass_open"], lines: [
         "The pass is open. I keep saying it out loud to see if it stops being extraordinary. It doesn't.",
         "The Record is mapping the road north as fast as the watchmen dare walk it. A thousand years of silence, delver — and you're the one who ended it. The city past the Spine comes next.",
@@ -438,6 +446,29 @@ const rawObjects: WorldObjectDef[] = [
       "Here's the strange of it: the moor rats keep turning the things up in their nests. A dead king's money, in a rat's hole. Why?",
       "Humour an old man. Put one of those rats down and see what it carries. Hold a thing to study it first — then strike.",
       "Ash and knuckle, that's all these hills are. But every road in Varath starts on one like it. The wood lies west; the Spine, north.",
+    ],
+    // The epilogue: the man whose coin began it gets the last word on each ending.
+    reactiveLines: [
+      { requiresFlags: ["endgame_shard_destroyed"], lines: [
+        "So you burned it. Good. A question that big was never going to leave folk alone — someone had to be cruel enough to end it.",
+        "They'll curse you in a hundred years for what they might have known. And they'll live to do the cursing, which is rather the point. I'd have done the same, if I'd had the nerve.",
+        "Strange to think it started with a rat's coin by my wall. Sit a while, eh? The hills are just hills again, and I find I like them better this way.",
+      ] },
+      { requiresFlags: ["endgame_shard_secured"], lines: [
+        "Locked away unread. You know, that's the old Underloft way — some things go to the watcher nameless, so she can't single them out.",
+        "Folk sleep easier knowing the question's KEPT, even if it's never answered. A kept question is a kind of promise.",
+        "It started with a coin in the dirt by my wall. Now it sits in a vault with the weight of the whole country on it. And you carried it every step between. Sit, lad. You've earned the fire.",
+      ] },
+      { requiresFlags: ["endgame_shard_used"], lines: [
+        "You spoke the rite. I heard it, you know — everyone did, though nobody agrees on WHAT they heard. A door. A breath. My Edda's voice, thirty years gone.",
+        "Something answered you down there. The pilgrims are already on the roads, and the moor rats have stopped digging. Stopped entirely. Make of that what you will.",
+        "I don't ask what it said. I only ask this: was it worth the asking? ...Ah. Your face says it was. That'll keep an old man warm, that will.",
+      ] },
+      { requiresFlags: ["endgame_shard_walked_away"], lines: [
+        "You put it DOWN. Ha! Kings, cults, scholars, the whole pale weight of history holding its breath — and you chose a smaller life, on purpose.",
+        "That's the bravest ending nobody will ever sing about. The songs need a fire or a vault. They've no tune for a person who simply went home.",
+        "Well, the hills are still here. The wood's still west, the Spine's still north — and my door's still open. That's the whole of it, and it's enough. It was always enough.",
+      ] },
     ],
   },
 
@@ -1368,6 +1399,11 @@ const rawObjects: WorldObjectDef[] = [
   { id: "relic_falseseam", kind: "relic", x: 11, y: 83, name: "Half-Burned Page", loreId: "lore_orun_heresy" },
   { id: "relic_watchtower", kind: "relic", x: 73, y: 42, name: "Nailed Tally", loreId: "lore_varath_muster" },
   { id: "relic_smoothwalls", kind: "relic", x: 91, y: 19, name: "Wall Rubbing", loreId: "lore_varath_masons" },
+  // The newer chapters: the Hunt, the Seals, the roads and waters.
+  { id: "relic_hunt_rule", kind: "relic", x: 121, y: 53, name: "Burned Board", loreId: "lore_hunt_first_guide" },
+  { id: "relic_hunt_dig", kind: "relic", x: 118, y: 57, name: "Folded Confession", loreId: "lore_hunt_warrens_dig" },
+  { id: "relic_trail_lap", kind: "relic", x: 55, y: 12, name: "Runner's Stone", loreId: "lore_trail_runner" },
+  { id: "relic_eyeless", kind: "relic", x: 97, y: 64, name: "Salt-Stiff Chart", loreId: "lore_eyeless_chart" },
 
   // === ROAD OUTLAWS — lawless camps along the roads (named locations) ========
   // New humanoid threat: bandit camps and waylays in the gaps between regions,
@@ -2150,6 +2186,8 @@ function buildDungeonSites(): WorldObjectDef[] {
     { id: "ret_under", kind: "portal", x: ux + under.exit.x, y: uy + under.exit.y, name: "The Long Climb", target: { x: umouth.x, y: umouth.y + 1 }, lines: ["You climb back toward the thin mountain daylight."] },
     // The revealed mouth: pale masonry breaking the scree of the pass.
     { id: "ruin_under_1", kind: "ruin_prop", x: umouth.x - 2, y: umouth.y - 1, name: "Pale Doorpost", requiresFlag: REVEAL, lines: ["A doorpost of pale stone, uncovered by no weather you can name. It was hidden yesterday. It is not hidden now."] },
+    { id: "relic_seal_toll", kind: "relic", x: umouth.x + 3, y: umouth.y - 2, name: "Ruined Toll-Ledger", loreId: "lore_seal_toll", requiresFlag: REVEAL },
+    { id: "relic_seal_warden", kind: "relic", x: umouth.x - 3, y: umouth.y + 2, name: "Seal-Ring Rubbing", loreId: "lore_seal_warden_watch", requiresFlag: "act2_pass_open" },
     { id: "ruin_under_2", kind: "ruin_prop", x: umouth.x + 2, y: umouth.y - 1, name: "Pale Doorpost", requiresFlag: REVEAL, lines: ["The twin post. Together they frame a dark that goes down a very long way."] },
     { id: "ruin_under_3", kind: "ruin_prop", x: umouth.x + 3, y: umouth.y + 1, name: "Fallen Cornice", requiresFlag: REVEAL, lines: ["Carved with the running wolf — the same hand as the Barrows, a hundred leagues south. One builder. One order."] },
     {
@@ -2329,6 +2367,34 @@ function buildDungeonSites(): WorldObjectDef[] {
     { id: "rem_war_19", kind: "remains", variant: "skeleton", x: wx + 16, y: wy + 41, name: "Old Remains" },
     { id: "rem_war_20", kind: "remains", variant: "coins", x: wx + 22, y: wy + 41, name: "A Dead Man's Marks" },
     { id: "rem_war_21", kind: "remains", variant: "crate", x: wx + 24, y: wy + 40, name: "Crushed Supplies" },
+  );
+
+  // --- SITE 7: THE HOLLOW BELOW — the level-125 lair. A crack that opened at
+  //     the Undergate's mouth the day the fifth seal broke; the portal (and
+  //     everything down it) stays hidden until the pass is open. One entry
+  //     gallery, one throat, one pit — and the thing the seals were for.
+  const hollow = DUNGEONS.find((d) => d.id === "hollow_below")!;
+  const hbx = hollow.x0, hby = hollow.y0;
+  const hbMouth = { x: umouth.x + 4, y: umouth.y + 2 }; // beside the Undergate's mouth
+  out.push(
+    {
+      id: "portal_hollow_below", kind: "portal", x: hbMouth.x, y: hbMouth.y, name: "The Hollow Below",
+      dungeon: "hollow_below", target: { x: hbx + hollow.entry.x, y: hby + hollow.entry.y },
+      requiresFlag: "act2_pass_open",
+      lines: ["A crack in the mountain's footing that was not here before the seal broke. Warm air rises out of it in slow, even breaths — as if the dark below is being patient about something."],
+    },
+    { id: "ret_hollow_below", kind: "portal", x: hbx + hollow.exit.x, y: hby + hollow.exit.y, name: "The Climb Out", target: { x: hbMouth.x, y: hbMouth.y + 1 }, lines: ["You climb out of the warm dark, and the mountain lets you."] },
+    { id: "plq_hollow_below", kind: "signpost", x: hbx + 7, y: hby + 2, name: "A Watchman's Warning", lines: ["'TURN BACK. Whatever the five seals held, it is AWAKE, and it is HUNGRY, and the watch has lost four good climbers learning those two facts. The Record pays for word of it — it pays more for you alive.'"] },
+    // The Hunger itself, risen through the pit's floor.
+    { id: "boss_vorlag", kind: "monster", monster: "vorlag", x: hbx + 13, y: hby + 10, name: "Vorlag, the Hunger Below" },
+    // Dressing: the four climbers, and older leavings around the rim.
+    { id: "rem_hb_1", kind: "remains", variant: "skeleton", x: hbx + 5, y: hby + 8, name: "A Climber's End" },
+    { id: "rem_hb_2", kind: "remains", variant: "sitting", x: hbx + 22, y: hby + 9, name: "A Climber's End" },
+    { id: "rem_hb_3", kind: "remains", variant: "bones", x: hbx + 8, y: hby + 13, name: "Old Remains" },
+    { id: "rem_hb_4", kind: "remains", variant: "tools", x: hbx + 19, y: hby + 13, name: "Dropped Climbing-Kit" },
+    { id: "rem_hb_5", kind: "remains", variant: "coins", x: hbx + 16, y: hby + 8, name: "A Spilled Purse" },
+    { id: "rem_hb_b1", kind: "remains", variant: "brazier", x: hbx + 3, y: hby + 3, name: "A Watchman's Brazier" },
+    { id: "rem_hb_b2", kind: "remains", variant: "brazier", x: hbx + 8, y: hby + 3, name: "A Watchman's Brazier" },
   );
   return out;
 }

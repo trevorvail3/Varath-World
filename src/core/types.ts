@@ -505,6 +505,17 @@ export type ItemId =
   | "unstrung_ruewood"
   | "unstrung_dusk"
   | "unstrung_deep"
+  | "clue_easy"
+  | "clue_medium"
+  | "clue_hard"
+  | "casket_easy"
+  | "casket_medium"
+  | "casket_hard"
+  | "wayfarers_hat"
+  | "pale_mask"
+  | "bounty_crate"
+  | "pet_bloodhound"
+  | "pet_trail_wren"
   | "bird_nest"
   | "bark_strip"
   | "pine_resin"
@@ -705,6 +716,10 @@ export type ItemId =
   | "ironbark_shard"
   | "heartoak_amber"
   // --- Progression dead-zone fills (mid/high-tier content) ---
+  | "hunger_fang"
+  | "sealbreaker_bulwark"
+  | "mantle_of_the_below"
+  | "pet_vorlag"
   | "neck_warden"
   | "neck_amber"
   | "neck_orun"
@@ -810,6 +825,9 @@ export interface ItemDef {
   graceRestore?: number;
   /** Bones: Faith XP granted when this item is buried. */
   buryXp?: number;
+  /** Openable container (supply crates, trail caskets): a tap prises it open
+   *  and the core rolls its loot table (resolved by item id). */
+  container?: boolean;
   /** Ranged gear bonuses (summed across worn armour, added to bow ratings). */
   rngAcc?: number;
   rngDmg?: number;
@@ -1443,6 +1461,13 @@ export interface Player {
    * spends one; when it hits 0 the `ammo` slot empties.
    */
   quiver: number;
+  /** Special-attack charge (0-100): builds as your blows land; a full bar can
+   *  be armed (SPECIAL) to turn the next swing into the weapon's finisher. */
+  spec: number;
+  /** Whether the special is armed — the next swing spends the full bar. */
+  specArmed: boolean;
+  /** Active trail clues: tier -> the world object id its riddle points at. */
+  clues: Partial<Record<"easy" | "medium" | "hard", string>>;
   /** The melee combat style trained on the next kill. */
   combatStyle: CombatStyle;
   /** Run toggle: when on (and energy remains), the player moves at sprint speed. */
@@ -1992,6 +2017,20 @@ export interface OpenNestIntent {
   slot: number;
 }
 
+/** "Arm (or disarm) the special attack": with a full bar, the next swing
+ *  becomes the wielded weapon family's finisher — melee SUNDER, bow TWIN SHOT,
+ *  staff GRACE SURGE. */
+export interface SpecialIntent {
+  type: "SPECIAL";
+}
+
+/** "Open the container in this pack slot" — supply crates and trail caskets.
+ *  The core rolls the container's loot table and replaces it with the haul. */
+export interface OpenContainerIntent {
+  type: "OPEN_CONTAINER";
+  slot: number;
+}
+
 /** "Work the fertilizer in this pack slot into a farm patch." Basic (+20%) or
  *  Rich (+35%) fertilizer raises the crop's survival roll at harvest — the
  *  Survivalist's mix feeding the Farmer's field. One treatment per planting;
@@ -2084,6 +2123,8 @@ export type Intent =
   | RecallIntent
   | SoundHornIntent
   | FertilizeIntent
+  | OpenContainerIntent
+  | SpecialIntent
   | UseFurnitureIntent
   | BuildRoomIntent
   | PickupIntent
@@ -2230,7 +2271,11 @@ export type AchievementCond =
   | { type: "goldEarned"; amount: number }
   | { type: "monstersSlain"; count: number }
   | { type: "companions"; count: number }
-  | { type: "anyRepAtLeast"; amount: number };
+  | { type: "anyRepAtLeast"; amount: number }
+  /** Kills of one boss (player.bossKills), for boss achievements/diaries. */
+  | { type: "bossKills"; boss: string; count: number }
+  /** Bounty contracts claimed (player.bounty.tasksDone). */
+  | { type: "bountyTasks"; count: number };
 
 export interface AchievementDef {
   id: string;
@@ -2618,6 +2663,8 @@ export interface Content {
   spells: SpellDef[];
   /** Discoverable lore fragments, revealed by reading relics in the world. */
   lore: LoreDef[];
+  /** Trail-clue riddle spots per tier (see src/content/clues.ts). */
+  clueSpots: Record<"easy" | "medium" | "hard", { target: string; riddle: string }[]>;
   /** Shopkeeper wares (data). */
   shops: ShopDef[];
   /** The factions and their display metadata (data). */

@@ -40,6 +40,10 @@ export interface SavedProgress {
   equipment: Record<string, string>;
   /** Arrows nocked behind the worn `ammo` slot. */
   quiver: number;
+  /** Special-attack charge (0-100); the armed flag is transient and not saved. */
+  spec?: number;
+  /** Active trail clues: tier -> the landmark object id the riddle points at. */
+  clues?: Record<string, string>;
   /** Run/walk toggle + current run energy. */
   running: boolean;
   energy: number;
@@ -153,6 +157,8 @@ export function serializePlayer(state: WorldState): SavedProgress {
     bank: { ...player.bank } as Record<string, number>,
     equipment: { ...player.equipment } as Record<string, string>,
     quiver: player.quiver,
+    spec: player.spec,
+    clues: { ...player.clues } as Record<string, string>,
     running: player.running,
     energy: player.energy,
     grace: player.grace,
@@ -280,6 +286,22 @@ export function hydratePlayer(
   player.quiver = finiteNum(savedQuiver) && savedQuiver > 0 ? Math.floor(savedQuiver) : 0;
   if (!player.equipment.ammo) player.quiver = 0;
   else if (player.quiver <= 0) delete player.equipment.ammo;
+
+  // Special-attack charge (the armed flag never persists — a fresh session
+  // starts stood-down, like autocast).
+  const savedSpec = raw["spec"];
+  if (finiteNum(savedSpec)) player.spec = Math.max(0, Math.min(100, savedSpec));
+
+  // Trail clues: only tiers this build knows, only targets that still exist.
+  const savedClues = raw["clues"];
+  if (isRecord(savedClues)) {
+    for (const tier of ["easy", "medium", "hard"] as const) {
+      const target = savedClues[tier];
+      if (typeof target === "string" && content.objects.some((o) => o.id === target)) {
+        player.clues[tier] = target;
+      }
+    }
+  }
 
   // Run/walk preference + energy (winded is derived, never persisted).
   if (typeof raw["running"] === "boolean") player.running = raw["running"];

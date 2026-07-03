@@ -30,7 +30,7 @@ import { setPerfMode } from "./render.ts";
 import { audio } from "./audio.ts";
 import { reportBug } from "./ops.ts";
 import { glyph, iconize } from "./glyph.ts";
-import { bossMilestones, equipRequirement, evalAchievement } from "../core/worldCore.ts";
+import { bossMilestones, combatLevel, equipRequirement, evalAchievement } from "../core/worldCore.ts";
 import { SkillDetailModal } from "./skillDetail.ts";
 import { LEVEL_CAP, XP_CAP } from "../content/xpCurve.ts";
 import { HiscoresUI } from "./hiscoresUI.ts";
@@ -47,6 +47,13 @@ import { getTrackedQuest, setTrackedQuest } from "./questTrack.ts";
 // your game history (and vice-versa), regardless of which filter is showing.
 const MAX_GAME_LINES = 80;
 const MAX_CHAT_LINES = 80;
+
+/** Interface-size (accessibility) scale, persisted per device. */
+const UI_SCALE_KEY = "varath_ui_scale";
+function getUiScale(): number {
+  const v = Number(localStorage.getItem(UI_SCALE_KEY));
+  return Number.isFinite(v) && v >= 0.85 && v <= 1.4 ? v : 1;
+}
 /** The sender name world-broadcasts (new pier champions, etc.) post under, so
  *  the chat feed can render them as server messages rather than player chatter. */
 const HERALD_NAME = "Herald";
@@ -117,6 +124,7 @@ export class Hud {
   private invSlots: HTMLElement[] = [];
   private hpFill!: HTMLElement;
   private huntChip!: HTMLElement;
+  private specChip!: HTMLElement;
   private hpBar!: HTMLElement;
   private graceFill!: HTMLElement;
   private graceBar!: HTMLElement;
@@ -177,6 +185,7 @@ export class Hud {
   private zoomReadout: HTMLElement | null = null;
   private ddSlider: HTMLInputElement | null = null;
   private ddReadout: HTMLElement | null = null;
+  private rootEl: HTMLElement | null = null;
 
   constructor(
     root: HTMLElement,
@@ -195,6 +204,8 @@ export class Hud {
     this.onReset = onReset;
     this.menu = menu;
     this.dispatch = dispatch;
+    this.rootEl = root;
+    this.applyUiScale(getUiScale()); // restore the saved interface size
     this.skillDetail = new SkillDetailModal(root, content);
     this.hiscores = new HiscoresUI(root, content);
     this.exchange = new ExchangeUI(root, content, dispatch, () => this.lastState);
@@ -276,8 +287,14 @@ export class Hud {
           <div class="grace-row"><div class="grace-bar" title="Grace — the Devotion spell fuel. Refill at a shrine or altar."><div class="grace-fill"></div></div></div>
         </div>
       </div>
-      <div class="hunt-chip hidden" title="Your active bounty task"></div>`;
+      <div class="hunt-chip hidden" title="Your active bounty task"></div>
+      <button class="spec-chip hidden" type="button" title="Special attack — the bar charges as your blows land; tap at full to arm the next swing"></button>`;
     this.huntChip = vitals.querySelector(".hunt-chip") as HTMLElement;
+    this.specChip = vitals.querySelector(".spec-chip") as HTMLElement;
+    this.specChip.addEventListener("click", (e) => {
+      e.stopPropagation();
+      this.dispatch({ type: "SPECIAL" });
+    });
     this.hpFill = vitals.querySelector(".hp-fill") as HTMLElement;
     this.hpBar = vitals.querySelector(".hp-bar") as HTMLElement;
     this.graceFill = vitals.querySelector(".grace-fill") as HTMLElement;
@@ -801,6 +818,34 @@ export class Hud {
         });
         ddRow.append(ddLabel, ddSlider);
         gameplay.appendChild(ddRow);
+
+        // --- Text size: scales every panel's type (accessibility). Stored on
+        //     this device and applied on boot via a root font-size. ---
+        const tsRow = document.createElement("div");
+        tsRow.className = "settings-zoom";
+        const tsLabel = document.createElement("div");
+        tsLabel.className = "settings-label";
+        const tsReadout = document.createElement("span");
+        tsReadout.className = "settings-zoom-value";
+        tsLabel.append("Interface size ", tsReadout);
+        const tsSlider = document.createElement("input");
+        tsSlider.type = "range";
+        tsSlider.className = "settings-slider";
+        tsSlider.min = "0.85";
+        tsSlider.max = "1.4";
+        tsSlider.step = "0.05";
+        tsSlider.value = String(getUiScale());
+        const syncTs = (): void => {
+          tsReadout.textContent = `${Math.round(Number(tsSlider.value) * 100)}%`;
+        };
+        syncTs();
+        tsSlider.addEventListener("input", () => {
+          this.applyUiScale(Number(tsSlider.value));
+          syncTs();
+        });
+        tsRow.append(tsLabel, tsSlider);
+        gameplay.appendChild(tsRow);
+        gameplay.appendChild(note("Larger or smaller panels and lettering — the world itself is unaffected."));
         this.ddSlider = ddSlider;
         this.ddReadout = ddReadout;
         gameplay.appendChild(note("Lower the draw distance to render less of the map at once — a quick fix if the game feels laggy on a wide screen."));
@@ -1237,6 +1282,23 @@ export class Hud {
     text.focus();
   }
 
+  /** The riddle text for a carried trail scroll — looked up from the player's
+   *  active clue targets against the content's riddle table. */
+  private clueRiddle(item: ItemId): string {
+    const tier = item === "clue_easy" ? "easy" : item === "clue_medium" ? "medium" : "hard";
+    const target = this.lastState?.player.clues?.[tier];
+    const spot = this.content.clueSpots[tier].find((s) => s.target === target);
+    return spot?.riddle ?? "The ink has faded past reading. (Solve or drop it and hunt up another.)";
+  }
+
+  /** Scale the whole HUD (accessibility): CSS zoom on the panel root, saved on
+   *  this device. The canvas world underneath is untouched. */
+  private applyUiScale(scale: number): void {
+    const s = Math.max(0.85, Math.min(1.4, scale));
+    if (this.rootEl) (this.rootEl.style as CSSStyleDeclaration & { zoom?: string }).zoom = String(s);
+    try { localStorage.setItem(UI_SCALE_KEY, String(s)); } catch { /* private browsing */ }
+  }
+
   /** A short tap on a slot: eat food, wear gear, otherwise just inspect it. */
   private tapItem(index: number, screenX: number, screenY: number): void {
     const data = this.invData[index];
@@ -1244,6 +1306,13 @@ export class Hud {
     const def = this.content.items[data.item];
     if (data.item === "bird_nest") {
       this.dispatch({ type: "OPEN_NEST", slot: index });
+    } else if (def.container) {
+      // Crates and trail caskets: a tap prises them open where you stand.
+      this.dispatch({ type: "OPEN_CONTAINER", slot: index });
+    } else if (data.item === "clue_easy" || data.item === "clue_medium" || data.item === "clue_hard") {
+      // Trail scrolls: a tap reads the riddle aloud (solving happens out in
+      // the world, at whatever landmark the riddle means).
+      this.log(`The trail reads: “${this.clueRiddle(data.item)}”`);
     } else if (def.heals || def.buff) {
       if (def.cat === "Potions" || def.doseNext || def.graceRestore || def.energyRestore) audio.play("drink");
       this.dispatch({ type: "EAT", slot: index });
@@ -1275,6 +1344,22 @@ export class Hud {
         target: def.name,
         tone: "action",
         onSelect: () => this.dispatch({ type: "OPEN_NEST", slot: index }),
+      });
+    }
+    if (def.container) {
+      items.push({
+        label: "Open",
+        target: def.name,
+        tone: "action",
+        onSelect: () => this.dispatch({ type: "OPEN_CONTAINER", slot: index }),
+      });
+    }
+    if (data.item === "clue_easy" || data.item === "clue_medium" || data.item === "clue_hard") {
+      items.push({
+        label: "Read",
+        target: def.name,
+        tone: "action",
+        onSelect: () => this.log(`The trail reads: \u201c${this.clueRiddle(data.item)}\u201d`),
       });
     }
     if (def.heals || def.buff || def.graceRestore) {
@@ -1554,6 +1639,20 @@ export class Hud {
       this.huntChip.classList.add("hidden");
     }
 
+    // The special-attack chip: charge readout under the vitals. Hidden until
+    // the first blow lands; full and armed states get their own looks.
+    const spec = Math.floor(player.spec ?? 0);
+    if (spec > 0 || player.specArmed) {
+      const full = spec >= 100;
+      this.specChip.textContent = player.specArmed ? "⚡ SPECIAL ARMED — next blow"
+        : full ? "⚡ Special ready — tap to arm" : `⚡ Special ${spec}%`;
+      this.specChip.classList.toggle("armed", player.specArmed);
+      this.specChip.classList.toggle("ready", full && !player.specArmed);
+      this.specChip.classList.remove("hidden");
+    } else {
+      this.specChip.classList.add("hidden");
+    }
+
     // Hitpoints (always-on bar) + low-HP warning.
     const pct = Math.max(0, Math.min(1, player.hp / player.maxHp));
     this.hpFill.style.width = `${pct * 100}%`;
@@ -1663,6 +1762,20 @@ export class Hud {
     const typeOf = (id: string): "main" | "faction" | "side" =>
       quests.find((q) => q.id === id)?.type ?? "side";
 
+    // A quest's recommended combat level, derived from what it asks you to
+    // kill: the toughest monster on its step list. Talk/gather quests need no
+    // level, so they carry no chip.
+    const cl = combatLevel(player);
+    const recLevel = (def: (typeof quests)[number]): number | null => {
+      let top = 0;
+      for (const s of def.steps) {
+        if (s.type !== "kill") continue;
+        const m = this.content.monsters[s.monster];
+        if (m && m.level > top) top = m.level;
+      }
+      return top > 0 ? top : null;
+    };
+
     const activeItem = (id: string): string => {
       const def = quests.find((q) => q.id === id);
       if (!def) return "";
@@ -1671,9 +1784,14 @@ export class Hud {
       let line = obj ? escapeHtml(obj.text) : "";
       if (obj && obj.type === "kill") line += ` <span class="quest-prog">(${st.killCount}/${obj.count})</span>`;
       const on = tracked === id;
+      // The chip warns (red) while the quest's toughest kill outclasses you.
+      const rec = recLevel(def);
+      const chip = rec
+        ? ` <span class="quest-lvl${cl < rec ? " over" : ""}" title="Toughest foe this quest asks you to fight">⚔ ${rec}</span>`
+        : "";
       return (
         `<div class="quest-item${on ? " tracked" : ""}" data-track="${id}" title="${on ? "Tracked — tap to clear" : "Tap to track this quest"}">` +
-        `<div class="quest-name"><span class="quest-star">${on ? "★" : "☆"}</span> ${escapeHtml(def.name)}</div>` +
+        `<div class="quest-name"><span class="quest-star">${on ? "★" : "☆"}</span> ${escapeHtml(def.name)}${chip}</div>` +
         `<div class="quest-obj">▸ ${line}</div></div>`
       );
     };
