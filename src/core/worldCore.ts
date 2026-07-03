@@ -5589,6 +5589,19 @@ function resolveCombat(
   }
   if (!obj.nextAttackAt) obj.nextAttackAt = ctx.now + (stats.speed ?? COMBAT.monsterSpeed);
 
+  // Leash: an engagement whose target is far beyond any reach (a death mid-
+  // fight, a teleport, a stray intent) breaks cleanly instead of idling in a
+  // "combat" that neither side can ever act on.
+  {
+    const mt = objectPos(def, obj);
+    const far = Math.max(Math.abs(player.pos.x - mt.x), Math.abs(player.pos.y - mt.y));
+    if (far > 30) {
+      clearActivity(player);
+      events.push({ type: "LOG", message: `You've lost the ${def.name} — the fight is off.` });
+      return;
+    }
+  }
+
   // Each side can only land a blow within its own reach: melee is 1 tile, a bow
   // reaches `rangedReach`, and an archer/caster monster reaches its attackRange.
   // Out of reach, the clock still ticks (so neither side stockpiles free swings)
