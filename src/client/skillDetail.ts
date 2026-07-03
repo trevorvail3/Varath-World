@@ -8,7 +8,7 @@
 
 import type { Content, ItemId, SkillId, WorldState } from "../core/types.ts";
 import { glyph, iconize } from "./glyph.ts";
-import { equipRequirement, HUNT_GATES } from "../core/worldCore.ts";
+import { equipRequirement, HUNT_GATES, vigourBaseHit, vitalityMaxHp } from "../core/worldCore.ts";
 import { LEVEL_CAP, XP_CAP } from "../content/xpCurve.ts";
 
 /** Which gear each combat skill gates: weapons need Edge, armour needs Ward,
@@ -233,6 +233,22 @@ export class SkillDetailModal {
       addTo("Perks", 50, "The veteran's cut: contracts pay +10% Marks");
       addTo("Perks", 75, "The veteran's cut: contracts pay +20% Marks");
       addTo("Perks", 90, "The veteran's cut: contracts pay +30% Marks");
+    }
+
+    // Vitality and Vigour train through combat rather than recipes — their
+    // ladders are honest milestone maths from the combat formulas: what your
+    // Hitpoints reach, and what your bare hands can hit for.
+    if (skill === "vitality" || skill === "vigour") {
+      const label = skill === "vitality" ? "Hitpoints" : "Strength";
+      const byLevel = new Map<number, string[]>();
+      for (const lvl of [1, 10, 25, 50, 75, 100]) {
+        byLevel.set(lvl, [
+          skill === "vitality"
+            ? `${vitalityMaxHp(lvl)} max Hitpoints`
+            : `Bare-handed max hit ${vigourBaseHit(lvl)}${lvl === 1 ? " — weapons and the Vigour style add more" : ""}`,
+        ]);
+      }
+      activities.set(label, byLevel);
     }
 
     // Devotion (faith): its ladder is the staff tiers you can wield, the magic

@@ -434,6 +434,7 @@ export type ItemId =
   | "cape_vigour"
   | "cape_ward"
   | "cape_draw"
+  | "cape_faith"
   | "cape_construction"
   | "cape_herblore"
   | "cape_crafting"
@@ -705,6 +706,7 @@ export type ItemId =
   | "heartoak_amber"
   // --- Progression dead-zone fills (mid/high-tier content) ---
   | "neck_warden"
+  | "neck_amber"
   | "neck_orun"
   | "marsh_eel_raw"
   | "marsh_eel_cooked"
@@ -1213,6 +1215,9 @@ export interface WorldObjectState {
   crop?: string;
   /** Farming patch: wall-clock epoch (ms) the seed was planted. */
   plantedAt?: number;
+  /** Farming patch: fertilizer worked in (1 = basic +20%, 2 = rich +35% survival).
+   *  Spent by the next harvest. */
+  fert?: 1 | 2;
   /** Boss combat: how many times it has swung (drives the "heavy" cadence). */
   swings?: number;
   /** Boss combat: whether the one-shot enrage / self-heal have fired. */
@@ -1987,6 +1992,16 @@ export interface OpenNestIntent {
   slot: number;
 }
 
+/** "Work the fertilizer in this pack slot into a farm patch." Basic (+20%) or
+ *  Rich (+35%) fertilizer raises the crop's survival roll at harvest — the
+ *  Survivalist's mix feeding the Farmer's field. One treatment per planting;
+ *  it works on an empty patch (ahead of the seed) or a growing one. */
+export interface FertilizeIntent {
+  type: "FERTILIZE";
+  patchId: string;
+  slot: number;
+}
+
 /** "Claim my Founder's Cache" — grants the one-time cosmetic Founder items to a
  *  player carrying the "founder" entitlement flag (cosmetic-only; see FOUNDER.md). */
 export interface FounderClaimIntent {
@@ -2068,6 +2083,7 @@ export type Intent =
   | SetSurfaceIntent
   | RecallIntent
   | SoundHornIntent
+  | FertilizeIntent
   | UseFurnitureIntent
   | BuildRoomIntent
   | PickupIntent

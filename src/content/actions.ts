@@ -1261,7 +1261,7 @@ export const actions: SkillAction[] = [
     "xp": 25,
     "baseTime": 1500,
     "requires": {
-      "coldpine_shaft": 1,
+      "greyoak_shaft": 1,
       "tip_ribstone": 1
     },
     "produces": "ribstone_arrow",
@@ -1573,18 +1573,18 @@ export const actions: SkillAction[] = [
     "xp": 18,
     "baseTime": 4000,
     "requires": {
-      "coldpine_shaft": 1,
-      "pine_resin": 1
+      "coldpine_shaft": 1
     },
+    "requiresAny": ["pine_resin", "ironwood_sap"],
     "produces": "resin_shaft",
     "group": "mats",
-    "note": "A shaft treated with pine resin — better fletching hold, truer flight."
+    "note": "A shaft treated with pine resin — or stonewood's ironwood sap — for better fletching hold and truer flight."
   },
   {
     "id": "wc_greyoak_shaft",
     "skill": "woodcraft",
     "name": "Greyoak Shaft",
-    "levelReq": 45,
+    "levelReq": 30,
     "xp": 28,
     "requires": {
       "greyoak_log": 1
@@ -1702,6 +1702,7 @@ export const actions: SkillAction[] = [
     "skill": "hunter",
     "name": "Moor Hare",
     "levelReq": 1,
+    "group": "quarry",
     "xp": 25,
     "produces": "raw_hide",
     "rareDrop": {
@@ -1714,6 +1715,7 @@ export const actions: SkillAction[] = [
     "skill": "hunter",
     "name": "Moor Boar",
     "levelReq": 20,
+    "group": "quarry",
     "xp": 68,
     "produces": "raw_boar_meat",
     "rareDrop": {
@@ -1726,6 +1728,7 @@ export const actions: SkillAction[] = [
     "skill": "hunter",
     "name": "Grey Wolf",
     "levelReq": 30,
+    "group": "quarry",
     "xp": 95,
     "produces": "raw_wolf_meat",
     "rareDrop": {
@@ -1738,6 +1741,7 @@ export const actions: SkillAction[] = [
     "skill": "hunter",
     "name": "Crag Bear",
     "levelReq": 45,
+    "group": "quarry",
     "xp": 135,
     "produces": "raw_bear_meat",
     "rareDrop": {
@@ -1750,6 +1754,7 @@ export const actions: SkillAction[] = [
     "skill": "hunter",
     "name": "Pale Stag",
     "levelReq": 60,
+    "group": "quarry",
     "xp": 185,
     "produces": "venison",
     "rareDrop": {
@@ -1762,6 +1767,7 @@ export const actions: SkillAction[] = [
     "skill": "hunter",
     "name": "Moorhart",
     "levelReq": 75,
+    "group": "quarry",
     "xp": 245,
     "produces": "moorhart_raw",
     "rareDrop": {
@@ -1774,6 +1780,7 @@ export const actions: SkillAction[] = [
     "skill": "hunter",
     "name": "Ashen Aurochs",
     "levelReq": 90,
+    "group": "quarry",
     "xp": 320,
     "produces": "aurochs_cut",
     "rareDrop": {
@@ -3383,6 +3390,21 @@ export const actions: SkillAction[] = [
     },
     "produces": "neck_warden",
     "group": "jewelry"
+  },
+  {
+    "id": "craft_neck_amber_make",
+    "skill": "crafting",
+    "name": "Heartoak Amber Amulet",
+    "levelReq": 72,
+    "xp": 320,
+    "baseTime": 10000,
+    "requires": {
+      "gold_bar": 1,
+      "heartoak_amber": 1
+    },
+    "produces": "neck_amber",
+    "group": "jewelry",
+    "note": "A bead of heartoak amber set in gold — the forester's rare find made into the crafter's late-ladder piece."
   },
   {
     "id": "craft_neck_orun_make",

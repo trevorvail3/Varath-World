@@ -221,6 +221,7 @@ export const shops: ShopDef[] = [
       { item: "cape_vigour", price: 1000000, qty: 1 },
       { item: "cape_ward", price: 1000000, qty: 1 },
       { item: "cape_draw", price: 1000000, qty: 1 },
+      { item: "cape_faith", price: 1000000, qty: 1 },
       { item: "cape_max", price: 1000000, qty: 1 },
     ],
   },

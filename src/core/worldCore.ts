@@ -1513,6 +1513,10 @@ export function applyIntent(
       openNest(state, content, intent.slot, ctx, events);
       break;
     }
+    case "FERTILIZE": {
+      fertilizePatch(state, content, intent.patchId, intent.slot, events);
+      break;
+    }
     case "FOUNDER_CLAIM": {
       claimFounder(state, events);
       break;
@@ -3388,10 +3392,15 @@ function harvestPatch(
   const { player } = state;
   delete obj.crop;
   delete obj.plantedAt;
+  // Fertilizer worked into this planting raises the survival roll — the
+  // bonus each mix's description promises — and is spent by the harvest.
+  const fertBonus = obj.fert === 2 ? 0.35 : obj.fert === 1 ? 0.20 : 0;
+  delete obj.fert;
+  const survival = Math.min(0.95, crop.baseChance + fertBonus);
   // A failed survival roll is a THIN harvest, not a total loss — you always
   // walk away with something for the wait (OSRS reduces yield; it doesn't
   // routinely take the whole patch).
-  if (ctx.rng() >= crop.baseChance) {
+  if (ctx.rng() >= survival) {
     addItem(player, crop.produce, 1, events);
     grantXp(state, content, "farming", Math.floor(crop.xpHarvest * 0.4), events);
     events.push({ type: "LOG", message: `A thin harvest — the ${crop.name} struggled, but you save one ${content.items[crop.produce].name}.` });
@@ -3404,6 +3413,48 @@ function harvestPatch(
   if (crop.bonusDrop && crop.bonusChance && ctx.rng() < crop.bonusChance && content.items[crop.bonusDrop]) {
     if (canAddItem(player, crop.bonusDrop)) addItem(player, crop.bonusDrop, 1, events);
   }
+}
+
+/** The two fertilizers the Survivalist mixes, and the survival bonus each works
+ *  into a patch — exactly what the item descriptions promise (+20% / +35%). */
+const FERTILIZERS: Partial<Record<ItemId, { tier: 1 | 2; bonus: number }>> = {
+  fertilizer_basic: { tier: 1, bonus: 0.20 },
+  fertilizer_rich: { tier: 2, bonus: 0.35 },
+};
+
+/** Work a pack slot's fertilizer into a farm patch (empty or growing). One
+ *  treatment per planting — spent by the next harvest; a richer mix can
+ *  replace a basic one, never the reverse. Small Farming XP for the labour. */
+function fertilizePatch(
+  state: WorldState,
+  content: Content,
+  patchId: string,
+  slot: number,
+  events: WorldEvent[],
+): void {
+  const { player } = state;
+  const held = player.inventory[slot];
+  const fert = held ? FERTILIZERS[held.item] : undefined;
+  if (!held || !fert) return;
+  const obj = state.objects[patchId];
+  const def = findObjectDef(content, patchId);
+  if (!obj || !def || (def.kind !== "plant_patch" && def.kind !== "tree_patch")) {
+    events.push({ type: "LOG", message: "That's no place for fertilizer." });
+    return;
+  }
+  if ((obj.fert ?? 0) >= fert.tier) {
+    events.push({ type: "LOG", message: "This soil is already well fed." });
+    return;
+  }
+  obj.fert = fert.tier;
+  removeItems(player, held.item, 1);
+  grantXp(state, content, "farming", fert.tier === 2 ? 50 : 20, events);
+  events.push({
+    type: "LOG",
+    message: obj.crop
+      ? `You work the ${content.items[held.item].name.toLowerCase()} in around the roots — this crop will come through stronger.`
+      : `You work the ${content.items[held.item].name.toLowerCase()} into the soil — the next planting here will come through stronger.`,
+  });
 }
 
 /** Plant a crop's seed in an empty patch (consumes the seed, grants plant XP). */
@@ -5200,6 +5251,18 @@ function weaponStyle(player: Player, content: Content): string | undefined {
 function playerAccuracy(player: Player, content: Content): number {
   const styleBonus = player.combatStyle === "edge" ? COMBAT.styleBonus : 0;
   return skillLvl(player, "edge") + equipStat(player, content, "acc") + styleBonus + buffVal(player, "melee_acc");
+}
+
+/** Max Hitpoints at a given Vitality level — the skill-info milestone maths
+ *  (kept beside the combat formulas it mirrors). */
+export function vitalityMaxHp(level: number): number {
+  return BASE_MAX_HP + level;
+}
+
+/** The bare-handed melee max hit a Vigour level carries; weapons, amulets and
+ *  the Vigour style add on top. Skill-info milestone maths. */
+export function vigourBaseHit(level: number): number {
+  return Math.max(1, Math.round(level * COMBAT.dmgSkillScale));
 }
 
 /** Player max hit: Vigour + summed gear dmg (weapon, amulet) + Vigour bonus. */

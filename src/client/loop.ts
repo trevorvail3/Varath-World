@@ -1132,6 +1132,13 @@ export class Game {
     this.useItem = null;
     if (!use) return;
     if (!obj) { this.hud.log("Never mind."); return; }
+    // Fertilizer on a farm patch: work it into the soil (the Survivalist's mix
+    // feeding the Farmer's field). The core rules on tier and consumption.
+    if ((use.item === "fertilizer_basic" || use.item === "fertilizer_rich")
+      && (obj.kind === "plant_patch" || obj.kind === "tree_patch")) {
+      this.bridge.send({ type: "FERTILIZE", patchId: obj.id, slot: use.slot });
+      return;
+    }
     // A recipe at THIS station that consumes the used item as an ingredient.
     const recipes = this.bridge.stationRecipes(obj.kind).filter((a) => {
       if (!a.produces) return false;

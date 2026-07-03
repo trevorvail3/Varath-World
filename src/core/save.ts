@@ -101,8 +101,9 @@ export interface SavedProgress {
     history: string[];
     unlocks: string[];
   };
-  /** Farming patches: patch id -> what's planted and when (epoch ms). */
-  farms: Record<string, { crop: string; plantedAt: number }>;
+  /** Farming patches: patch id -> what's planted and when (epoch ms), plus any
+   *  fertilizer worked in (an empty patch can be fed ahead of the seed). */
+  farms: Record<string, { crop?: string; plantedAt?: number; fert?: 1 | 2 }>;
   /** Player housing: claimed plot ids + built furniture (hotspot id -> piece id). */
   housing: { plots: string[]; furniture: Record<string, string> };
   /** Free-placement home: unplaced storage + placed pieces (positions/rotations). */
@@ -126,8 +127,11 @@ export function serializePlayer(state: WorldState): SavedProgress {
   const housing: SavedProgress["housing"] = { plots: [], furniture: {} };
   for (const id of Object.keys(state.objects)) {
     const o = state.objects[id]!;
-    if (o.crop && typeof o.plantedAt === "number") {
-      farms[id] = { crop: o.crop, plantedAt: o.plantedAt };
+    if ((o.crop && typeof o.plantedAt === "number") || o.fert) {
+      const f: SavedProgress["farms"][string] = {};
+      if (o.crop && typeof o.plantedAt === "number") { f.crop = o.crop; f.plantedAt = o.plantedAt; }
+      if (o.fert) f.fert = o.fert;
+      farms[id] = f;
     }
     if (o.owned) housing.plots.push(id);
     if (o.furniture) housing.furniture[id] = o.furniture;
@@ -483,6 +487,7 @@ export function hydratePlayer(
         obj.crop = f["crop"];
         obj.plantedAt = f["plantedAt"];
       }
+      if (f["fert"] === 1 || f["fert"] === 2) obj.fert = f["fert"];
     }
   }
   // Player housing: re-claim owned plots and re-place built furniture, dropping

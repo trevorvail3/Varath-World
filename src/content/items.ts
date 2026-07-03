@@ -1131,7 +1131,7 @@ export const items: Record<ItemId, ItemDef> = {
     "name": "Knucklestone Mail",
     "description": "Roughly riveted plates. Turns the occasional blow.",
     "icon": "🛡️",
-    "cat": "Armor",
+    "cat": "Armour",
     "slot": "armor",
     "def": 2,
     "sell": 35
@@ -1141,7 +1141,7 @@ export const items: Record<ItemId, ItemDef> = {
     "name": "Ashiron Mail",
     "description": "Solid iron mail. Reliable and reassuring.",
     "icon": "🛡️",
-    "cat": "Armor",
+    "cat": "Armour",
     "slot": "armor",
     "def": 9,
     "sell": 180
@@ -1151,7 +1151,7 @@ export const items: Record<ItemId, ItemDef> = {
     "name": "Ribstone Plate",
     "description": "Heavy plate. Slows you, but you live.",
     "icon": "🛡️",
-    "cat": "Armor",
+    "cat": "Armour",
     "slot": "armor",
     "def": 14,
     "sell": 345
@@ -1161,7 +1161,7 @@ export const items: Record<ItemId, ItemDef> = {
     "name": "Bloodore Plate",
     "description": "The red plate is unnerving to face across a field.",
     "icon": "🛡️",
-    "cat": "Armor",
+    "cat": "Armour",
     "slot": "armor",
     "def": 28,
     "sell": 965
@@ -1171,7 +1171,7 @@ export const items: Record<ItemId, ItemDef> = {
     "name": "Voidstone Plate",
     "description": "Cold and dark. Absorbs blows with unsettling stillness.",
     "icon": "🛡️",
-    "cat": "Armor",
+    "cat": "Armour",
     "slot": "armor",
     "tier": 9,
     "def": 40,
@@ -1182,7 +1182,7 @@ export const items: Record<ItemId, ItemDef> = {
     "name": "Hearthite Plate",
     "description": "The finest armor in Varath. It seems to shrug off the cold itself.",
     "icon": "🛡️",
-    "cat": "Armor",
+    "cat": "Armour",
     "slot": "armor",
     "def": 48,
     "sell": 2430
@@ -3553,6 +3553,18 @@ export const items: Record<ItemId, ItemDef> = {
       "skill": "draw"
     }
   },
+  "cape_faith": {
+    "id": "cape_faith",
+    "name": "Devotion's Cape",
+    "description": "The mark of a soul at one hundred. Grace moves through the weave like breath.",
+    "icon": "🔮",
+    "cat": "Capes",
+    "slot": "cape",
+    "sell": 0,
+    "meta": {
+      "skill": "faith"
+    }
+  },
   "cape_construction": {
     "id": "cape_construction",
     "name": "Builder's Cape",
@@ -4019,6 +4031,17 @@ export const items: Record<ItemId, ItemDef> = {
     "acc": 22,
     "def": 6,
     "sell": 2200
+  },
+  "neck_amber": {
+    "id": "neck_amber",
+    "name": "Heartoak Amber Amulet",
+    "description": "A bead of fossil heartoak resin set in gold. Warm to hold, and warmer to wear — the wood's long patience lent to its bearer.",
+    "icon": "📿",
+    "cat": "Jewellery",
+    "slot": "necklace",
+    "acc": 20,
+    "def": 3,
+    "sell": 1800
   },
   "neck_orun": {
     "id": "neck_orun",
@@ -5516,7 +5539,7 @@ export const items: Record<ItemId, ItemDef> = {
   "heartoak_amber": {
     "id": "heartoak_amber",
     "name": "Heartoak Amber",
-    "description": "A bead of fossil resin from the deepest heartoak. Warm-coloured, and warm to hold.",
+    "description": "A bead of fossil resin from the deepest heartoak. Warm-coloured, and warm to hold \u2014 a crafter can set it in gold.",
     "icon": "🟠",
     "cat": "Rare Drops",
     "sell": 120
