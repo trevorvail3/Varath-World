@@ -839,13 +839,13 @@ class AudioManager {
 
   // --- the theme -------------------------------------------------------------
   /**
-   * "Varath" — the opening theme. Slow aeolian pads (Am F C G | Am F Dm Em)
+   * "Varath" — the opening theme. Aeolian pads (Am F C G | Am F Dm Em)
    * under a bell-voiced melody that enters halfway; a distant toll opens each
-   * pass. ~50s, loops until the world starts. All synthesized on the spot.
+   * pass. ~40s, loops until the world starts. All synthesized on the spot.
    */
   private scheduleTheme(): void {
     if (!this.ctx || !this.musBus) return;
-    const BEAT = 0.78; // ~77bpm
+    const BEAT = 0.62; // ~97bpm — a walking pace; it used to drag at 0.78
     const bar = (n: number): number => n * 4 * BEAT;
     // Chord tones (root/third/fifth around octave 3–4) + bass root.
     const CH: Record<string, { tri: number[]; bass: number }> = {
