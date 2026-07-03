@@ -34,19 +34,42 @@ export interface GearLook {
   cape?: { color: string };
 }
 
-// The metal ladder, themed to the material names found at each tier. Tiers with
-// no smithed gear (2/5/7/8) get sensible in-between tones so inference lands well.
+// The named metals, in the SAME hues the pack icons use (itemIcon.ts MATS) —
+// what you wear must look like what you carry. Resolved by the material word
+// in the item's name/id, so "Hearthite Leg Plate" is hearthite whatever its
+// tier number happens to be (legs top out at _8, everything else at _10).
+const METAL_BY_NAME: ReadonlyArray<readonly [string, Metal]> = [
+  ["knucklestone", { base: "#8a8275", edge: "#b2a996" }], // stone grey-brown
+  ["ashiron", { base: "#8b909a", edge: "#b8bdc6" }],      // ash iron grey
+  ["ribstone", { base: "#c2b48f", edge: "#e0d5b4" }],     // pale bone-tan (it IS rib-stone)
+  ["spinite", { base: "#9aa0ab", edge: "#cdd3dc" }],      // cold mountain steel
+  ["bloodore", { base: "#a5463a", edge: "#cd6f60" }],     // crimson-rust
+  ["voidstone", { base: "#4b4664", edge: "#7c63c0" }],    // violet-black
+  ["hearthite", { base: "#2f2724", edge: "#c8742e" }],    // warm-black, ember-lit trim
+];
+
+/** The metal a piece is NAMED for (matches the icon's material lookup). */
+function namedMetal(item: ItemDef): Metal | null {
+  const s = (item.id + " " + (item.name ?? "")).toLowerCase();
+  for (const [k, m] of METAL_BY_NAME) if (s.includes(k)) return m;
+  return null;
+}
+
+// The tier ladder, used only for pieces with NO material in their name (some
+// uniques); the named tiers carry the same tones as METAL_BY_NAME so an
+// inferred unique lands on-theme. Tiers with no smithed gear (2/5/7/8) get
+// sensible in-between tones so inference lands well.
 const METAL: Metal[] = [
-  { base: "#8c7f6e", edge: "#b6a98f" }, // 1  Knucklestone — stone grey-brown
+  { base: "#8a8275", edge: "#b2a996" }, // 1  Knucklestone — stone grey-brown
   { base: "#9a6a3c", edge: "#c08a52" }, // 2  (bronze step)
-  { base: "#70727a", edge: "#9aa0a8" }, // 3  Ashiron — ash iron grey
-  { base: "#9c5f4a", edge: "#c98a6e" }, // 4  Ribstone — rust red-brown
-  { base: "#9aa0ab", edge: "#cdd3dc" }, // 5  (steel / silver step)
-  { base: "#9e2f2f", edge: "#d2564a" }, // 6  Bloodore — crimson
+  { base: "#8b909a", edge: "#b8bdc6" }, // 3  Ashiron — ash iron grey
+  { base: "#c2b48f", edge: "#e0d5b4" }, // 4  Ribstone — pale bone-tan
+  { base: "#9aa0ab", edge: "#cdd3dc" }, // 5  Spinite — cold steel
+  { base: "#a5463a", edge: "#cd6f60" }, // 6  Bloodore — crimson-rust
   { base: "#5f6e62", edge: "#8aa093" }, // 7  (slate-green step)
   { base: "#3f6b6b", edge: "#69a6a6" }, // 8  (teal-steel step)
-  { base: "#3b2f5a", edge: "#7c63c0" }, // 9  Voidstone — violet-black
-  { base: "#b5612a", edge: "#f3b94e" }, // 10 Hearthite — fiery gold
+  { base: "#4b4664", edge: "#7c63c0" }, // 9  Voidstone — violet-black
+  { base: "#2f2724", edge: "#c8742e" }, // 10 Hearthite — warm-black, ember-lit
 ];
 
 // Unique looks keyed by id prefix — drops that should stand out from the metal
@@ -153,7 +176,9 @@ function gearStyle(item: ItemDef): ArmorStyle {
   return "plate";
 }
 
-/** The render colour for a worn armour piece, by material. */
+/** The render colour for a worn armour piece, by material. Named metals win
+ *  (they match the pack icons exactly); the tier ladder is the fallback for
+ *  uniques with no material in their name. */
 function colorFor(item: ItemDef, ladderKey: string, content: Content): Metal {
   const uniq = uniqueLook(item.id);
   if (uniq) return uniq;
@@ -161,7 +186,7 @@ function colorFor(item: ItemDef, ladderKey: string, content: Content): Metal {
   if (ls) return LEATHER[ls - 1]!;
   const cloth = clothOf(item.id);
   if (cloth) return cloth;
-  return metalOf(metalTier(item, ladderKey, content));
+  return namedMetal(item) ?? metalOf(metalTier(item, ladderKey, content));
 }
 
 function capeColor(item: ItemDef): string {
@@ -193,7 +218,7 @@ export function resolveGear(
   const main = eq.mainhand ? content.items[eq.mainhand] : undefined;
   if (main && !main.tool) {
     const tier = metalTier(main, "weapon", content);
-    const metal = uniqueLook(main.id) ?? metalOf(tier);
+    const metal = uniqueLook(main.id) ?? namedMetal(main) ?? metalOf(tier);
     // The Bonesaw is a sword in every system, but draws as a unique toothed saw.
     const shape = main.id === "bonesaw" ? "saw" : (main.wepType ?? "sword");
     out.weapon = { ...metal, type: shape, tier };

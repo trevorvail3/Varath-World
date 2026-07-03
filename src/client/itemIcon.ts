@@ -86,7 +86,7 @@ function hashColor(
 const MATS: ReadonlyArray<readonly [string, string]> = [
   // ore / metal tiers
   ["knucklestone", "#8a8275"], ["embercite", "#3c3640"], ["ashiron", "#8b909a"],
-  ["ribstone", "#c2b48f"], ["bloodore", "#a5463a"], ["hearthite", "#2f2724"],
+  ["ribstone", "#c2b48f"], ["spinite", "#9aa0ab"], ["bloodore", "#a5463a"], ["hearthite", "#2f2724"],
   ["voidstone", "#4b4664"], ["gold", "#d8b24a"], ["silver", "#cfd2d8"],
   // woods
   ["ashwood", "#cdb98c"], ["briarwood", "#8a5a44"], ["coldpine", "#90a584"],
