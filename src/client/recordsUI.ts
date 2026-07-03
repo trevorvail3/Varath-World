@@ -10,6 +10,7 @@
 
 import type { WorldState } from "../core/types.ts";
 import { fishBadgeSVG } from "./itemIcon.ts";
+import { iconize } from "./glyph.ts";
 
 export class RecordsUI {
   private backdrop: HTMLElement;
@@ -22,7 +23,7 @@ export class RecordsUI {
     this.backdrop.innerHTML = `
       <div class="shop-modal records-modal">
         <div class="shop-head">
-          <span class="shop-title">🏆 Pier Records</span>
+          <span class="shop-title"><span class="title-ic">${iconize("🏆")}</span> Pier Records</span>
           <button class="shop-close" type="button">✕</button>
         </div>
         <div class="records-sub">The five heaviest off the Drowned Pier.</div>

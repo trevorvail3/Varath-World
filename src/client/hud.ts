@@ -1643,7 +1643,7 @@ export class Hud {
     if (bt) {
       const done = bt.progress >= bt.required;
       const bName = this.content.monsters[bt.monster]?.name ?? bt.monster;
-      this.huntChip.textContent = done ? `🎯 ${bName} — claim!` : `🎯 ${bName} ${bt.progress}/${bt.required}`;
+      this.huntChip.innerHTML = `${glyph("target")} ${escapeHtml(done ? `${bName} — claim!` : `${bName} ${bt.progress}/${bt.required}`)}`;
       this.huntChip.classList.toggle("done", done);
       this.huntChip.classList.remove("hidden");
     } else {
@@ -1655,8 +1655,8 @@ export class Hud {
     const spec = Math.floor(player.spec ?? 0);
     if (spec > 0 || player.specArmed) {
       const full = spec >= 100;
-      this.specChip.textContent = player.specArmed ? "⚡ SPECIAL ARMED — next blow"
-        : full ? "⚡ Special ready — tap to arm" : `⚡ Special ${spec}%`;
+      this.specChip.innerHTML = `${glyph("bolt")} ${player.specArmed ? "SPECIAL ARMED — next blow"
+        : full ? "Special ready — tap to arm" : `Special ${spec}%`}`;
       this.specChip.classList.toggle("armed", player.specArmed);
       this.specChip.classList.toggle("ready", full && !player.specArmed);
       this.specChip.classList.remove("hidden");
@@ -1668,7 +1668,7 @@ export class Hud {
     const heldClues = ["easy", "medium", "hard"].filter((t) =>
       player.inventory.some((d) => d?.item === `clue_${t}`));
     if (heldClues.length) {
-      this.clueChip.textContent = `\ud83d\udcdc Trail: ${heldClues.join(" · ")}`;
+      this.clueChip.innerHTML = `${glyph("scroll")} Trail: ${heldClues.join(" · ")}`;
       this.clueChip.classList.remove("hidden");
     } else {
       this.clueChip.classList.add("hidden");
@@ -1808,7 +1808,7 @@ export class Hud {
       // The chip warns (red) while the quest's toughest kill outclasses you.
       const rec = recLevel(def);
       const chip = rec
-        ? ` <span class="quest-lvl${cl < rec ? " over" : ""}" title="Toughest foe this quest asks you to fight">⚔ ${rec}</span>`
+        ? ` <span class="quest-lvl${cl < rec ? " over" : ""}" title="Toughest foe this quest asks you to fight">${glyph("swords")} ${rec}</span>`
         : "";
       return (
         `<div class="quest-item${on ? " tracked" : ""}" data-track="${id}" title="${on ? "Tracked — tap to clear" : "Tap to track this quest"}">` +
@@ -1864,7 +1864,7 @@ export class Hud {
       parts.push(
         `<div class="quest-cat">Bounty Contract</div>` +
         `<div class="quest-item bounty-contract${done ? " tracked" : ""}">` +
-        `<div class="quest-name"><span class="quest-star">🎯</span> ${escapeHtml(mon?.name ?? task.monster)}` +
+        `<div class="quest-name"><span class="quest-star">${glyph("target")}</span> ${escapeHtml(mon?.name ?? task.monster)}` +
         `${guide ? ` <span class="quest-prog">· ${escapeHtml(guide.name)}</span>` : ""}</div>` +
         `<div class="quest-obj">▸ ${done ? "Contract complete — return to claim your Hunt Marks." : `Slay ${task.monster ? escapeHtml(mon?.name ?? task.monster) : ""}`} ` +
         `<span class="quest-prog">(${Math.min(task.progress, task.required)}/${task.required})</span></div></div>`,
@@ -2038,7 +2038,7 @@ export class Hud {
         + `<span class="boss-ic">${iconize(m.icon ?? "💀")}</span>`
         + `<span class="boss-name">${escapeHtml(m.name)}</span>`
         + `<span class="boss-lvl">Lv ${m.level}</span>`
-        + `<span class="boss-kills" title="Kills">${slain ? `☠ ${kills.toLocaleString()}` : "—"}</span>`
+        + `<span class="boss-kills" title="Kills">${slain ? `${glyph("skull")} ${kills.toLocaleString()}` : "—"}</span>`
         + `<span class="boss-chevron">${open ? "▾" : "ⓘ"}</span>`
         + `</button>`
         + `<div class="boss-detail">${lore}${hintLine}${weak}<div class="boss-miles">${miles}</div></div>`

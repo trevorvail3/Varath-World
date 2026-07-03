@@ -870,13 +870,13 @@ export class Game {
           // whole world in the chat feed.
           if (ev.newChampion) {
             const name = this.bridge.state.player.appearance.name;
-            this.hud.worldAnnounce(`🏆 ${name} landed a ${ev.weight.toFixed(1)}kg ${ev.species} — the Drowned Pier's new Fishing champion!`);
+            this.hud.worldAnnounce(`${name} landed a ${ev.weight.toFixed(1)}kg ${ev.species} — the Drowned Pier's new Fishing champion!`);
           }
           break;
         }
         case "WORLD_BOSS_MOVED":
           // A live-world event: the crier calls the sighting to everyone.
-          this.hud.worldAnnounce(`⚔️ ${ev.name} has been sighted in ${ev.hint} — hunters wanted!`);
+          this.hud.worldAnnounce(`${ev.name} has been sighted in ${ev.hint} — hunters wanted!`);
           break;
         case "OPEN_CRAFT":
           this.openCraft(ev.station, ev.objId);

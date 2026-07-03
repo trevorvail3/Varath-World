@@ -20,6 +20,7 @@
  */
 
 import { currentUser, rest } from "./supabase.ts";
+import { glyph } from "./glyph.ts";
 import type { WorldState, Intent } from "../core/types.ts";
 
 let entitled = false;
@@ -66,7 +67,7 @@ export function maybeShowFounderClaim(
   back.className = "founder-backdrop";
   back.innerHTML = `
     <div class="founder-box">
-      <div class="founder-crest">🔥</div>
+      <div class="founder-crest">${glyph("flame")}</div>
       <div class="founder-title">Founder's Cache</div>
       <div class="founder-sub">You backed Varath in its first days. With our thanks — yours to keep, and yours alone:</div>
       <ul class="founder-list">

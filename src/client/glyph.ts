@@ -72,6 +72,24 @@ const GLYPHS: Record<string, string> = {
   orb: line(`<circle cx="12" cy="11" r="7"/><path d="M8 9 Q10 6 13 6.5" stroke-width="1.2"/><path d="M7 19 H17"/><circle cx="9.5" cy="9" r="1" fill="currentColor" stroke="none"/>`),
   gem: line(`<path d="M6 9 L9 5 H15 L18 9 L12 20 Z"/><path d="M6 9 H18"/><path d="M9 5 L11 9 M15 5 L13 9 M11 9 L12 20 M13 9 L12 20"/>`),
   bone: line(`<path d="M7 17 Q4 17 4 19.5 Q4 22 6.5 22 Q6 19 9 19"/><line x1="8" y1="18.5" x2="16" y2="10.5"/><path d="M17 7 Q20 7 20 4.5 Q20 2 17.5 2 Q18 5 15 5"/>`),
+  bolt: solid(`<path d="M13.5 2 L5 13.5 H10.5 L9 22 L19 9.5 H12.5 Z"/>`),
+  star: solid(`<path d="M12 2.5 L14.6 8.9 L21.5 9.4 L16.2 13.9 L17.9 20.7 L12 17 L6.1 20.7 L7.8 13.9 L2.5 9.4 L9.4 8.9 Z"/>`),
+  eye: line(`<path d="M3 12 Q12 4.5 21 12 Q12 19.5 3 12 Z"/><circle cx="12" cy="12" r="3"/><circle cx="12" cy="12" r="1" fill="currentColor"/>`),
+  key: line(`<circle cx="7.5" cy="7.5" r="3.5"/><path d="M10 10 L20 20 M16.5 16.5 L19 14 M13.5 13.5 L16 11"/>`),
+  door: line(`<path d="M6 20 V5.5 Q6 4 7.5 4 H16.5 Q18 4 18 5.5 V20"/><line x1="4" y1="20" x2="20" y2="20"/><circle cx="15" cy="12.5" r="0.9" fill="currentColor"/>`),
+  ghost: line(`<path d="M5 20 V11 Q5 4.5 12 4.5 Q19 4.5 19 11 V20 L16.6 17.9 L14.3 20 L12 17.9 L9.7 20 L7.4 17.9 Z"/><circle cx="9.5" cy="11" r="1.2" fill="currentColor"/><circle cx="14.5" cy="11" r="1.2" fill="currentColor"/>`),
+  spider: line(`<circle cx="12" cy="14" r="3.5"/><circle cx="12" cy="8.5" r="2"/><path d="M9 12.5 L4 8.5 M9 14.5 L3.5 14.5 M9.8 16.8 L5.5 21 M15 12.5 L20 8.5 M15 14.5 L20.5 14.5 M14.2 16.8 L18.5 21"/>`),
+  scorpion: line(`<path d="M5 14 Q5 17.5 9 17.5 H13.5 Q16.5 17.5 16.5 14.5"/><path d="M16.5 14.5 Q20 13.5 19.5 9.5 Q19.2 7 17.5 6"/><circle cx="17" cy="5.4" r="1" fill="currentColor"/><path d="M5 14 Q2.8 12.5 3.5 9.5 M5 14 Q7.2 12.5 8.5 10"/>`),
+  axe: line(`<line x1="6" y1="20" x2="13.5" y2="7.5"/><path d="M11 5.5 Q17 3 19 9 Q14 9.5 12.5 13.5 Q10.6 9.8 11 5.5 Z"/>`),
+  medal: line(`<path d="M8 3 L11 10 M16 3 L13 10"/><circle cx="12" cy="15" r="4.5"/><circle cx="12" cy="15" r="1.8"/>`),
+  sunrise: line(`<path d="M5.5 16 A6.5 6.5 0 0 1 18.5 16"/><line x1="3" y1="16" x2="21" y2="16"/><path d="M12 4 V6.5 M5.2 7.2 L6.9 8.9 M18.8 7.2 L17.1 8.9"/><line x1="6.5" y1="19.5" x2="17.5" y2="19.5"/>`),
+  ban: line(`<circle cx="12" cy="12" r="8"/><line x1="6.4" y1="6.4" x2="17.6" y2="17.6"/>`),
+  palm: line(`<path d="M7 12 V6.5 Q7 5 8.2 5 Q9.4 5 9.4 6.5 V10.5 M9.4 10.5 V4.5 Q9.4 3 10.7 3 Q12 3 12 4.5 V10 M12 10 V5 Q12 3.5 13.3 3.5 Q14.6 3.5 14.6 5 V10.5 M14.6 10.5 V6.5 Q14.6 5 15.8 5 Q17 5 17 6.5 V13.5 Q17 20 12 20 Q7 20 7 13.5 Z"/>`),
+  vortex: line(`<path d="M12 12 Q13.8 10.4 12.6 8.8 Q11 7 8.8 8.8 Q6.8 11 8.6 13.8 Q11 17 15 15.2 Q18.6 13 17 8.6 Q15.2 4.6 10.5 4.4"/>`),
+  blossom: line(`<circle cx="12" cy="12" r="2"/><ellipse cx="12" cy="6.2" rx="2.2" ry="3.1"/><ellipse cx="12" cy="6.2" rx="2.2" ry="3.1" transform="rotate(72 12 12)"/><ellipse cx="12" cy="6.2" rx="2.2" ry="3.1" transform="rotate(144 12 12)"/><ellipse cx="12" cy="6.2" rx="2.2" ry="3.1" transform="rotate(216 12 12)"/><ellipse cx="12" cy="6.2" rx="2.2" ry="3.1" transform="rotate(288 12 12)"/>`),
+  cherry: line(`<circle cx="8.5" cy="16" r="3.2"/><circle cx="15.5" cy="15" r="3.2"/><path d="M8.5 12.8 Q9.5 8 13.5 5 M15.5 11.8 Q14.5 8 13.5 5 M13.5 5 Q16 3.8 18 5.5"/>`),
+  wyrm: line(`<path d="M4 15 Q4 6.5 11.5 6.5 L20 9 L15.5 10.5 Q17.5 12 15.8 13.8 Q13 16.5 9.5 15.2 L7.5 19.5 L5.8 15.6 Q4 15.5 4 15 Z"/><circle cx="12.5" cy="9.5" r="0.9" fill="currentColor"/>`),
+  mage: line(`<path d="M12 3 L16 11 H8 Z"/><line x1="6" y1="11" x2="18" y2="11"/><circle cx="12" cy="14" r="2.2"/><path d="M7 20 Q7 16.8 12 16.8 Q17 16.8 17 20"/>`),
 };
 
 // Every emoji that ever renders → a glyph name above.
@@ -95,6 +113,19 @@ const EMOJI: Record<string, string> = {
   "💬": "speech", "🗨️": "speech", "💭": "speech",
   // Faith / magic + gems + bones.
   "🔮": "orb", "🌟": "sparkle", "💎": "gem", "🦴": "bone",
+  // Chips, perks and shops (spec bar, bounty ledger, unlocks).
+  "⚡": "bolt", "🏅": "medal", "🥇": "medal", "🌅": "sunrise",
+  "🚫": "ban", "💠": "gem", "⭐": "star", "💯": "star",
+  // Creatures + spooks (boss log, achievements, bounty pools).
+  "☠️": "skull", "☠": "skull", "👁️": "eye", "👁": "eye", "👻": "ghost",
+  "🕷️": "spider", "🕷": "spider", "🕸️": "spider", "🦂": "scorpion",
+  "🐺": "paw", "🐕": "paw", "🐆": "paw", "🐻": "paw",
+  "🐉": "wyrm", "🐲": "wyrm", "🧙": "mage", "🧑‍🌾": "person",
+  // Spells, trails and places.
+  "✋": "palm", "🌀": "vortex", "🗝️": "key", "🔑": "key", "🚪": "door",
+  "🪓": "axe", "🜛": "flask", "🌄": "peak", "🏙️": "castle",
+  // Crops + odds and ends.
+  "🌳": "pine", "🌸": "blossom", "🌺": "blossom", "🍒": "cherry", "🖤": "heart",
 };
 
 /** A named glyph's SVG (falls back to a neutral dot if unknown). */

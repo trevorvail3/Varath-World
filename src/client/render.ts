@@ -1767,7 +1767,7 @@ export function drawWorld(
 }
 
 /** The player's "trophy" — their rarest/most-valuable item — for display cases. */
-function trophyGlyph(state: WorldState, content: Content): string | undefined {
+function trophyGlyph(state: WorldState, content: Content): ItemDef | undefined {
   const p = state.player;
   const owned = new Set<string>();
   for (const s of p.inventory) if (s) owned.add(s.item);
@@ -1781,7 +1781,7 @@ function trophyGlyph(state: WorldState, content: Content): string | undefined {
     const s = (d.slot === "companion" ? 1e9 : 0) + (d.tier ?? 0) * 200 + (d.sell ?? 0);
     if (s > score) { score = s; best = d; }
   }
-  return best?.icon;
+  return best;
 }
 
 /** Windows + glowing wall sconces baked into a home's rooms (decorative). */
@@ -3344,12 +3344,12 @@ function sparkle(g: CanvasRenderingContext2D, x: number, y: number, now: number)
   g.fillRect(x - 0.6, y - 2.5, 1.2, 5); g.fillRect(x - 2.5, y - 0.6, 5, 1.2);
   g.globalAlpha = 1;
 }
-/** Draw a real item's icon glyph (a trophy on a display) centred at cx,cy. */
-function drawTrophy(g: CanvasRenderingContext2D, cx: number, cy: number, glyph: string): void {
-  g.save();
-  g.font = "9px serif"; g.textAlign = "center"; g.textBaseline = "middle";
-  g.fillText(glyph, cx, cy);
-  g.restore();
+/** Draw a real item's icon (a trophy on a display) centred at cx,cy — the same
+ *  rasterised SVG badge ground loot uses. Until it decodes, a gem-glint stands in. */
+function drawTrophy(g: CanvasRenderingContext2D, cx: number, cy: number, def: ItemDef): void {
+  const img = groundItemImage(def);
+  if (img) { g.drawImage(img, cx - 5, cy - 5, 10, 10); return; }
+  g.fillStyle = GEM; g.fillRect(cx - 3, cy - 3, 2, 2); g.fillRect(cx + 1, cy + 1, 2, 3);
 }
 
 /** A floor carpet (drawn flat at floor level — you walk over it, so no shadow). */
@@ -3385,7 +3385,7 @@ function drawPlacedFurniture(
   cam: Camera,
   now: number,
   lights: Array<[number, number]>,
-  trophy: string | undefined,
+  trophy: ItemDef | undefined,
 ): void {
   const placed = state.player.home.placed;
   if (!placed || placed.length === 0) return;
@@ -3760,7 +3760,7 @@ function drawHotspot(
   idx: number,
   last: number,
   now: number,
-  trophy?: string,
+  trophy?: ItemDef,
 ): void {
   if (!f) {
     g.strokeStyle = "rgba(150,128,92,0.7)"; g.lineWidth = 1.4;
