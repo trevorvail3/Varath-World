@@ -413,6 +413,16 @@ const DUEL_RATING_BASE = 1000;
 const DUEL_RATING_WIN = 25;
 const DUEL_RATING_LOSS = 20;
 
+// The market toll: a fraction of every vendor sale, destroyed (not paid to
+// anyone) — the economy's one continuous macro gold-sink at the point of sale.
+const SALE_TAX = 0.02;
+
+// The recall tithe: a coin cost on the escape teleport, scaled by combat weight
+// so the wealthy meter gold out routinely. Waived when unaffordable (recall must
+// still rescue a stuck, broke player).
+const RECALL_TITHE_BASE = 150;
+const RECALL_TITHE_PER_LVL = 12;
+
 const INVENTORY_SIZE = 28;
 
 /** A small starting purse so the market isn't dead on arrival. */
@@ -1662,11 +1672,22 @@ function sellToMarket(
     events.push({ type: "LOG", message: `No one will pay for the ${def.name}.` });
     return;
   }
+  // A 2% market toll, taken off the top and DESTROYED (no counterparty — the
+  // gold simply isn't created). The shared economy's one true macro sink: every
+  // faucet in the game meets a small, unavoidable drain at the point of sale.
+  // (OSRS-style: tiny sales under the toll's rounding go untaxed.)
+  const tax = Math.floor(total * SALE_TAX);
+  const net = total - tax;
   for (let i = 0; i < toSell; i++) removeOneItem(player, item);
-  player.gold += total;
-  player.stats.goldEarned += total;
+  player.gold += net;
+  player.stats.goldEarned += net;
   const bundle = toSell > 1 ? `${toSell}× ` : "";
-  events.push({ type: "LOG", message: `Sold ${bundle}${def.name} for ${total}g.` });
+  events.push({
+    type: "LOG",
+    message: tax > 0
+      ? `Sold ${bundle}${def.name} for ${net}g (after a ${tax}g market toll).`
+      : `Sold ${bundle}${def.name} for ${net}g.`,
+  });
 }
 
 /** Does the player hold everything a recipe needs (requires + requiresAny)? */
@@ -2333,7 +2354,21 @@ export function applyIntent(
       player.pendingInteractId = null;
       clearActivity(player);
       player.recallReadyEpoch = epoch + 30 * 60_000;
-      events.push({ type: "LOG", message: "The world folds, and Ironvale's fountain-square opens around you." });
+      // A recall tithe, scaled by your combat weight — the strong pay to skip the
+      // walk, so routine fast-travel meters coin out continuously (the audit's
+      // recurring sink). WAIVED when you can't afford it: recall's real job is to
+      // rescue a stuck player, and that must never depend on your purse.
+      const tithe = Math.round(RECALL_TITHE_BASE + combatLevel(player) * RECALL_TITHE_PER_LVL);
+      const paid = Math.min(tithe, Math.max(0, player.gold));
+      player.gold -= paid;
+      events.push({
+        type: "LOG",
+        message: paid >= tithe
+          ? `The world folds, and Ironvale's fountain-square opens around you. (${paid}g waystone tithe)`
+          : paid > 0
+            ? `The world folds you home — you scrape together what you can for the tithe (${paid}g).`
+            : "The world folds, and Ironvale's fountain-square opens around you.",
+      });
       break;
     }
     case "SOUND_HORN": {
@@ -3493,9 +3528,15 @@ function craftFurniture(state: WorldState, content: Content, furnitureId: string
       return;
     }
   }
+  // Prestige pieces cost coin as well as materials — a mid/late-game gold sink.
+  if (f.gold && player.gold < f.gold) {
+    events.push({ type: "LOG", message: `The ${f.name} also costs ${f.gold.toLocaleString()}g in commissioned work — you can't afford it yet.` });
+    return;
+  }
   for (const [item, qty] of Object.entries(f.materials)) {
     for (let i = 0; i < (qty ?? 0); i++) removeOneItem(player, item as ItemId);
   }
+  if (f.gold) player.gold -= f.gold;
   player.home.storage[furnitureId] = (player.home.storage[furnitureId] ?? 0) + 1;
   grantXp(state, content, "construction", f.xp, events);
   events.push({ type: "LOG", message: `You build a ${f.name}. It's ready to place in your home.` });

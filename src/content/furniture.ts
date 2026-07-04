@@ -213,6 +213,16 @@ add({ id: "fur_alch_still", name: "Alchemist's Still", category: "alchemy", leve
 // to a town shrine again. Ties the two skills the audit flagged as flat at the top.
 add({ id: "fur_home_altar", name: "Home Altar of Orun", category: "devotion", levelReq: 90, xp: 520, comfort: 24, station: "shrine", light: true, footprint: [1, 1], materials: { vault_stone: 2, hearthite_bar: 2, cut_gem: 2 }, render: { shape: "brazier", wood: "#c9a84a", accent: "#6e5a24", glow: "#ffd66b" }, blurb: "A gold-seamed altar of dressed vault-stone, its bowl lit with Orun's own light. Kneel and your Grace refills — no more trudging to the town shrine." });
 
+// ===== ESTATE PRESTIGE PIECES — the mid/late-game GOLD sink (audit T4·02) =====
+// Pure cosmetics, but they cost COIN as well as materials (100k–400k), filling
+// the dead band between the 90k mount and the seven-figure cape where a rich
+// player had nothing left to buy. Commissioned work, not gathered — so the gold
+// is a true sink, not a material conversion.
+add({ id: "fur_estate_chandelier", name: "Orunlight Chandelier", category: "lighting", levelReq: 82, xp: 900, comfort: 40, light: true, footprint: [2, 2], gold: 120000, materials: { gold_bar: 4, cut_gem: 3 }, render: { shape: "chandelier", wood: "#c9a84a", accent: "#7a5f1e", glow: "#ffe39a" }, blurb: "A cascade of gold arms and cut gems, lit with captured Orunlight. It costs a fortune to hang — and looks it." });
+add({ id: "fur_estate_fountain", name: "Gilded Atrium Fountain", category: "display", levelReq: 86, xp: 1200, comfort: 48, footprint: [2, 2], gold: 180000, materials: { vault_stone: 4, gold_bar: 3, cut_gem: 2 }, render: { shape: "fountain", wood: "#b9cdd6", accent: "#7d94a0", glow: "#dff2ff" }, blurb: "An indoor fountain of vault-stone and gold leaf, water threaded with light. The mark of a homestead with nothing left to prove." });
+add({ id: "fur_estate_statue", name: "Wyrm-Carved Monument", category: "display", levelReq: 90, xp: 1600, comfort: 55, footprint: [2, 2], gold: 250000, materials: { vault_stone: 6, hearthite_bar: 3, cut_gem: 3 }, render: { shape: "statue", wood: "#8a7d6a", accent: "#57503f" }, blurb: "A full-height monument to Cindrath, cut from a single block of vault-stone by a commissioned master. Priced to match." });
+add({ id: "fur_estate_throne", name: "Throne of Varath", category: "seating", levelReq: 95, xp: 2600, comfort: 70, footprint: [2, 2], gold: 400000, materials: { vault_stone: 4, gold_bar: 6, cut_gem: 5, hearthite_bar: 2 }, render: { shape: "throne", wood: "#7a4a2e", accent: "#3c2416", cloth: "#8a2f34" }, blurb: "Gold, vault-stone and crimson — a throne fit for the master of Varath. The single most expensive thing you can build, and worth every coin to the sort who wants it." });
+
 // ===========================================================================
 // ROOM SURFACES — walls + floors the player can swap wholesale.
 // ===========================================================================

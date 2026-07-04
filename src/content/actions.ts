@@ -3588,4 +3588,10 @@ export const actions: SkillAction[] = [
   { "id": "brew_pot_mastergather", "skill": "herblore", "name": "Super Gathering Potion", "levelReq": 62, "xp": 240, "baseTime": 5700, "requires": { "vial_water": 1, "herb_marrowflower": 1, "forage_deepmoss": 1 }, "produces": "pot_mastergather", "group": "potions" },
   { "id": "brew_pot_hearthfire", "skill": "herblore", "name": "Super Experience Potion", "levelReq": 76, "xp": 320, "baseTime": 6400, "requires": { "vial_water": 1, "herb_hearthbloom": 1, "forage_ashbloom": 1 }, "produces": "pot_hearthfire", "group": "potions" },
   { "id": "brew_pot_orunstears", "skill": "herblore", "name": "Restore Potion", "levelReq": 90, "xp": 430, "baseTime": 7200, "requires": { "vial_water": 1, "herb_orunroot": 1, "forage_nightshade": 1 }, "produces": "pot_orunstears", "group": "potions" },
+
+  // --- Trophy sinks (audit T4·03): dead-end monster trophies given a real loop
+  //     instead of flattening every kill into vendor coin. ---
+  { "id": "craft_fang_arrows", "skill": "woodcraft", "name": "Knap Fang Arrowheads", "levelReq": 20, "xp": 30, "baseTime": 1800, "requires": { "wolf_fang": 1 }, "produces": "arrow_ashiron", "produceQty": 6, "group": "arrows", "note": "A wolf's fang knaps into six wicked arrowheads — a use at last for the fangs that used to only sell." },
+  { "id": "craft_tusk_meal", "skill": "crafting", "name": "Grind Boar Tusk", "levelReq": 12, "xp": 26, "baseTime": 2600, "requires": { "boar_tusk": 1 }, "produces": "bonemeal", "produceQty": 3, "group": "leather", "note": "Boar tusk is dense bone — ground down it feeds the altars like any bone would. A sink for a trophy that used to be pure vendor trash." },
+  { "id": "brew_ratear_tincture", "skill": "herblore", "name": "Rat-Ear Tincture", "levelReq": 18, "xp": 80, "baseTime": 3900, "requires": { "vial_water": 1, "herb_bloodberry": 1, "rat_king_ear": 1 }, "produces": "pot_warrior", "group": "potions", "note": "The alchemists really did pay for the Rat King's ear — steeped over bloodberry it makes a Vigour draught. The rare trophy finally has a use beyond the vendor." },
 ];

@@ -2556,6 +2556,9 @@ export interface FurnitureDef {
   xp: number;
   /** Materials consumed to build it (item id -> quantity). */
   materials: Partial<Record<ItemId, number>>;
+  /** Optional coin cost to build it, on top of materials — the mid/late-game
+   *  gold sink for prestige/estate pieces (most furniture is materials-only). */
+  gold?: number;
   /** A "home value" score, summed across a homestead's built pieces. */
   comfort: number;
   /** A short examine/flavour line shown in the build menu. */
