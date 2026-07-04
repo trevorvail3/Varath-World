@@ -5160,7 +5160,7 @@ export const items: Record<ItemId, ItemDef> = {
     "description": "A snapped shaft with the head still on. Scrap, but scrap sells."
   },
   "bent_nail": {
-    "id": "bent_nail", "name": "Bent Nail", "icon": "🔩", "cat": "Drops", "sell": 1,
+    "id": "bent_nail", "name": "Bent Nail", "icon": "🔩", "cat": "Drops", "sell": 1, "stackable": true,
     "description": "A rusted, bent nail. The sort of thing that falls out of a bandit's pocket."
   },
   "rusty_key": {

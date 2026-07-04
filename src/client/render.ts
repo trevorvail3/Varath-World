@@ -68,6 +68,15 @@ export function setDrawDistance(tiles: number): void {
 let lootLabels = true;
 export function setLootLabels(on: boolean): void { lootLabels = on; }
 
+/** Scene brightness, 1 = default. Above 1 thins the night veil, indoor gloom and
+ *  vignette so names and levels stay readable in the dark; at 2 the night is all
+ *  but gone. Set from the Settings slider (persisted in localStorage). */
+let brightness = 1;
+export function setBrightness(v: number): void { brightness = Math.max(0.6, Math.min(2, v)); }
+export function getBrightness(): number { return brightness; }
+/** How much of the darkening layers survives the brightness setting (0–1). */
+function darkFactor(): number { return Math.max(0, Math.min(1, 2 - brightness)); }
+
 // Performance mode: skip the purely-decorative ambient layers (birds,
 // butterflies, surfacing water life) that cost draw calls every frame but add
 // no gameplay. Paired with a lower render resolution in the loop.
@@ -2227,7 +2236,7 @@ function drawDaylight(
   // Indoors a home has its own steady, gentle gloom lit by sconces and lamps —
   // it doesn't follow the sky, so the room is cosy at any hour.
   if (indoor) {
-    g.fillStyle = "rgba(20,16,28,0.34)";
+    g.fillStyle = `rgba(20,16,28,${(0.34 * darkFactor()).toFixed(3)})`;
     g.fillRect(0, 0, w, h);
     g.globalCompositeOperation = "lighter";
     const pool = discSprite("hearth-pool", 64,
@@ -2240,7 +2249,7 @@ function drawDaylight(
   }
   const phase = (Date.now() % DAY_CYCLE_MS) / DAY_CYCLE_MS;
   const sun = Math.sin(phase * Math.PI * 2 - Math.PI / 2); // -1 midnight … +1 noon
-  const night = Math.max(0, -sun) * 0.46;
+  const night = Math.max(0, -sun) * 0.46 * darkFactor(); // brightness thins the veil
   const twilight = Math.max(0, 1 - Math.abs(sun) * 3) * 0.17;
 
   if (night > 0.01) {
@@ -2633,7 +2642,7 @@ function drawWaterLife(
 function drawVignette(g: CanvasRenderingContext2D, w: number, h: number): void {
   const grd = g.createRadialGradient(w / 2, h / 2, Math.min(w, h) * 0.42, w / 2, h / 2, Math.max(w, h) * 0.72);
   grd.addColorStop(0, "rgba(0,0,0,0)");
-  grd.addColorStop(1, "rgba(8,6,12,0.34)");
+  grd.addColorStop(1, `rgba(8,6,12,${(0.34 * darkFactor()).toFixed(3)})`);
   g.fillStyle = grd;
   g.fillRect(0, 0, w, h);
 }

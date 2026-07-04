@@ -26,7 +26,7 @@ import type {
 } from "../core/types.ts";
 import type { ContextMenu, MenuItem } from "./contextMenu.ts";
 import { itemIconSVG } from "./itemIcon.ts";
-import { setPerfMode } from "./render.ts";
+import { setPerfMode, setBrightness } from "./render.ts";
 import { audio } from "./audio.ts";
 import { reportBug } from "./ops.ts";
 import { glyph, iconize } from "./glyph.ts";
@@ -53,6 +53,11 @@ const UI_SCALE_KEY = "varath_ui_scale";
 function getUiScale(): number {
   const v = Number(localStorage.getItem(UI_SCALE_KEY));
   return Number.isFinite(v) && v >= 0.85 && v <= 1.4 ? v : 1;
+}
+const BRIGHT_KEY = "varath-brightness";
+function getBrightnessSetting(): number {
+  const v = Number(localStorage.getItem(BRIGHT_KEY));
+  return Number.isFinite(v) && v >= 0.6 && v <= 2 ? v : 1;
 }
 /** The sender name world-broadcasts (new pier champions, etc.) post under, so
  *  the chat feed can render them as server messages rather than player chatter. */
@@ -207,6 +212,7 @@ export class Hud {
     this.dispatch = dispatch;
     this.rootEl = root;
     this.applyUiScale(getUiScale()); // restore the saved interface size
+    setBrightness(getBrightnessSetting()); // restore the saved scene brightness
     this.skillDetail = new SkillDetailModal(root, content);
     this.hiscores = new HiscoresUI(root, content);
     this.exchange = new ExchangeUI(root, content, dispatch, () => this.lastState);
@@ -743,7 +749,7 @@ export class Hud {
           p.appendChild(d);
           return d;
         };
-        const gameplay = section("Gameplay", true);
+        const gameplay = section("Gameplay");
         const audioSec = section("Audio");
         // --- Recall: the free escape teleport. No reagents, no requirements,
         //     30-minute cooldown — if you're ever stuck (a furnished-over
@@ -829,6 +835,32 @@ export class Hud {
         });
         ddRow.append(ddLabel, ddSlider);
         gameplay.appendChild(ddRow);
+
+        // --- Brightness: thins the night veil, indoor gloom and vignette so
+        //     names and levels stay readable after dark. Stored on this device. ---
+        const brRow = document.createElement("div");
+        brRow.className = "settings-zoom";
+        const brLabel = document.createElement("div");
+        brLabel.className = "settings-label";
+        const brReadout = document.createElement("span");
+        brReadout.className = "settings-zoom-value";
+        brLabel.append("Brightness ", brReadout);
+        const brSlider = document.createElement("input");
+        brSlider.type = "range";
+        brSlider.className = "settings-slider";
+        brSlider.min = "0.6"; brSlider.max = "2"; brSlider.step = "0.05";
+        brSlider.value = String(getBrightnessSetting());
+        const syncBr = (): void => { brReadout.textContent = `${Math.round(Number(brSlider.value) * 100)}%`; };
+        syncBr();
+        brSlider.addEventListener("input", () => {
+          const v = Number(brSlider.value);
+          setBrightness(v);
+          localStorage.setItem(BRIGHT_KEY, String(v));
+          syncBr();
+        });
+        brRow.append(brLabel, brSlider);
+        gameplay.appendChild(brRow);
+        gameplay.appendChild(note("Lightens dark scenes — night, interiors, storms — so nameplates stay legible."));
 
         // --- Text size: scales every panel's type (accessibility). Stored on
         //     this device and applied on boot via a root font-size. ---
@@ -971,6 +1003,12 @@ export class Hud {
     // Records renders on demand (not per-frame); refresh it the moment it opens.
     if (this.activeTab === "records" && !this.collapsed && this.lastState) {
       this.renderRecords(this.lastState.player, true);
+    }
+    // Settings always opens tidy: every section folded shut, not stuck however
+    // you last left Gameplay.
+    if (this.activeTab === "settings" && !this.collapsed) {
+      this.tabPanels.get("settings")?.querySelectorAll("details.settings-section")
+        .forEach((d) => { (d as HTMLDetailsElement).open = false; });
     }
   }
 
