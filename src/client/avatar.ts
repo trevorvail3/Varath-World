@@ -92,8 +92,15 @@ export interface AvatarAnim {
    * swing remains (1 just after a strike → 0 at the next strike).
    */
   action?: { kind: string; tool: string; frac: number };
-  /** Mirror the figure horizontally — used to face the way it's walking. */
+  /** Mirror the figure horizontally — used to face the way it's walking.
+   *  Superseded by `facing`; kept for callers that only track left/right. */
   flip?: boolean;
+  /**
+   * Which way the figure faces (4-way). "left"/"right" mirror the 3/4 view as
+   * before; "up" shows the back of the head (walking away from the camera);
+   * "down" is the plain front view. When omitted we fall back to `flip`.
+   */
+  facing?: "up" | "down" | "left" | "right";
   /** Mounted: legs tuck out of sight into the saddle; no walk-cycle lift. */
   riding?: boolean;
 }
@@ -182,8 +189,13 @@ function drawAvatarInner(
     g.arc(cx + dx * s, cy + dy * s + bob, r * s, a0, a1, b);
   };
 
-  // Face the way we're walking by mirroring the whole figure around its centre.
-  const flip = anim.flip === true;
+  // Face the way we're walking. Left/right mirror the 3/4 view around the
+  // figure's centre; "up" shows the back of the head (drawn further down); the
+  // rest is the plain front view. `facing` wins when given, else fall back to
+  // the old left/right `flip` boolean.
+  const facing = anim.facing ?? (anim.flip === true ? "left" : "right");
+  const flip = facing === "left";
+  const back = facing === "up";
   if (flip) { g.save(); g.translate(2 * cx, 0); g.scale(-1, 1); }
 
   // --- Shadow (planted) --- (a rider casts no shadow of their own; the mount's
@@ -413,9 +425,16 @@ function drawAvatarInner(
   arc(0, -12, 6, 0, Math.PI * 2);
   g.fill();
 
-  // --- Facial hair, then hair (both bob) ---
-  drawFacial(g, cx, cy, s, bob, look);
-  drawHair(g, cx, cy, s, bob, look);
+  if (back) {
+    // Facing away: the back of the head. Hair (or a bare nape) fills the crown
+    // over where the face would be — no eyes, no beard — so the walk reads as
+    // heading north, not toward the camera.
+    drawHairBack(g, cx, cy, s, bob, look);
+  } else {
+    // --- Facial hair, then hair (both bob) ---
+    drawFacial(g, cx, cy, s, bob, look);
+    drawHair(g, cx, cy, s, bob, look);
+  }
 
   // --- Head gear (over the hair): metal helm / leather hood / wizard hat ---
   if (gear.helmet && gear.helmet.style === "robe") {
@@ -716,6 +735,43 @@ function drawHair(g: Ctx, cx: number, cy: number, s: number, bob: number, look: 
     case "short":
     default:
       cap();
+      break;
+  }
+}
+
+/** The back of the head, for a figure walking away from the camera: hair fills
+ *  the whole crown (no face), with a few styles trailing lower. Bald leaves the
+ *  bare scalp (the skin head already drawn) showing. */
+function drawHairBack(g: Ctx, cx: number, cy: number, s: number, bob: number, look: Appearance): void {
+  if (look.hairStyle === "bald") return; // bare scalp from behind = the skin head
+  const hc = look.hair;
+  g.fillStyle = hc;
+  // A full crown of hair covering where the face would be, leaving a thin skin
+  // rim at the very bottom to read as the nape/jaw.
+  g.beginPath();
+  g.arc(cx, cy - 11.7 * s + bob, 6.1 * s, 0, Math.PI * 2);
+  g.fill();
+  const R = (dx: number, dy: number, w: number, h: number) =>
+    g.fillRect(cx + dx * s, cy + dy * s + bob, w * s, h * s);
+  switch (look.hairStyle) {
+    case "long":
+    case "curly":
+      R(-6, -12, 12, 8); // a mane spilling down the back
+      break;
+    case "ponytail":
+      g.beginPath();
+      g.ellipse(cx, cy - 6 * s + bob, 2 * s, 5 * s, 0, 0, Math.PI * 2);
+      g.fill();
+      break;
+    case "topknot":
+      g.beginPath();
+      g.arc(cx, cy - 18 * s + bob, 2.2 * s, 0, Math.PI * 2);
+      g.fill();
+      break;
+    case "mohawk":
+      R(-1.6, -19.5, 3.2, 9); // the crest still stands from behind
+      break;
+    default:
       break;
   }
 }

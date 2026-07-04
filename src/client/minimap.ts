@@ -359,6 +359,10 @@ export class WorldMapModal {
   private markersByCat = new Map<string, HTMLElement[]>();
   private labelsOn = true;
   private labelEls: HTMLElement[] = [];
+  /** Story-gated landmark labels (e.g. "The Bonefield"): shown only once the
+   *  player owns the reveal flag. Toggled each draw so they surface the moment a
+   *  quest step reveals them, and vanish again for a fresh character. */
+  private gatedLabels: { el: HTMLElement; flag: string }[] = [];
 
   private stage!: HTMLElement;
   private viewport!: HTMLElement;
@@ -508,7 +512,6 @@ export class WorldMapModal {
         (def.kind === "signpost" && !!def.name && def.name !== "Fingerpost") ||
         (def.kind === "shrine" && !!def.name && KEEP_SHRINE.has(def.name));
       if (!important) continue;
-      if (def.requiresFlag) continue;
       const name = def.name;
       if (!name || seen.has(name)) continue;
       seen.add(name);
@@ -520,7 +523,15 @@ export class WorldMapModal {
       el.style.left = pct(p.x + 0.5, w);
       el.style.top = pct(p.y + 0.5, rows);
       this.markerLayer.appendChild(el);
-      this.labelEls.push(el);
+      if (def.requiresFlag) {
+        // Story-gated (e.g. "The Bonefield"): kept out of the always-on label
+        // set and hidden until draw() confirms the player owns the reveal flag —
+        // so a revealed camp finally shows up on the map to steer toward.
+        el.style.display = "none";
+        this.gatedLabels.push({ el, flag: def.requiresFlag });
+      } else {
+        this.labelEls.push(el);
+      }
     }
     // POI markers, grouped by category.
     const kindCat = new Map<ObjKind, { id: string; icon: string; label: string }>();
@@ -747,6 +758,13 @@ export class WorldMapModal {
       g.strokeStyle = "rgba(232,217,174,0.45)";
       g.lineWidth = 1.5;
       g.strokeRect((cam.x / TILE) * cell, (cam.y / TILE) * cell, (viewW / TILE) * cell, (viewH / TILE) * cell);
+    }
+    // Reveal any story-gated landmark labels the player has now unlocked (and
+    // re-hide them if the labels layer is toggled off). Cheap per-draw sync so a
+    // just-revealed camp appears the instant its quest flag is set.
+    for (const gl of this.gatedLabels) {
+      const show = this.labelsOn && state.player.flags.includes(gl.flag);
+      gl.el.style.display = show ? "" : "none";
     }
     // You-are-here: the familiar dot, ringed by a slow gold pulse so the eye
     // finds itself on a busy chart at once.

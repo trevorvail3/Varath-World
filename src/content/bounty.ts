@@ -276,7 +276,7 @@ export const bountyShop: BountyShopListing[] = [
   { item: "maw_spike", cost: 220, qty: 10, label: "Maw-Spikes ×10", desc: "A task's worth of spikes at a bulk rate." },
   { item: "hunters_horn", cost: 40, qty: 1, label: "Hunter's Horn", desc: "Sound it to be carried straight to your active task's hunting ground. One use — the walk back is what you're paying to skip." },
   { item: "battle_ration", cost: 60, qty: 1, label: "Battle Ration", desc: "Field food — heals on the spot, no cooking needed." },
-  { item: "health_elixir", cost: 40, qty: 1, label: "Health Elixir", desc: "Restores health instantly." },
+  { item: "health_elixir", cost: 40, qty: 1, label: "Health Potion", desc: "Restores 50 health instantly." },
   { item: "arrow_ashiron", cost: 25, qty: 15, label: "Ashiron Arrows ×15", desc: "A bundle of fifteen ashiron-tipped arrows." },
   { item: "bloodore_arrow", cost: 60, qty: 15, label: "Bloodore Arrows ×15", desc: "A bundle of fifteen bloodore arrows." },
   { item: "arrow_hearthite", cost: 130, qty: 20, label: "Hearthite Arrows ×20", desc: "A bundle of twenty hearthite-tipped arrows — for the hardest hunts." },

@@ -1915,8 +1915,8 @@ export const items: Record<ItemId, ItemDef> = {
   },
   "warriors_draught": {
     "id": "warriors_draught",
-    "name": "Warrior's Draught",
-    "description": "A bitter brew that sharpens the edge for a short time. +6 damage for 60 seconds.",
+    "name": "Vigour Draught",
+    "description": "A bitter brew that sharpens the arm for a short time. +6 melee damage for 60 seconds.",
     "icon": "🧪",
     "cat": "Combat",
     "buff": "melee_dmg",
@@ -1926,7 +1926,7 @@ export const items: Record<ItemId, ItemDef> = {
   },
   "shield_oil": {
     "id": "shield_oil",
-    "name": "Shield Oil",
+    "name": "Ward Oil",
     "description": "Rubbed into armor before battle. The blow still lands, but softer. +8 defence for 60 seconds.",
     "icon": "🛢️",
     "cat": "Combat",
@@ -4620,11 +4620,11 @@ export const items: Record<ItemId, ItemDef> = {
   },
   "health_elixir": {
     "id": "health_elixir",
-    "name": "Health Elixir",
+    "name": "Health Potion",
     "description": "A concentrated healing potion bought with Hunt Marks. Restores 50 HP instantly.",
     "icon": "🧪",
     "cat": "Combat Items",
-    "heals": 10,
+    "heals": 50,
     "sell": 150
   },
   "token_spine": {
@@ -5821,7 +5821,7 @@ export const items: Record<ItemId, ItemDef> = {
     },
   "pot_gatherer": {
       "id": "pot_gatherer",
-      "name": "Gatherer's Brew (2)",
+      "name": "Gathering Potion (2)",
       "description": "Thornroot sharpens the eye. Each dose quickens gathering for 4 minutes. Two doses.",
       "icon": "🧪",
       "cat": "Potions",
@@ -5833,7 +5833,7 @@ export const items: Record<ItemId, ItemDef> = {
     },
   "pot_gatherer_1": {
       "id": "pot_gatherer_1",
-      "name": "Gatherer's Brew (1)",
+      "name": "Gathering Potion (1)",
       "description": "Thornroot sharpens the eye. Each dose quickens gathering for 4 minutes. One dose left.",
       "icon": "🧪",
       "cat": "Potions",
@@ -5844,7 +5844,7 @@ export const items: Record<ItemId, ItemDef> = {
     },
   "pot_warrior": {
       "id": "pot_warrior",
-      "name": "Warrior's Brew (2)",
+      "name": "Vigour Potion (2)",
       "description": "Bloodberry heat in the arm. Each dose raises melee damage for 4 minutes. Two doses.",
       "icon": "🔴",
       "cat": "Potions",
@@ -5856,7 +5856,7 @@ export const items: Record<ItemId, ItemDef> = {
     },
   "pot_warrior_1": {
       "id": "pot_warrior_1",
-      "name": "Warrior's Brew (1)",
+      "name": "Vigour Potion (1)",
       "description": "Bloodberry heat in the arm. Each dose raises melee damage for 4 minutes. One dose left.",
       "icon": "🔴",
       "cat": "Potions",
@@ -5867,7 +5867,7 @@ export const items: Record<ItemId, ItemDef> = {
     },
   "pot_runner": {
       "id": "pot_runner",
-      "name": "Runner's Blend (2)",
+      "name": "Energy Potion (2)",
       "description": "Coldmoss cools the burn in the legs. Each dose restores your run energy in full. Two doses.",
       "icon": "🥤",
       "cat": "Potions",
@@ -5877,7 +5877,7 @@ export const items: Record<ItemId, ItemDef> = {
     },
   "pot_runner_1": {
       "id": "pot_runner_1",
-      "name": "Runner's Blend (1)",
+      "name": "Energy Potion (1)",
       "description": "Coldmoss cools the burn in the legs. Each dose restores your run energy in full. One dose left.",
       "icon": "🥤",
       "cat": "Potions",
@@ -5886,7 +5886,7 @@ export const items: Record<ItemId, ItemDef> = {
     },
   "pot_ironhide": {
       "id": "pot_ironhide",
-      "name": "Ironhide Brew (2)",
+      "name": "Ward Potion (2)",
       "description": "Ironleaf stiffens the skin. Each dose raises defence for 4 minutes. Two doses.",
       "icon": "🛡",
       "cat": "Potions",
@@ -5898,7 +5898,7 @@ export const items: Record<ItemId, ItemDef> = {
     },
   "pot_ironhide_1": {
       "id": "pot_ironhide_1",
-      "name": "Ironhide Brew (1)",
+      "name": "Ward Potion (1)",
       "description": "Ironleaf stiffens the skin. Each dose raises defence for 4 minutes. One dose left.",
       "icon": "🛡",
       "cat": "Potions",
@@ -5909,7 +5909,7 @@ export const items: Record<ItemId, ItemDef> = {
     },
   "pot_deepgrace": {
       "id": "pot_deepgrace",
-      "name": "Deep Grace Potion (2)",
+      "name": "Super Grace Potion (2)",
       "description": "Greybloom steeped over double bonemeal. Each dose restores 120 Grace. Two doses.",
       "icon": "✨",
       "cat": "Potions",
@@ -5919,7 +5919,7 @@ export const items: Record<ItemId, ItemDef> = {
     },
   "pot_deepgrace_1": {
       "id": "pot_deepgrace_1",
-      "name": "Deep Grace Potion (1)",
+      "name": "Super Grace Potion (1)",
       "description": "Greybloom steeped over double bonemeal. Each dose restores 120 Grace. One dose left.",
       "icon": "✨",
       "cat": "Potions",
@@ -5928,7 +5928,7 @@ export const items: Record<ItemId, ItemDef> = {
     },
   "pot_archer": {
       "id": "pot_archer",
-      "name": "Archer's Brew (2)",
+      "name": "Draw Potion (2)",
       "description": "Spinethistle steadies the draw. Each dose raises ranged damage for 4 minutes. Two doses.",
       "icon": "🟢",
       "cat": "Potions",
@@ -5940,7 +5940,7 @@ export const items: Record<ItemId, ItemDef> = {
     },
   "pot_archer_1": {
       "id": "pot_archer_1",
-      "name": "Archer's Brew (1)",
+      "name": "Draw Potion (1)",
       "description": "Spinethistle steadies the draw. Each dose raises ranged damage for 4 minutes. One dose left.",
       "icon": "🟢",
       "cat": "Potions",
@@ -5951,7 +5951,7 @@ export const items: Record<ItemId, ItemDef> = {
     },
   "pot_battlemind": {
       "id": "pot_battlemind",
-      "name": "Battlemind Brew (2)",
+      "name": "Edge Potion (2)",
       "description": "Ruevine clears the red mist. Each dose raises melee accuracy for 4 minutes. Two doses.",
       "icon": "🧠",
       "cat": "Potions",
@@ -5963,7 +5963,7 @@ export const items: Record<ItemId, ItemDef> = {
     },
   "pot_battlemind_1": {
       "id": "pot_battlemind_1",
-      "name": "Battlemind Brew (1)",
+      "name": "Edge Potion (1)",
       "description": "Ruevine clears the red mist. Each dose raises melee accuracy for 4 minutes. One dose left.",
       "icon": "🧠",
       "cat": "Potions",
@@ -5974,7 +5974,7 @@ export const items: Record<ItemId, ItemDef> = {
     },
   "pot_sage": {
       "id": "pot_sage",
-      "name": "Sage's Brew (2)",
+      "name": "Experience Potion (2)",
       "description": "Duskshade opens the mind. Each dose lifts ALL experience gains 5% for 8 minutes. Two doses.",
       "icon": "📘",
       "cat": "Potions",
@@ -5986,7 +5986,7 @@ export const items: Record<ItemId, ItemDef> = {
     },
   "pot_sage_1": {
       "id": "pot_sage_1",
-      "name": "Sage's Brew (1)",
+      "name": "Experience Potion (1)",
       "description": "Duskshade opens the mind. Each dose lifts ALL experience gains 5% for 8 minutes. One dose left.",
       "icon": "📘",
       "cat": "Potions",
@@ -5997,7 +5997,7 @@ export const items: Record<ItemId, ItemDef> = {
     },
   "pot_mastergather": {
       "id": "pot_mastergather",
-      "name": "Master Gatherer's (2)",
+      "name": "Super Gathering Potion (2)",
       "description": "Marrowflower under the fingernails. Each dose greatly quickens gathering for 4 minutes. Two doses.",
       "icon": "⚗",
       "cat": "Potions",
@@ -6009,7 +6009,7 @@ export const items: Record<ItemId, ItemDef> = {
     },
   "pot_mastergather_1": {
       "id": "pot_mastergather_1",
-      "name": "Master Gatherer's (1)",
+      "name": "Super Gathering Potion (1)",
       "description": "Marrowflower under the fingernails. Each dose greatly quickens gathering for 4 minutes. One dose left.",
       "icon": "⚗",
       "cat": "Potions",
@@ -6020,7 +6020,7 @@ export const items: Record<ItemId, ItemDef> = {
     },
   "pot_hearthfire": {
       "id": "pot_hearthfire",
-      "name": "Hearthfire Elixir (2)",
+      "name": "Super Experience Potion (2)",
       "description": "Hearthbloom's warmth in the blood. Each dose lifts ALL experience gains 10% for 8 minutes. Two doses.",
       "icon": "🟠",
       "cat": "Potions",
@@ -6032,7 +6032,7 @@ export const items: Record<ItemId, ItemDef> = {
     },
   "pot_hearthfire_1": {
       "id": "pot_hearthfire_1",
-      "name": "Hearthfire Elixir (1)",
+      "name": "Super Experience Potion (1)",
       "description": "Hearthbloom's warmth in the blood. Each dose lifts ALL experience gains 10% for 8 minutes. One dose left.",
       "icon": "🟠",
       "cat": "Potions",
@@ -6043,7 +6043,7 @@ export const items: Record<ItemId, ItemDef> = {
     },
   "pot_orunstears": {
       "id": "pot_orunstears",
-      "name": "Orun's Tears (2)",
+      "name": "Restore Potion (2)",
       "description": "Orunroot and nightshade — the master's brew. Each dose fills your Grace outright and knits 40 health. Two doses.",
       "icon": "🖤",
       "cat": "Potions",
@@ -6054,7 +6054,7 @@ export const items: Record<ItemId, ItemDef> = {
     },
   "pot_orunstears_1": {
       "id": "pot_orunstears_1",
-      "name": "Orun's Tears (1)",
+      "name": "Restore Potion (1)",
       "description": "Orunroot and nightshade — the master's brew. Each dose fills your Grace outright and knits 40 health. One dose left.",
       "icon": "🖤",
       "cat": "Potions",

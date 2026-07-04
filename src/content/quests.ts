@@ -1166,16 +1166,16 @@ export const quests: QuestDef[] = [
           {
             label: "Straight in. Before he moves the cairns again.",
             flags: ["boneman_revealed", "boneman_hunt_direct"],
-            reply: "Lenne leads you to the treeline and points. 'The Bonefield's through there. I go no further — that's a place for one set of footprints, and they shouldn't be mine. Make them yours.'",
+            reply: "Lenne leads you to the treeline and points south. 'The Bonefield's just through there — south, in the hollow. I go no further; that's a place for one set of footprints, and they shouldn't be mine. Make them yours. Look for it on your map now.'",
           },
           {
             label: "Quietly. Read his ground first, then strike.",
             flags: ["boneman_revealed", "boneman_hunt_careful"],
-            reply: "Lenne nods, approving. 'A tracker's answer. I'll show you the trail in. Read the cairns, learn how he moves — then end him on your terms. The Bonefield's waiting.'",
+            reply: "Lenne nods, approving. 'A tracker's answer. I'll show you the trail in — south, through the old growth. Read the cairns, learn how he moves, then end him on your terms. The Bonefield's waiting; it's on your map now.'",
           },
         ],
       },
-      { type: "kill", monster: "boneman", count: 1, text: "Put the Boneman down in the Bonefield (0/1)" },
+      { type: "kill", monster: "boneman", count: 1, text: "Put the Boneman down in the Bonefield, south through the Greyoak wood (0/1)" },
       { type: "talk", npc: "town_guard", text: "Bring the Off-Duty Guard the grim news" },
     ],
     outro: [

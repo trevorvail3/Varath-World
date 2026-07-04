@@ -46,9 +46,11 @@ function groundItemImage(def: ItemDef): HTMLImageElement | null {
 // When each ground-loot pile was first seen, driving its little drop-in bounce.
 const GROUND_SEEN = new Map<number, number>();
 
-// Which way the player last faced (kept across idle / vertical-only movement, so
-// the figure doesn't snap back to the default when you walk straight up or down).
-let playerFaceLeft = false;
+// Which way the player last faced (kept across idle so the figure holds its
+// heading when it stops). 4-way: left/right mirror the view, up shows the back
+// of the head, down is the front view.
+type Facing = "up" | "down" | "left" | "right";
+let playerFacing: Facing = "down";
 // A summoned companion trails the player with a little lag — its smoothed world
 // position (in pixels) is eased toward a point just behind the player each frame.
 let petWx: number | null = null;
@@ -1713,14 +1715,31 @@ export function drawWorld(
         g.translate(cx, cy); g.scale(hp.s, hp.s); g.translate(-cx, -cy);
       }
       // Creatures face the way they walk (and keep facing it while they stand),
-      // instead of one fixed direction forever.
+      // instead of one fixed direction forever. Monsters/creatures only mirror
+      // left/right (their art is baked side-on); townsfolk NPCs turn all four
+      // ways (front / back / left / right), tracking both axes of movement.
       let flip = false;
-      if (def.kind === "monster" && obj.available) {
+      let facing: Facing = "down";
+      if ((def.kind === "monster" && obj.available) || def.kind === "npc") {
         const lx = obj.pos?.x ?? def.x;
-        const prev = FACING_X.get(def.id);
-        if (prev !== undefined && Math.abs(lx - prev) > 0.005) FACING.set(def.id, lx < prev);
+        const ly = obj.pos?.y ?? def.y;
+        const px0 = FACING_X.get(def.id);
+        const py0 = FACING_Y.get(def.id);
+        if (px0 !== undefined && py0 !== undefined) {
+          const mdx = lx - px0, mdy = ly - py0;
+          if (Math.abs(mdx) > 0.005 || Math.abs(mdy) > 0.005) {
+            if (Math.abs(mdx) >= Math.abs(mdy)) {
+              FACING.set(def.id, mdx < 0);
+              FACING_DIR.set(def.id, mdx < 0 ? "left" : "right");
+            } else {
+              FACING_DIR.set(def.id, mdy < 0 ? "up" : "down");
+            }
+          }
+        }
         FACING_X.set(def.id, lx);
+        FACING_Y.set(def.id, ly);
         flip = FACING.get(def.id) ?? false;
+        facing = FACING_DIR.get(def.id) ?? "down";
       }
       const superior = def.kind === "monster" && obj.available && obj.superior === true;
       // A faint breathing bob for every living thing (scaled about the feet),
@@ -1732,7 +1751,7 @@ export function drawWorld(
         const b = 1 + 0.016 * Math.sin(now / 620 + ((def.x * 7 + def.y * 13) % 6.28));
         g.save(); g.translate(bcx, bfy); g.scale(1, b); g.translate(-bcx, -bfy);
       }
-      drawObject(g, def, obj.available, px, py, now, !!obj.wanderTarget, monsterAttack(def, obj, state, content, now), flip, superior);
+      drawObject(g, def, obj.available, px, py, now, !!obj.wanderTarget, monsterAttack(def, obj, state, content, now), flip, superior, facing);
       if (breathing) g.restore();
       if (hp) g.restore();
     }
@@ -1859,12 +1878,20 @@ export function drawWorld(
   let playerGlow: [number, number] | null = null; // a carried light, added after bloom
   if (state.player.alive) {
     const pl = state.player;
-    // Face the next step's horizontal direction; keep the last facing otherwise.
+    // Face the next step's dominant direction (4-way); keep the last facing when
+    // idle. Horizontal wins ties so a diagonal reads as a side-step, not a turn.
     if (pl.path.length > 0) {
       const dx = pl.path[0]!.x - pl.pos.x;
-      if (dx < -0.05) playerFaceLeft = true;
-      else if (dx > 0.05) playerFaceLeft = false;
+      const dy = pl.path[0]!.y - pl.pos.y;
+      if (Math.abs(dx) >= Math.abs(dy)) {
+        if (dx < -0.05) playerFacing = "left";
+        else if (dx > 0.05) playerFacing = "right";
+      } else {
+        if (dy < -0.05) playerFacing = "up";
+        else if (dy > 0.05) playerFacing = "down";
+      }
     }
+    const playerFaceLeft = playerFacing === "left";
     // A summoned companion trails a half-step behind the player (boss pets show
     // as a mini version of their boss). Drawn before the player so it sits behind.
     if (pl.equipment.companion) {
@@ -1893,7 +1920,7 @@ export function drawWorld(
     drawPlayer(
       g, pl.pos, cam, now, pl.appearance,
       pl.path.length > 0, playerAction(pl, content, now),
-      resolveGear(pl.equipment, content), playerFaceLeft,
+      resolveGear(pl.equipment, content), playerFacing,
       mountId ? {
         id: mountId,
         gold: ownsCosmetic("saddle_gold"),
@@ -2732,6 +2759,9 @@ function drawPatch(
  *  the way it last walked instead of snapping back between wander legs. */
 const FACING_X = new Map<string, number>();
 const FACING = new Map<string, boolean>(); // true = mirrored (walking -x)
+// Last seen world-y and 4-way heading, for townsfolk NPCs that turn up/down too.
+const FACING_Y = new Map<string, number>();
+const FACING_DIR = new Map<string, Facing>();
 
 function drawObject(
   g: CanvasRenderingContext2D,
@@ -2744,6 +2774,7 @@ function drawObject(
   attack?: MonsterAttack,
   flip = false,
   superior = false,
+  facing: Facing = "down",
 ): void {
   const cx = px + TILE / 2;
   const cy = py + TILE / 2;
@@ -2771,7 +2802,7 @@ function drawObject(
       drawFishingSpot(g, cx, cy, now);
       break;
     case "npc":
-      drawNpc(g, cx, cy, now, moving, def.x, def.y);
+      drawNpc(g, cx, cy, now, moving, def.x, def.y, facing);
       break;
     case "monster": {
       // A SUPERIOR reads a screen away: a pulsing gold ground-ring, and the
@@ -5903,14 +5934,19 @@ function npcTheme(x: number, y: number): NpcTheme {
 const NPC_SKINS = ["#caa472", "#b3895a", "#9a6b41", "#e0be93", "#8a5a36"];
 const NPC_HAIRS = ["#5b4a33", "#2e2620", "#7a6a4a", "#8a8f98", "#3a2c1e", "#a06a3a"];
 
-function drawNpc(g: CanvasRenderingContext2D, cx: number, cy: number, now: number, moving = false, wx = 0, wy = 0): void {
+function drawNpc(g: CanvasRenderingContext2D, cx: number, cy: number, now: number, moving = false, wx = 0, wy = 0, facing: Facing = "down"): void {
   const a = walkAnim(now, moving);
   const th = npcTheme(wx, wy);
   const h = frac(wx * 12.9898 + wy * 78.233);
   const tunic = th.tunic;
   const skin = NPC_SKINS[Math.floor(h * NPC_SKINS.length) % NPC_SKINS.length]!;
   const hair = NPC_HAIRS[Math.floor(h * 997) % NPC_HAIRS.length]!;
+  // 4-way facing: mirror the 3/4 view for "left", show the back of the head for
+  // "up" (walking away), plain front otherwise. The shadow stays unmirrored.
+  const back = facing === "up";
+  const flip = facing === "left";
   shadow(g, cx, cy + 12, 8, 3);
+  if (flip) { g.save(); g.translate(2 * cx, 0); g.scale(-1, 1); }
   // legs (feet lift while walking)
   g.fillStyle = th.legs;
   g.fillRect(cx - 5, cy + 6 - a.liftL, 4, 7);
@@ -5930,15 +5966,20 @@ function drawNpc(g: CanvasRenderingContext2D, cx: number, cy: number, now: numbe
   g.fillStyle = skin;
   circle(g, cx, cy - 11 + a.bob, 5);
   g.fillStyle = hair;
-  g.beginPath();
-  g.arc(cx, cy - 12 + a.bob, 5, Math.PI, 0);
-  g.fill();
+  if (back) {
+    circle(g, cx, cy - 11.5 + a.bob, 5); // from behind, hair covers the whole head
+  } else {
+    g.beginPath();
+    g.arc(cx, cy - 12 + a.bob, 5, Math.PI, 0);
+    g.fill();
+  }
   // Northern folk wear a pale fur hood against the cold — a clear regional tell.
   if (th.hats && h > 0.35) {
     g.fillStyle = th.hats;
     g.beginPath(); g.arc(cx, cy - 12.5 + a.bob, 5.4, Math.PI * 1.05, Math.PI * 1.95); g.fill();
     g.fillRect(cx - 5.4, cy - 13 + a.bob, 10.8, 1.6);
   }
+  if (flip) g.restore();
 }
 
 /** Walk-cycle values (in base px): body bounce, limb swing, per-foot lift. */
@@ -7111,11 +7152,14 @@ function drawPlayer(
   moving = false,
   action?: AvatarAnim["action"],
   gear: GearLook = {},
-  flip = false,
+  facing: Facing = "right",
   mount?: MountDress,
 ): void {
   const cx = pos.x * TILE + TILE / 2 - cam.x;
   const cy = pos.y * TILE + TILE / 2 - cam.y;
+  // The mount rig and saddle seat only know left/right; a rider facing up/down
+  // sits astride the same 3/4 horse (facing right) so the pair still reads.
+  const flip = facing === "left";
   if (mount) {
     // Mounted: the steed is drawn first, then the rider sits into the saddle
     // (legs tucked — the avatar knows it's riding). One shared shadow.
@@ -7137,7 +7181,7 @@ function drawPlayer(
     return;
   }
   shadow(g, cx, cy + TILE / 2 - 4, 9, 3.5); // grounds the player on the terrain
-  drawAvatar(g, cx, cy, 1, withDefaults(look), { now, moving, flip, ...(action ? { action } : {}) }, gear);
+  drawAvatar(g, cx, cy, 1, withDefaults(look), { now, moving, facing, ...(action ? { action } : {}) }, gear);
 }
 
 // --- The mount rig: one parameterised quadruped for every steed the stables
