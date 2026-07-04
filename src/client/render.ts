@@ -2879,7 +2879,9 @@ function drawObject(
       scaled(g, cx, cy, 1.3, () => drawSawmill(g, 0, 0));
       break;
     case "critter":
-      drawCritter(g, def.species, cx, cy, now);
+      // A per-critter phase from its world tile (camera-independent) so the idle
+      // bob animates in place instead of vibrating as the camera pans past.
+      drawCritter(g, def.species, cx, cy, now, (def.x * 7 + def.y * 13) % 6.28);
       break;
     case "lamppost":
       drawLamppost(g, cx, cy);
@@ -4453,13 +4455,17 @@ function drawWaystone(g: CanvasRenderingContext2D, cx: number, cy: number, now: 
   g.beginPath(); g.ellipse(cx, cy - 22, 1.6, 2.4, 0, 0, Math.PI * 2); g.fill();
 }
 
-/** Ambient wildlife — small, simple silhouettes by species. */
+/** Ambient wildlife — small, simple silhouettes by species. `seed` is a
+ *  camera-independent per-critter phase (derived from the world tile) so the
+ *  idle bob/flap animates in place — using the screen-space x here made critters
+ *  vibrate as the camera panned past them. */
 function drawCritter(
   g: CanvasRenderingContext2D,
   species: string | undefined,
   cx: number,
   cy: number,
   now: number,
+  seed: number,
 ): void {
   // Stable and paddock stock render as the full mount rig (idle) so the beasts
   // in a pen look like the beasts the stable sells.
@@ -4469,12 +4475,12 @@ function drawCritter(
     g.save();
     g.translate(cx, cy);
     g.scale(1.3, 1.3);
-    drawMountRig(g, 0, 0, now, false, cx % 80 < 40, { id: species === "ox" ? "mount_ox" : "mount_horse", gold: false, barding: false });
+    drawMountRig(g, 0, 0, now, false, seed > 3.14, { id: species === "ox" ? "mount_ox" : "mount_horse", gold: false, barding: false });
     g.restore();
     return;
   }
   shadow(g, cx, cy + 7, 6, 2);
-  const bob = Math.sin(now / 220 + cx) * 1.2; // a little life
+  const bob = Math.sin(now / 220 + seed) * 1.2; // a little life
   const y = cy + bob;
   switch (species) {
     case "deer": {
@@ -4522,7 +4528,7 @@ function drawCritter(
       break;
     }
     case "butterfly": {
-      const flap = 0.4 + 0.5 * Math.abs(Math.sin(now / 90 + cx));
+      const flap = 0.4 + 0.5 * Math.abs(Math.sin(now / 90 + seed));
       g.fillStyle = "#d2742c";
       g.save(); g.translate(cx, y - 2); g.scale(flap, 1);
       g.beginPath(); g.ellipse(-3, 0, 3, 4, 0, 0, Math.PI * 2); g.ellipse(3, 0, 3, 4, 0, 0, Math.PI * 2); g.fill();
@@ -4564,7 +4570,7 @@ function drawCompanion(
   g.scale(0.5, 0.5);
   if (typeof boss === "string") drawMonsterBody(g, boss, 0, 0, now, moving);
   else if (id.startsWith("pet_")) drawSkillPet(g, id, 0, 0, now, moving);
-  else drawCritter(g, undefined, 0, 0, now);
+  else drawCritter(g, undefined, 0, 0, now, 0);
   g.restore();
 }
 
@@ -4834,7 +4840,7 @@ function drawSkillPet(
       break;
     }
     default:
-      drawCritter(g, undefined, cx, cy, now);
+      drawCritter(g, undefined, cx, cy, now, 0);
   }
 }
 

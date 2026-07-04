@@ -1225,6 +1225,10 @@ export interface WorldObjectState {
   pos?: Vec2;
   /** The tile this creature is currently stepping toward (null = standing). */
   wanderTarget?: Vec2 | null;
+  /** Aggressive monster only: while `now < pursueUntil` it gives chase after a
+   *  fleeing player (OSRS aggro), off its spawn leash, until it times out or the
+   *  player breaks away — then it walks home. Transient, never persisted. */
+  pursueUntil?: number;
   /** puzzle_lever only: thrown as part of the current (correct) sequence.
    *  Transient — a reload resets an unfinished puzzle; the finished flag
    *  (`pz_<group>`) is what persists. */

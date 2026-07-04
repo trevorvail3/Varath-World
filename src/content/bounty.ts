@@ -73,6 +73,10 @@ export const bountyTasks: Record<string, BountyTaskDef[]> = {
     { monster: "moor_rat", required: 60, xp: 650, marks: 22, minLevel: 10 },
     { monster: "hill_wolf", required: 15, xp: 500, marks: 20, minLevel: 5 },
     { monster: "hill_wolf", required: 35, xp: 1100, marks: 45, minLevel: 15 },
+    // Red deer thin the hunt's early menu of "just rats and wolves" — harmless
+    // fauna that thread through the Knuckle Hills and the Greyoak verge.
+    { monster: "red_deer", required: 20, xp: 550, marks: 20, minLevel: 5 },
+    { monster: "red_deer", required: 40, xp: 1150, marks: 46, minLevel: 14 },
     // Rook's bridge into the Warrens: the Burrows open (bountyReq) at 20, and
     // Rook — whose hills border the quarry — writes the first contracts, so
     // levels 20-29 aren't a drought waiting on Serath's door at 30.
@@ -200,6 +204,7 @@ export const huntingGrounds: Record<string, HuntingGround> = {
   // --- Rook's beat: the Knuckle Hills + Greyoak Wood -----------------------
   moor_rat: { name: "the Mill Fields", hint: "east of Rook's watch in the Knuckle Hills", x: 54, y: 34, r: 6 },
   hill_wolf: { name: "Howler's Rise", hint: "the bare hill west of the Knuckle road", x: 28, y: 36, r: 6 },
+  red_deer: { name: "the Knuckle Meadows", hint: "the deer runs north of Ironvale", x: 24, y: 30, r: 8 },
   wild_boar: { name: "the Boar Run", hint: "western Greyoak, north of Lodgehold", x: 11, y: 76, r: 8 },
   greymane_boar: { name: "the Greymane Thicket", hint: "the deep bracken of southern Greyoak", x: 18, y: 95, r: 6 },
   forest_bear: { name: "Bearwallow", hint: "the Greyoak hollows south of Lodgehold", x: 10, y: 90, r: 7 },

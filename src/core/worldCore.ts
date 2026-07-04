@@ -107,6 +107,16 @@ const AGGRESSIVE = new Set<string>([
 const BASIC_BOLT_FACTOR = 0.55;
 const AGGRO_RANGE = 1.5; // tiles — only monsters you walk right up to engage you
 const FLEE_GRACE_MS = 2500; // after a move, aggressive monsters hold off this long
+// Pursuit-on-flee (OSRS aggro): when you run from a fight, an AGGRESSIVE monster
+// gives chase for a while instead of instantly disengaging. It moves just under
+// the player's walk speed, so a walk doesn't shake it (it stays on your heels
+// and re-engages if you stop) but a sprint pulls away. It gives up on a timeout,
+// if you break far enough ahead, or if it strays too far from home — then it
+// walks back to its spawn.
+const PURSUE_MS = 8000;      // how long the chase lasts after you flee
+const PURSUE_SPEED = 1.7;    // tiles/sec while chasing (player walk is 1.8)
+const PURSUE_GIVEUP = 8;     // give up if the player gets this many tiles ahead
+const PURSUE_LEASH = 14;     // never chase further than this from its spawn tile
 // On death you drop a tenth of your coin (a real but gentle setback).
 const DEATH_GOLD_FRACTION = 0.1;
 const DEATH_GOLD_CAP = 250;
@@ -1676,6 +1686,17 @@ export function applyIntent(
 
   switch (intent.type) {
     case "MOVE": {
+      // Fleeing a fight? An AGGRESSIVE foe you were trading blows with gives
+      // chase (OSRS-style) instead of instantly letting you walk off — stamp a
+      // pursuit timer on it before we drop the engagement.
+      const foeId = player.activity.kind === "combat" ? player.activity.targetId : undefined;
+      if (foeId) {
+        const foe = content.objects.find((o) => o.id === foeId);
+        const foeObj = state.objects[foeId];
+        if (foe?.kind === "monster" && foe.monster && foeObj?.available && AGGRESSIVE.has(foe.monster)) {
+          foeObj.pursueUntil = ctx.now + PURSUE_MS;
+        }
+      }
       player.path = intent.path.map((p) => ({ x: p.x, y: p.y }));
       player.pendingInteractId = null;
       player.pendingInteractMode = null;
@@ -4304,10 +4325,15 @@ function wanderCreatures(
     const obj = state.objects[def.id];
     if (!obj || !obj.pos || !obj.available) continue;
     const isCritter = def.kind === "critter";
+    // Chasing state — drives both the walk speed and the step logic below.
+    if (obj.pursueUntil !== undefined && ctx.now >= obj.pursueUntil) delete obj.pursueUntil;
+    const engaged = player.activity.kind === "combat" && player.activity.targetId === def.id;
+    let pursuing = obj.pursueUntil !== undefined;
 
     // Mid-step: keep walking toward the reserved target tile.
     if (obj.wanderTarget) {
-      const speed = isCritter ? WANDER.speed * 1.6 : WANDER.speed; // critters are quick
+      const speed = isCritter ? WANDER.speed * 1.6
+        : (engaged || pursuing) ? PURSUE_SPEED : WANDER.speed; // chasers hustle
       const reached = stepToward(obj.pos, obj.wanderTarget, (speed * dt) / 1000);
       if (reached) {
         obj.pos = { x: obj.wanderTarget.x, y: obj.wanderTarget.y };
@@ -4320,7 +4346,6 @@ function wanderCreatures(
     // Standing still: hold position while engaged or while the player is beside
     // us; otherwise, when the pause elapses, pick the next step.
     const here = { x: Math.round(obj.pos.x), y: Math.round(obj.pos.y) };
-    const engaged = player.activity.kind === "combat" && player.activity.targetId === def.id;
     const playerBeside = Math.max(Math.abs(here.x - pTile.x), Math.abs(here.y - pTile.y)) <= 1;
 
     // An engaged monster that can't yet reach the player closes the distance,
@@ -4328,11 +4353,20 @@ function wanderCreatures(
     // up; an archer/caster (reach >1) only advances until it's within bow-shot,
     // then holds and looses. Leashed a little past its wander radius so a bow-
     // kiting player can't trivially outrange it forever.
-    if (engaged && !isCritter) {
+    const cheb = Math.max(Math.abs(here.x - pTile.x), Math.abs(here.y - pTile.y));
+    const spawnCheb = Math.max(Math.abs(here.x - def.x), Math.abs(here.y - def.y));
+    // End a pursuit once the player breaks far enough ahead or we've strayed too
+    // far from home — then we fall through to walking back to the spawn.
+    if (pursuing && (cheb > PURSUE_GIVEUP || spawnCheb > PURSUE_LEASH)) {
+      delete obj.pursueUntil;
+      pursuing = false;
+    }
+    if ((engaged || pursuing) && !isCritter) {
       const mReach = monsterFor(content, def)?.attackRange ?? 1;
-      const cheb = Math.max(Math.abs(here.x - pTile.x), Math.abs(here.y - pTile.y));
       if (cheb > mReach) {
-        const leash = WANDER.radius + COMBAT.rangedReach + 2;
+        // A pursuing chaser is off its spawn leash (up to PURSUE_LEASH); an
+        // engaged-but-standing fight uses the tighter kite leash as before.
+        const leash = pursuing ? PURSUE_LEASH : WANDER.radius + COMBAT.rangedReach + 2;
         const sx = Math.sign(pTile.x - here.x);
         const sy = Math.sign(pTile.y - here.y);
         for (const [nx, ny] of [[here.x + sx, here.y + sy], [here.x + sx, here.y], [here.x, here.y + sy]] as const) {
@@ -4346,6 +4380,20 @@ function wanderCreatures(
         }
       } else {
         obj.nextWanderAt = ctx.now + WANDER.pauseMin; // in range — hold and swing
+      }
+      continue;
+    }
+    // Strayed from home on a pursuit that has now ended — head back to the spawn.
+    if (!isCritter && spawnCheb > WANDER.radius) {
+      const sx = Math.sign(def.x - here.x);
+      const sy = Math.sign(def.y - here.y);
+      for (const [nx, ny] of [[here.x + sx, here.y + sy], [here.x + sx, here.y], [here.x, here.y + sy]] as const) {
+        if (nx === here.x && ny === here.y) continue;
+        if (!walk(nx, ny) || (nx === pTile.x && ny === pTile.y)) continue;
+        if (occupied.has(`${nx},${ny}`)) continue;
+        obj.wanderTarget = { x: nx, y: ny };
+        occupied.add(`${nx},${ny}`);
+        break;
       }
       continue;
     }
