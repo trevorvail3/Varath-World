@@ -2868,7 +2868,7 @@ function drawObject(
     case "signpost":
       if (def.id === "duel_board") drawDuelRing(g, cx, cy, now);
       else if (def.id === "duel_wins_board") drawWinsBoard(g, cx, cy);
-      else scaled(g, cx, cy, 1.25, () => drawSignpost(g, 0, 0));
+      else scaled(g, cx, cy, 1.4, () => drawSignpost(g, 0, 0));
       break;
     case "waystone":
       drawWaystone(g, cx, cy, now);
@@ -4356,18 +4356,29 @@ function drawLamppost(g: CanvasRenderingContext2D, cx: number, cy: number): void
 
 /** A directional fingerpost at a junction. */
 function drawSignpost(g: CanvasRenderingContext2D, cx: number, cy: number): void {
-  shadow(g, cx, cy + 11, 5, 2);
-  g.fillStyle = "#5a4128"; // post
-  g.fillRect(cx - 1.5, cy - 8, 3, 19);
-  // Two fingerboards pointing opposite ways.
-  g.fillStyle = "#7a5a34";
-  g.beginPath();
-  g.moveTo(cx - 11, cy - 5); g.lineTo(cx + 2, cy - 5); g.lineTo(cx + 2, cy - 1); g.lineTo(cx - 11, cy - 1); g.lineTo(cx - 13, cy - 3); g.closePath(); g.fill();
+  // A taller, chunkier fingerpost — reads clearly as a landmark from a distance,
+  // so clue-riddle hunting isn't a pixel search. Roughly 1.6× the old post.
+  shadow(g, cx, cy + 15, 8, 3);
+  g.fillStyle = "#4a341f"; // post (a shade darker for contrast against terrain)
+  g.fillRect(cx - 2.5, cy - 13, 5, 30);
+  // A little cap on top so the silhouette stands out.
   g.fillStyle = "#6b4f30";
-  g.beginPath();
-  g.moveTo(cx + 11, cy + 1); g.lineTo(cx - 2, cy + 1); g.lineTo(cx - 2, cy + 5); g.lineTo(cx + 11, cy + 5); g.lineTo(cx + 13, cy + 3); g.closePath(); g.fill();
-  g.fillStyle = "rgba(0,0,0,0.3)"; // faint "lettering"
-  g.fillRect(cx - 9, cy - 3.5, 7, 1); g.fillRect(cx + 1, cy + 2.5, 7, 1);
+  g.beginPath(); g.moveTo(cx - 4, cy - 13); g.lineTo(cx + 4, cy - 13); g.lineTo(cx, cy - 17); g.closePath(); g.fill();
+  // Two big fingerboards pointing opposite ways, pale enough to catch the eye.
+  const board = (y: number, dir: 1 | -1, fill: string): void => {
+    const tipX = cx + dir * 20, baseX = cx - dir * 3;
+    g.fillStyle = fill;
+    g.beginPath();
+    g.moveTo(baseX, y - 4); g.lineTo(cx + dir * 15, y - 4);
+    g.lineTo(tipX, y); g.lineTo(cx + dir * 15, y + 4); g.lineTo(baseX, y + 4);
+    g.closePath(); g.fill();
+    // Two lines of "lettering" so it reads as a written sign.
+    g.fillStyle = "rgba(30,20,10,0.4)";
+    const lx = dir === 1 ? cx - 1 : cx - dir * 14;
+    g.fillRect(lx, y - 2, 12, 1.4); g.fillRect(lx, y + 0.6, 9, 1.4);
+  };
+  board(cy - 6, -1, "#a07a44"); // upper board, pointing left
+  board(cy + 4, 1, "#8f6c3c");  // lower board, pointing right
 }
 
 /** A Courier waystone: a tall carved standing stone crowned with a bright,

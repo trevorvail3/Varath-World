@@ -1693,8 +1693,9 @@ export class Hud {
     const spec = Math.floor(player.spec ?? 0);
     if (spec > 0 || player.specArmed) {
       const full = spec >= 100;
-      this.specChip.innerHTML = `${glyph("bolt")} ${player.specArmed ? "SPECIAL ARMED — next blow"
-        : full ? "Special ready — tap to arm" : `Special ${spec}%`}`;
+      // Short, constant-width labels so the (now fixed-size) box never reflows.
+      this.specChip.innerHTML = `${glyph("bolt")} ${player.specArmed ? "Special armed"
+        : full ? "Special ready" : `Special ${spec}%`}`;
       this.specChip.classList.toggle("armed", player.specArmed);
       this.specChip.classList.toggle("ready", full && !player.specArmed);
       this.specChip.classList.remove("hidden");

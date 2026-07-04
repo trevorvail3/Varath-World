@@ -3027,7 +3027,7 @@ function startInteraction(
         events.push({ type: "LOG", message: `Raise your home to a ${homeStructureName(def.tier)} to open the garden.` });
         break;
       }
-      usePortal(state, def, events);
+      usePortal(state, content, def, events);
       break;
     }
 
@@ -3053,7 +3053,7 @@ function startInteraction(
     }
 
     case "portal":
-      usePortal(state, def, events);
+      usePortal(state, content, def, events);
       break;
 
     // --- Dungeon furniture (the Act II exploration sites) --------------------
@@ -3964,12 +3964,15 @@ function finishObstacle(
 /** A portal teleports the player to its paired destination (boss arena ↔ home). */
 function usePortal(
   state: WorldState,
+  content: Content,
   def: WorldObjectDef,
   events: WorldEvent[],
 ): void {
   if (!def.target) return;
   const { player } = state;
-  player.pos = { x: def.target.x, y: def.target.y };
+  // Never strand the player: if a portal's destination has been flooded or
+  // walled off by a later terrain pass, land them on the nearest solid ground.
+  player.pos = respawnTile(content, { x: def.target.x, y: def.target.y });
   player.path = [];
   player.pendingInteractId = null;
   clearActivity(player);

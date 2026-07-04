@@ -1980,7 +1980,10 @@ function buildDungeonSites(): WorldObjectDef[] {
   //     tally-stones recite the order), the warded stair, a sentinel bearing
   //     the Wardens' Key, and the Vaultwright's treasury.
   const vault = DUNGEONS.find((d) => d.id === "spine_vault")!;
-  const vmouth = remap(50, 12); // the vault door, high in the pass (old portal spot)
+  // The vault door, set into the mountain face on the high pass. (A later terrain
+  // pass flooded the original remap(50,12) spot into a tarn, stranding anyone who
+  // stepped out — so the door sits on solid rock beside the peak now.)
+  const vmouth = { x: 61, y: 15 };
   const vx = vault.x0, vy = vault.y0;
   out.push(
     {

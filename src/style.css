@@ -256,12 +256,19 @@ body {
   overflow: hidden;
   text-overflow: ellipsis;
   cursor: pointer;
-  width: 100%;
+  /* Fixed width so the readout never resizes the vitals panel as it fills —
+     the box stays put and flashes when the special is ready. */
+  width: 116px;
+  box-sizing: border-box;
 }
 .spec-chip.ready {
   color: #cfe0ff;
   border-color: rgba(150, 180, 240, 0.7);
-  box-shadow: 0 0 8px rgba(120, 160, 240, 0.35);
+  animation: specReady 0.85s ease-in-out infinite;
+}
+@keyframes specReady {
+  0%, 100% { box-shadow: 0 0 5px rgba(120, 160, 240, 0.3); background: rgba(16, 18, 24, 0.72); }
+  50% { box-shadow: 0 0 15px rgba(140, 175, 255, 0.8); background: rgba(40, 54, 92, 0.85); }
 }
 .spec-chip.armed {
   color: #ffe9a8;
