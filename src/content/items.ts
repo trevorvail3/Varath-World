@@ -1994,6 +1994,47 @@ export const items: Record<ItemId, ItemDef> = {
     "def": 4,
     "sell": 0
   },
+  "witch_ward_sprig": {
+    "id": "witch_ward_sprig",
+    "name": "Warding Sprig",
+    "description": "A twist of rowan, iron-filing and duskshade that Calla pressed into your hand. It won't turn a blade, but the hollow's binding slides off it like water off a stone — enough to walk the ward-ring without losing your way.",
+    "icon": "🌿",
+    "cat": "Quest",
+    "sell": 0
+  },
+  "widow_staff": {
+    "id": "widow_staff",
+    "name": "The Widow's Besom",
+    "description": "The Ashen Widow's own staff — a besom of bound birch and bog-iron, its head a knot of black candle-wax that never quite goes cold. It channels Grace like a wick draws flame.",
+    "icon": "🧹",
+    "cat": "Weapons",
+    "slot": "mainhand",
+    "magic": true,
+    "twoHand": true,
+    "equipSkill": "faith",
+    "equipLevel": 35,
+    "acc": 40,
+    "dmg": 37,
+    "speed": 2600,
+    "rarity": "rare",
+    "lore": "ashen_widow",
+    "sell": 1600
+  },
+  "ashen_witch_hat": {
+    "id": "ashen_witch_hat",
+    "name": "Ashen Witch-Hat",
+    "description": "The Widow's tall, ash-grey hat, its brim gone soft with bog-damp and its point a little bent. Lighter than it looks, and it keeps the hex-cold off a caster's ears.",
+    "icon": "🧙",
+    "cat": "Ashen Regalia",
+    "slot": "helmet",
+    "equipSkill": "faith",
+    "equipLevel": 35,
+    "def": 10,
+    "magAcc": 9,
+    "rarity": "rare",
+    "lore": "ashen_widow",
+    "sell": 1400
+  },
   "watchmans_buckler": {
     "id": "watchmans_buckler",
     "name": "Watchman's Buckler",

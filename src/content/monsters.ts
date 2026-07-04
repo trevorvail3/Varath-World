@@ -1587,6 +1587,56 @@ export const monsters: Record<string, MonsterStats> = {
     ],
   },
 
+  // === THE ASHEN HOLLOW — a level 30-40 witch-coven quest boss and her acolytes.
+  // A hedge-coven bound the wood-verge hollow with hex-wards and took the folk
+  // who wandered in. Both are casters (weak to ranged), so a bow or bolt is the
+  // clean answer — the Widow especially mends what melee opens. =================
+  "hollow_hexling": {
+    id: "hollow_hexling", name: "Hollow Hexling", icon: "🧿", level: 26, hp: 90,
+    acc: 62, def: 22, maxHit: 8, speed: 3200, attackRange: 4, xp: 60, attackStyle: "magic",
+    weakness: ["ranged"],
+    desc: "A coven-acolyte in ash-daubed rags, half-hollowed already by the wards she tends. She flings guttering hex-fire and mutters names that aren't hers anymore.",
+    drops: [
+      { item: "bones", chance: 1, tier: "always" },
+      { item: "worn_coin", chance: 0.8, min: 6, max: 18, tier: "always" },
+      { item: "scrap_cloth", chance: 0.3, tier: "common" },
+      { item: "hex_cloth", chance: 0.14, tier: "uncommon" },
+      { item: "forage_nightshade", chance: 0.12, tier: "common" },
+      { item: "seed_duskshade", chance: 0.1, min: 1, max: 2, tier: "uncommon" },
+      { item: "rough_gem", chance: 0.06, tier: "uncommon" },
+      { item: "uncut_sapphire", chance: 0.03, tier: "rare" },
+      { item: "shard_of_orun", chance: 0.001, tier: "legendary" },
+    ],
+  },
+  "ashen_widow": {
+    id: "ashen_widow", name: "The Ashen Widow", icon: "🧙", level: 35, hp: 420,
+    acc: 155, def: 42, maxHit: 20, speed: 2700, attackRange: 5, xp: 680, attackStyle: "magic",
+    weakness: ["ranged"],
+    boss: true,
+    bossHint: "The hedge-witch who bound the wood-verge hollow and took the folk who wandered in. Calla the hedge-woman — her own coven-sister once — will set you on the path. Bring a bow: she marks the ground with a hex-circle before it burns (step off it), and she mends what melee opens, but ranged shots run her down.",
+    desc: "A tall woman in ash-grey, her face kind until it isn't. She calls herself the least of three sisters, and speaks of a Mother in the deep bog as though the words themselves keep her warm. The hollow bends to her the way a room bends toward a fire.",
+    mechanics: [
+      // Hex-Circle — a telegraphed ring of hexfire at your feet every 4th cast; step off it.
+      { type: "slam", every: 4, mult: 2.0, radius: 1, windupMs: 2200, tell: "The Widow sweeps her besom low and rings the ground at your feet in cold fire — the HEX-CIRCLE is closing. MOVE!" },
+      // Coven-Fire — once, below 40% HP, she draws on the wards and mends.
+      { type: "selfheal", below: 0.4, amount: 55, tell: "The Widow throws her arms wide and the ward-candles gutter — the coven-fire pours into her wounds!" },
+    ],
+    drops: [
+      { item: "big_bones", chance: 1, tier: "always" },
+      // Her regalia — the besom and the hat, at a Barrows-ish rate.
+      { item: "widow_staff", chance: 0.05, tier: "rare" },
+      { item: "ashen_witch_hat", chance: 0.05, tier: "rare" },
+      { item: "worn_coin", chance: 1, min: 120, max: 300, tier: "always" },
+      { item: "hex_cloth", chance: 0.5, min: 1, max: 3, tier: "uncommon" },
+      { item: "forage_nightshade", chance: 0.4, min: 1, max: 3, tier: "uncommon" },
+      { item: "seed_duskshade", chance: 0.35, min: 1, max: 2, tier: "uncommon" },
+      { item: "rough_gem", chance: 0.3, min: 1, max: 2, tier: "uncommon" },
+      { item: "uncut_emerald", chance: 0.12, tier: "rare" },
+      { item: "marrow_shard", chance: 0.2, tier: "uncommon" },
+      { item: "shard_of_orun", chance: 0.02, tier: "legendary" },
+    ],
+  },
+
   // === SETTLEMENT GUARDS — attackable, but NOT aggressive ===================
   // OSRS-style town guards: they stand watch and never strike first (they're
   // left out of the AGGRESSIVE set in worldCore), so you can walk the streets in

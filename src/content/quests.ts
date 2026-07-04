@@ -1936,6 +1936,105 @@ export const quests: QuestDef[] = [
       rep: [{ faction: "pale_record", amount: 25 }],
     },
   },
+
+  // === THE ASHEN WIDOW — a long, mid-level (rec. 30) witch questline. A grieving
+  // drover, a retired hedge-witch, a name-riddle read off three verge stones, a
+  // ward-candle combination puzzle in an instanced hollow, and a caster boss
+  // with a telegraphed hex-circle. Left open-ended: the Widow is "the least of
+  // three sisters," and the Mother in the deep bog is set up, never met.
+  {
+    id: "q_ashen_widow",
+    name: "The Ashen Widow",
+    giver: "wren_drover",
+    requiresLevel: { level: 30 },
+    intro: [
+      "You've the look of someone who's walked into worse than this and walked back out. Good. Because nobody in Ironvale will hear me, and the reeve here just tells me to wait.",
+      "Ada. My betrothed. Three weeks gone. There's a herb-woman works the wood-verge south of here — kind as anything, everyone says, gives the old folk their tinctures free. Ada went to thank her for a poultice. She didn't come back. And she's not the first: Corrin the fowler, old Bett, the tanner's boy. All of them 'went to the herb-woman,' all of them gone.",
+      "There's another hedge-woman out on the verge — Calla, she keeps to herself, folk say she's touched. But she knows that country better than the reeve's whole map. Find her. Ask her about the one who takes people. Please — before Ada's a name on a stone.",
+    ],
+    steps: [
+      { type: "talk", npc: "wren_drover", text: "Hear Wren out at Drover's Rest" },
+      {
+        type: "choice",
+        npc: "calla_hedge",
+        text: "Find Calla the hedge-woman on the wood-verge, south-west",
+        prompt: "Calla listens to the whole of it without stopping her sorting. 'The kind herb-woman.' She says it like a curse. 'That's my sister. Was. The ASHEN WIDOW, the reeds call her now. She bound the hollow with hex-wards and she takes people into it — kind, always kind, right up until they're hers. I ran, when the coven turned. I won't go back. But you might.' She sets down her roots. 'The ring only opens to one who knows her true name. Three old ward-stones stand out on the verge — the coven cut the whole of it into them, when they still thought themselves good. Go and READ them. All three. Then come and tell me: whose name unbinds the ring?'",
+        options: [
+          {
+            label: "Ask what I'm looking for first.",
+            flags: [],
+            wrong: "'You're looking for a NAME, town-blood, and I've told you where it's written. Three stones, out on the verge, north and east of my lean-to. Read them — all three — then come back and say it to my face.'",
+          },
+          {
+            label: "Go and read the three ward-stones.",
+            flags: [],
+            reply: "'Good. North and east — a leaning one, a cracked one, and one sunk low where the rowan drinks. Read all three. The last one's the one that matters.'",
+          },
+        ],
+      },
+      { type: "visit", x: 45, y: 96, radius: 5, text: "Read all three verge ward-stones (the leaning, the cracked, and the sunken)" },
+      {
+        type: "choice",
+        npc: "calla_hedge",
+        text: "Tell Calla the name that unbinds the ring",
+        prompt: "Calla's blind eyes fix on you as though they still work. 'Well. You read them. Then say it plainly, for the ring only answers to one who KNOWS: three sisters bound that hollow — whose true name breaks it, and what is it?'",
+        options: [
+          {
+            label: "The Ashen Widow — the youngest. Her name is NYSSA.",
+            flags: ["aw_hollow_open"],
+            giveItem: "witch_ward_sprig",
+            reply: "Calla lets out a breath she might have held for years. 'Nyssa. Nobody's said it aloud since the wards went up.' She presses a twist of rowan and iron into your hand. 'A warding sprig — it'll let you walk the ring without losing your road. The hollow's mouth is a reed-sink, south and east of here; it'll show itself to you now. Inside, three ward-candles keep her veil — quench them in the order the coven-marks recite, or they only stand again. And when she draws a ring of cold fire at your feet, step OUT of it. Go on. Bring the girl back if there's a girl left to bring.'",
+          },
+          {
+            label: "The Mother in the deep bog.",
+            flags: [],
+            wrong: "'The MOTHER?' Calla almost laughs. 'You don't unbind the eldest by NAMING her, child — you'd only call her, and pray you never do. It's the YOUNGEST holds this ring. Read the sunken stone again.'",
+          },
+          {
+            label: "The Reed sister.",
+            flags: [],
+            wrong: "'The Reed's a name the marsh gave her, not a true one — it'd break nothing. The stone by the rowan roots gives the true name, the buried one. Read it again, and mind the old letters.'",
+          },
+        ],
+      },
+      { type: "kill", monster: "hollow_hexling", count: 3, text: "Descend the reed-sink south-east of Calla, and cut through the Widow's hexlings (0/3)" },
+      {
+        type: "choice",
+        npc: "ashen_widow_npc",
+        text: "Quench the ward-candles (Rowan, then Iron, then Salt), then face the Widow",
+        prompt: "The wards go dark, and the Widow is simply there. 'You know my name. Clever, and cruel — names are private things.' She smiles, and it is almost warm. 'Ada is HAPPY. I take the ache out, that's all. The grief, the fear, the wanting — I lift it off them and they're light as reeds. I could lift yours. You carry such a lot of it. Stay.'",
+        options: [
+          {
+            label: "No. Give Ada back her ache, and her name.",
+            flags: ["aw_widow_revealed", "aw_defied"],
+            reply: "The warmth goes out of her like a snuffed wick. 'Her ache is MINE now. I paid for it.' The ash-grey rises off her in a cold wind. 'Least of three, they called me. LEAST. Let me show you what the least of us can do.'",
+          },
+          {
+            label: "Show me. Take my grief.",
+            flags: ["aw_widow_revealed", "aw_tempted"],
+            reply: "She reaches for you, gentle — and you feel it start, the lightness, the wanting-nothing — and you tear yourself back from the edge of it with the last of your own will. She sighs, almost sad. 'So close. They always pull away at the end. Then it's the hard way, for both of us.'",
+          },
+        ],
+      },
+      { type: "kill", monster: "ashen_widow", count: 1, text: "Break the Ashen Widow — step OUT of the hex-circle she draws (0/1)" },
+      { type: "talk", npc: "calla_hedge", text: "Bring word back to Calla on the verge" },
+    ],
+    outro: [
+      "Dead. My sister's dead, and I feel — lighter, and I hate that I do, because that's HER trick and she's still doing it to me from the far side of it.",
+      "The girl and the others will wake slow. Some won't come all the way back — she took real things, and killing her doesn't put them down where she found them. But they're THEIRS again, what's left. That's more than they had this morning.",
+      "Here — her hat, her besom, the coven's kist. I want none of it in my hands. And, town-blood: she meant it, that she was the least of three. The Reed sister walks somewhere still. And the MOTHER, down in the deep bog — Nyssa was AFRAID of her, and Nyssa was afraid of nothing. If you ever feel the deep bog take an interest in you... come and find me first. Promise me that much.",
+    ],
+    reward: {
+      xp: [
+        { skill: "faith", amount: 9000 },
+        { skill: "vitality", amount: 4200 },
+        { skill: "edge", amount: 2400 },
+      ],
+      items: [{ item: "ashen_witch_hat", qty: 1 }],
+      gold: 700,
+      flags: ["q_ashen_widow_complete", "aw_sisters_stir"],
+    },
+  },
 ];
 
 // ---------------------------------------------------------------------------

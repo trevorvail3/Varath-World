@@ -2405,20 +2405,23 @@ function buildDungeonSites(): WorldObjectDef[] {
     { id: "rem_hb_b2", kind: "remains", variant: "brazier", x: hbx + 8, y: hby + 3, name: "A Watchman's Brazier" },
   );
 
-  // --- SITE 8: THE IRONVALE SEWERS — the beginner grind-dungeon. A grate by the
-  //     city stables drops into the old drains: a spine tunnel with four flooded
-  //     bays, each a grade harder than the last. No bounty gate — everything down
-  //     here is fair game for a brand-new hunter, and it all pays a small bounty.
+  // --- SITE 8: THE IRONVALE SEWERS — the beginner grind-dungeon. A bolted iron
+  //     manhole set into a quiet corner of the city's flagstones lifts onto the
+  //     old drains: a spine tunnel with four flooded bays, each a grade harder
+  //     than the last. No bounty gate — everything down here is fair game for a
+  //     brand-new hunter, and it all pays a small bounty.
   const sewers = DUNGEONS.find((d) => d.id === "ironvale_sewers")!;
   const swx = sewers.x0, swy = sewers.y0;
-  const smth = { x: 69, y: 84 }; // a drain grate on the dirt below Ironvale's stables
+  const smth = { x: 82, y: 85 }; // an iron manhole in the city's south plaza
   out.push(
     {
-      id: "portal_sewers", kind: "portal", x: smth.x, y: smth.y, name: "The Ironvale Sewers",
+      id: "portal_sewers", kind: "portal", x: smth.x, y: smth.y, name: "Sewer Manhole",
       dungeon: "ironvale_sewers", target: { x: swx + sewers.entry.x, y: swy + sewers.entry.y },
-      lines: ["A rusted iron grate set in the dirt below the stables, big enough to drop through. Cold, sour air breathes up out of the dark — and somewhere below, a great many small things are moving. The board pays a copper or two for every one you thin out."],
+      lines: ["A bolted iron cover set into the flagstones, ringed with old seepage the flushers never quite scrub out. Cold, sour air breathes up through its slots — and far below, a great many small things are moving. Lift it, and drop down. The board pays a copper or two for every one you thin out."],
     },
-    { id: "ret_sewers", kind: "portal", x: swx + sewers.exit.x, y: swy + sewers.exit.y, name: "The Grate", target: { x: smth.x, y: smth.y + 1 }, lines: ["You climb the slick rungs back up to the daylight and the smell of the stables."] },
+    { id: "ret_sewers", kind: "portal", x: swx + sewers.exit.x, y: swy + sewers.exit.y, name: "The Ladder Up", target: { x: smth.x, y: smth.y + 1 }, lines: ["You climb the slick rungs and heave the manhole aside, back into the city's daylight."] },
+    // A civic notice by the cover, so the mouth reads as tended city works.
+    { id: "plq_sew_notice", kind: "signpost", x: 82, y: 84, name: "A Flushers' Notice", lines: ["'IRONVALE DRAINS — access cover. By order of the works: mind the vermin. The Flushers' Guild long ago gave the deep bays up for lost, and the Bounty board now pays for every rat, spider, kobold, and worse that comes up out of them. Descend at your own risk.'"] },
     // Chamber marks — plain level warnings, posted inside each bay off the neck.
     { id: "plq_sew_entry", kind: "signpost", x: swx + 5, y: swy + 2, name: "A Drain-Warden's Board", lines: ["'THE IRONVALE SEWERS. Four bays, four grades of vermin — rats, then spiders, then the kobolds, then whatever's grown in the sump. Work your way down as you're able. Good hunting-ground for a new hand; the board pays for all of it.'"] },
     { id: "plq_sew_rats", kind: "signpost", x: swx + 10, y: swy + 4, name: "Bay Mark: THE RAT WARREN", lines: ["'Sewer rats. Level 4 or so. Where every hunter cuts their teeth.'"] },
@@ -2452,6 +2455,85 @@ function buildDungeonSites(): WorldObjectDef[] {
     { id: "rem_sew_3", kind: "remains", variant: "skeleton", x: swx + 16, y: swy + 15, name: "A Scavenger's End" },
     { id: "rem_sew_4", kind: "remains", variant: "coins", x: swx + 14, y: swy + 15, name: "A Spilled Purse" },
     { id: "rem_sew_5", kind: "remains", variant: "bones", x: swx + 12, y: swy + 21, name: "Old Bones in the Muck" },
+  );
+
+  // --- SITE 9: THE ASHEN HOLLOW — a level 30-40 witch-coven questline. The
+  //     hedge-witch "the Ashen Widow" bound the wood-verge hollow with hex-wards
+  //     and took the folk who wandered in. The quest (q_ashen_widow) sends you
+  //     from a grieving Drover's Rest villager to Calla the hedge-woman at the
+  //     verge, through a name-riddle that reveals the coven's mouth, into an
+  //     instanced hollow (the retired bog_barrow arena) with a ward-candle
+  //     combination puzzle and the Widow herself. Left open-ended: she is "the
+  //     least of three sisters," and a Mother in the deep bog is never met. ===
+  //
+  // -- Overworld: the giver, the guide, the verge ward-stones, the freed girl --
+  out.push(
+    // Wren, the giver — a young drover at Drover's Rest whose betrothed vanished.
+    {
+      id: "wren_drover", kind: "npc", x: 66, y: 77, name: "Wren",
+      lines: ["He keeps looking south at the wood-line, the way you look at a door you're afraid will open."],
+      reactiveLines: [
+        { requiresFlags: ["q_ashen_widow_complete"], lines: ["You brought her back. I don't have the words — so take the drove's thanks, and Ada's, for as long as I've got breath to give them."] },
+        { requiresFlags: ["aw_widow_revealed"], lines: ["You found the hollow. Then it's real, all of it. Please — bring Ada home."] },
+      ],
+    },
+    // Ada, the freed girl — only present once the Widow is broken.
+    {
+      id: "ada_freed", kind: "npc", x: 72, y: 77, name: "Ada", requiresFlag: "q_ashen_widow_complete",
+      lines: ["She's pale and thinner than she should be, but her eyes are her own again.", "'She was kind, at the first. That's how it works, I think — the kindness is the hook. She kept saying she was the LEAST of them. That her Mother, down in the deep bog, would be... disappointed.' She shivers. 'You didn't end it. You ended HER.'"],
+    },
+    // Calla, the guide — a retired hedge-witch at the verge, the Widow's sister
+    // in the old coven, who wants no part of it but will point the way.
+    {
+      id: "calla_hedge", kind: "npc", x: 46, y: 96, name: "Calla",
+      lines: ["An old woman at a lean-to of bent willow, sorting dried roots by touch. She does not look up. 'You smell of the town and of trouble. The two travel together.'"],
+      reactiveLines: [
+        { requiresFlags: ["q_ashen_widow_complete"], lines: ["'The ring's gone quiet. I feel it — like a tooth that stopped aching.' She finally looks at you. 'She was my sister once, before the wards. You did what I couldn't. Go home, town-blood. And if you ever hear the word MOTHER on the wind off the deep bog... don't go looking. Not for a long while yet.'"] },
+        { requiresFlags: ["aw_hollow_open"], blockedByFlags: ["q_ashen_widow_complete"], lines: ["'You have the name and the sprig. The hollow's mouth is open to you now — south and east, past the reeds. Quench the wards in the order the coven-marks recite, and face her. Mind the ring she draws at your feet — step OUT of it.'"] },
+      ],
+    },
+    // The three verge ward-stones — read all three to learn the Widow's name.
+    { id: "aw_stone_1", kind: "signpost", x: 42, y: 94, name: "A Leaning Ward-Stone", lines: ["Worn letters, half in the old tongue: 'THREE SISTERS bound this hollow — the ASHEN, the REED, and the MOTHER in the deep. The youngest holds the ring.'"] },
+    { id: "aw_stone_2", kind: "signpost", x: 49, y: 95, name: "A Cracked Ward-Stone", lines: ["'The binding stands while the youngest keeps her true NAME. It is name-magic, and name-magic cuts both ways: speak the name, and the ring lets you pass.'"] },
+    { id: "aw_stone_3", kind: "signpost", x: 45, y: 99, name: "A Sunken Ward-Stone", lines: ["Carved low, where rowan roots drink: 'The Ashen sister's name-in-the-old-tongue, that she buried so none could unbind her: N Y S S A.'"] },
+    // The coven's mouth — a reed-choked sink in the verge, hidden until Calla's
+    // riddle is answered (aw_hollow_open). Drops into the bog_barrow arena.
+    {
+      id: "portal_hollow_coven", kind: "portal", x: 52, y: 98, name: "The Ashen Hollow",
+      dungeon: "bog_barrow", target: { x: 24, y: 169 }, requiresFlag: "aw_hollow_open",
+      lines: ["A sink in the reeds where the ground gives way into wet dark. Cold air comes up smelling of ash and duskshade. The warding sprig in your pack goes cold as you step down."],
+    },
+
+    // -- Interior: the Ashen Hollow, carved in the retired bog_barrow arena --
+    { id: "ret_hollow_coven", kind: "portal", x: 19, y: 167, name: "The Reed Sink", target: { x: 52, y: 99 }, lines: ["You climb the reed-roots back up to the verge and the honest cold."] },
+    { id: "aw_sign_entry", kind: "signpost", x: 22, y: 167, name: "The Coven's Ring", lines: ["Three ward-candles burn at the hollow's edge, and the air between them will not let you near the fire at the heart. The coven-marks on the stones will recite the order they must be quenched."] },
+    // The ward-candle combination puzzle: quench ROWAN → IRON → SALT.
+    { id: "aw_candle_rowan", kind: "puzzle_lever", x: 20, y: 170, name: "The Rowan Ward-Candle", puzzle: "aw_wards", order: 0, lines: ["A black candle in a fist of rowan-wood. Snuffing it is the work of a moment — but only in its turn."] },
+    { id: "aw_candle_iron", kind: "puzzle_lever", x: 28, y: 170, name: "The Iron Ward-Candle", puzzle: "aw_wards", order: 1, lines: ["A candle guttering in an iron cage, cold to the hand."] },
+    { id: "aw_candle_salt", kind: "puzzle_lever", x: 24, y: 168, name: "The Salt Ward-Candle", puzzle: "aw_wards", order: 2, lines: ["A candle ringed in grey salt, the last and greediest of the three."] },
+    { id: "aw_mark_1", kind: "signpost", x: 20, y: 172, name: "Coven-Mark", lines: ["'FIRST we lit the ROWAN, that the dead might keep their road home.'"] },
+    { id: "aw_mark_2", kind: "signpost", x: 28, y: 172, name: "Coven-Mark", lines: ["'THEN the IRON, that the living keep their names against the dark.'"] },
+    { id: "aw_mark_3", kind: "signpost", x: 22, y: 168, name: "Coven-Mark", lines: ["'And LAST the SALT, that nothing cross the ring uncounted. Break us in any other order, and we only stand again.'"] },
+    // The coven's acolytes, guarding the ring from the start.
+    { id: "aw_hexling_1", kind: "monster", monster: "hollow_hexling", x: 23, y: 171, name: "Hollow Hexling" },
+    { id: "aw_hexling_2", kind: "monster", monster: "hollow_hexling", x: 26, y: 171, name: "Hollow Hexling" },
+    { id: "aw_hexling_3", kind: "monster", monster: "hollow_hexling", x: 24, y: 173, name: "Hollow Hexling" },
+    // The Widow: an NPC to confront (revealed only once the wards are quenched),
+    // then the boss she becomes when you refuse her (aw_widow_revealed).
+    {
+      id: "ashen_widow_npc", kind: "npc", x: 24, y: 174, name: "The Ashen Widow",
+      requiresFlag: "pz_aw_wards", hiddenByFlag: "aw_widow_revealed",
+      lines: ["The wards go dark, and she is simply there, as if she always was — tall, ash-grey, and kind about the eyes. 'You came a long way for one drover's girl. She's happy here. They're all happy here.' She tilts her head. 'You could be, too.'"],
+    },
+    { id: "ashen_widow_boss", kind: "monster", monster: "ashen_widow", x: 24, y: 174, name: "The Ashen Widow", requiresFlag: "aw_widow_revealed" },
+    // Her reward hoard and the hollow's dressing.
+    { id: "aw_chest", kind: "dungeon_chest", x: 26, y: 175, name: "The Widow's Kist", requiresFlag: "aw_widow_revealed", loot: [{ item: "hex_cloth", qty: 3 }, { item: "cut_gem", qty: 2 }, { item: "seed_duskshade", qty: 3 }], lines: ["A low kist of bog-black wood, its lid soft with damp. What the hollow kept."] },
+    { id: "aw_cauldron", kind: "cauldron", x: 20, y: 175, name: "The Coven Cauldron", lines: ["A great iron pot on a cold fire, its contents long gone to tar. Still usable, if you've the stomach — a real Herblore cauldron."] },
+    { id: "aw_rem_1", kind: "remains", variant: "brazier", x: 21, y: 168, name: "Ward-Brazier" },
+    { id: "aw_rem_2", kind: "remains", variant: "brazier", x: 27, y: 168, name: "Ward-Brazier" },
+    { id: "aw_rem_3", kind: "remains", variant: "urn", x: 28, y: 175, name: "A Sealed Coven-Urn" },
+    { id: "aw_rem_4", kind: "remains", variant: "bones", x: 22, y: 175, name: "The Ones Who Stayed" },
+    { id: "aw_rem_5", kind: "remains", variant: "sitting", x: 25, y: 176, name: "A Hollowed Villager", lines: ["A villager seated against the wall, eyes open, breathing slow, humming a tune with no bottom to it. Whatever the Widow took, it isn't given back by her ending — only stopped."] },
   );
   return out;
 }

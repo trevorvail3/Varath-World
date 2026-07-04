@@ -825,6 +825,96 @@ function rollPotionDrop(
 }
 
 // ---------------------------------------------------------------------------
+// Herblore secondaries + seeds off bounty quarry — the OSRS slayer/task habit
+// of shedding the odd grimy herb, seed, or reagent. Only the creatures the
+// Bounty board writes contracts for carry these (kept in sync with the
+// bountyTasks pools in content/bounty.ts), so grinding a task quietly stocks
+// the Herblore and Farming skills. One global roll per kill, level-tiered:
+// low quarry sheds basic mushrooms/ashroot and the cheap seeds; tougher foes
+// reach the deep-forage reagents and the rich seeds.
+// ---------------------------------------------------------------------------
+const BOUNTY_FORAGE_MONSTERS = new Set<string>([
+  // Rook's beat + the sewers (the early ladder)
+  "moor_rat", "hill_wolf", "red_deer", "sewer_rat", "gutter_spider",
+  "sewer_kobold", "sewer_sludge", "footpad", "cutpurse", "poacher",
+  "bandit", "highwayman", "cutthroat",
+  // Greyoak + Spine + Heartmoor + the roads
+  "wild_boar", "greymane_boar", "mountain_lion", "forest_bear",
+  "ridge_wolf", "stone_crawler", "mountain_troll", "spine_wraith",
+  "marsh_lurker", "heartmoor_hound", "cult_acolyte", "cult_zealot",
+  "bog_knight", "mire_serpent", "outlaw_archer", "marauder", "outlaw_captain",
+  // The Hunt Warrens
+  "warren_creeper", "dusk_stalker", "hollow_hound", "warren_shade", "iron_maw",
+  // The Marrow Deeps + the Redrun
+  "cave_crawler", "deep_bat", "cult_magus", "marrow_wraith", "deep_golem",
+  "river_serpent", "redrun_brigand", "ancient_orc",
+  // The old places (Act II ruins)
+  "drowned_thrall", "court_wisp", "aerie_harpy", "storm_wisp", "pale_wight",
+]);
+// item, weight, min creature level to appear, and (for seeds) a small stack.
+const BOUNTY_FORAGE_POOL: { item: ItemId; w: number; minLevel: number; min?: number; max?: number }[] = [
+  // --- Herblore secondaries (the reagents Herblore actually needs) ---
+  { item: "forage_mushroom", w: 4, minLevel: 1 },
+  { item: "forage_ashroot", w: 4, minLevel: 1 },
+  { item: "forage_thornberry", w: 4, minLevel: 1 },
+  { item: "bonemeal", w: 3, minLevel: 1 },
+  { item: "forage_hearthroot", w: 3, minLevel: 8 },
+  { item: "greyoak_gall", w: 2, minLevel: 20 },
+  { item: "forage_nightshade", w: 2, minLevel: 25 },
+  { item: "forage_dawnspore", w: 1, minLevel: 40 },
+  { item: "forage_deepmoss", w: 1, minLevel: 50 },
+  { item: "forage_ashbloom", w: 1, minLevel: 60 },
+  // --- Plant seeds (the low ones in small stacks) ---
+  { item: "seed_ashweed", w: 5, minLevel: 1, min: 1, max: 2 },
+  { item: "seed_thornroot", w: 5, minLevel: 1, min: 1, max: 2 },
+  { item: "seed_bloodberry", w: 4, minLevel: 8 },
+  { item: "seed_coldmoss", w: 3, minLevel: 15 },
+  { item: "seed_ironleaf", w: 3, minLevel: 20 },
+  { item: "seed_greybloom", w: 2, minLevel: 28 },
+  { item: "seed_spinethistle", w: 2, minLevel: 35 },
+  { item: "seed_ruevine", w: 2, minLevel: 45 },
+  { item: "seed_duskshade", w: 1, minLevel: 55 },
+  { item: "seed_marrowflower", w: 1, minLevel: 65 },
+  { item: "seed_hearthbloom", w: 1, minLevel: 72 },
+  { item: "seed_orunroot", w: 1, minLevel: 80 },
+  // --- The odd grown herb, a rarer prize ---
+  { item: "herb_ashweed", w: 2, minLevel: 3 },
+  { item: "herb_thornroot", w: 2, minLevel: 10 },
+  { item: "herb_coldmoss", w: 1, minLevel: 25 },
+  { item: "herb_greybloom", w: 1, minLevel: 35 },
+  { item: "herb_duskshade", w: 1, minLevel: 55 },
+  // --- Tree seeds, a rare bonus on the tougher quarry ---
+  { item: "seed_ashwood", w: 1, minLevel: 15 },
+  { item: "seed_greyoak", w: 1, minLevel: 35 },
+  { item: "seed_deeproot", w: 1, minLevel: 70 },
+];
+const BOUNTY_FORAGE_ODDS = 7; // ~1 kill in 7 sheds a herb, seed, or reagent
+
+/** Roll a Herblore secondary / seed off a bounty-quarry kill: only for the
+ *  creatures the board hunts, 1-in-ODDS, level-tiered weighted pick. */
+function rollBountyForageDrop(
+  state: WorldState,
+  x: number,
+  y: number,
+  stats: MonsterStats,
+  ctx: Ctx,
+): void {
+  if (!BOUNTY_FORAGE_MONSTERS.has(stats.id)) return;
+  if (ctx.rng() >= 1 / BOUNTY_FORAGE_ODDS) return;
+  const lvl = stats.level ?? 1;
+  const pool = BOUNTY_FORAGE_POOL.filter((p) => lvl >= p.minLevel);
+  if (pool.length === 0) return;
+  const total = pool.reduce((n, p) => n + p.w, 0);
+  let roll = ctx.rng() * total;
+  let pick = pool[0]!;
+  for (const p of pool) { roll -= p.w; if (roll <= 0) { pick = p; break; } }
+  const min = pick.min ?? 1;
+  const max = pick.max ?? min;
+  const qty = min + Math.floor(ctx.rng() * (max - min + 1));
+  dropToGround(state, pick.item, qty, x, y, ctx, false);
+}
+
+// ---------------------------------------------------------------------------
 // Trail clues — the treasure-trail repeatable. A monster kill can shed a
 // sealed trail scroll (tier by the creature's level, one held per tier);
 // its riddle points at one real landmark. Interacting with that landmark
@@ -6141,6 +6231,8 @@ function checkKill(
   if (stats.boss) player.bossKills[stats.id] = (player.bossKills[stats.id] ?? 0) + 1;
   // A trail scroll can be tucked in any creature's remains (tier by level).
   rollClueDrop(state, content, stats, ctx, events);
+  // Bounty quarry sheds the odd Herblore secondary, seed, or grimy herb.
+  rollBountyForageDrop(state, drop.x, drop.y, stats, ctx);
   // UNIQUE — the Barrow-King's Signet: every kill knits the wearer's wounds.
   if (player.equipment.ring === "barrow_king_signet" && player.hp < player.maxHp) {
     const heal = Math.max(3, Math.round(player.maxHp * 0.08));

@@ -2845,6 +2845,7 @@ function drawObject(
       scaled(g, cx, cy, 1.35, () => drawAnvil(g, 0, 0));
       break;
     case "portal":
+      if (def.dungeon === "ironvale_sewers") { drawSewerLid(g, cx, cy, now); break; }
       if (DUNGEON_MOUTHS[def.id]) { drawDungeonMouth(g, cx, cy, def.id); break; }
       drawPortal(g, cx, cy);
       break;
@@ -5312,6 +5313,58 @@ function drawPortal(g: CanvasRenderingContext2D, cx: number, cy: number): void {
   g.fill();
 }
 
+// --- The Ironvale Sewers' mouth: a round iron manhole cover set into the city
+//     pavement, not a cave. A dark ring of seepage stains the flagstones around
+//     it; the lid itself is a bolted iron disc with pry-slots and a lift-ring,
+//     and a faint sour glimmer leaks up through the drain slots. ---
+function drawSewerLid(g: CanvasRenderingContext2D, cx: number, cy: number, now: number): void {
+  // Seepage: a broad, soft dark stain bled into the flagstones (drawn flat, so
+  // it reads as ground grime under the lid, not an object floating above it).
+  g.save();
+  g.fillStyle = "rgba(28,38,30,0.34)";
+  g.beginPath(); g.ellipse(cx, cy + 2, 20, 12, 0, 0, Math.PI * 2); g.fill();
+  g.fillStyle = "rgba(20,28,22,0.30)";
+  g.beginPath(); g.ellipse(cx - 6, cy + 6, 8, 4, 0.3, 0, Math.PI * 2); g.fill();
+  g.beginPath(); g.ellipse(cx + 7, cy + 5, 6, 3, -0.2, 0, Math.PI * 2); g.fill();
+  g.restore();
+  // The socket the lid sits in — a recessed stone kerb, darker at the lip.
+  g.fillStyle = "#2b2926";
+  g.beginPath(); g.ellipse(cx, cy, 15, 9.5, 0, 0, Math.PI * 2); g.fill();
+  g.fillStyle = "#3d3a35";
+  g.beginPath(); g.ellipse(cx, cy - 0.5, 14, 8.8, 0, 0, Math.PI * 2); g.fill();
+  // The iron disc.
+  g.fillStyle = "#3a3d42";
+  g.beginPath(); g.ellipse(cx, cy, 12.5, 7.8, 0, 0, Math.PI * 2); g.fill();
+  // A raised concentric ring and the cross-ribs of the casting.
+  g.strokeStyle = "#4c5056"; g.lineWidth = 1.4;
+  g.beginPath(); g.ellipse(cx, cy, 9, 5.6, 0, 0, Math.PI * 2); g.stroke();
+  g.strokeStyle = "#2c2f33"; g.lineWidth = 1;
+  g.beginPath(); g.moveTo(cx - 8.5, cy); g.lineTo(cx + 8.5, cy); g.stroke();
+  g.beginPath(); g.moveTo(cx, cy - 5.2); g.lineTo(cx, cy + 5.2); g.stroke();
+  // Bolt heads around the rim.
+  g.fillStyle = "#55595f";
+  for (let i = 0; i < 8; i++) {
+    const a = (i / 8) * Math.PI * 2;
+    circle(g, cx + Math.cos(a) * 10.6, cy + Math.sin(a) * 6.5, 1.1);
+  }
+  // Rust bleed and a top-left sheen so the iron reads as metal, not stone.
+  g.fillStyle = "rgba(110,90,68,0.5)";
+  g.beginPath(); g.ellipse(cx + 5, cy + 2.5, 3.5, 2, 0.4, 0, Math.PI * 2); g.fill();
+  g.fillStyle = "rgba(150,158,166,0.35)";
+  g.beginPath(); g.ellipse(cx - 4, cy - 2.5, 4, 2, -0.3, 0, Math.PI * 2); g.fill();
+  // Two pry-slots and the lift-ring in the middle.
+  g.fillStyle = "#111214";
+  g.fillRect(cx - 7.5, cy - 0.7, 3, 1.4);
+  g.fillRect(cx + 4.5, cy - 0.7, 3, 1.4);
+  g.strokeStyle = "#26282b"; g.lineWidth = 1.3;
+  g.beginPath(); g.ellipse(cx, cy - 0.5, 2.6, 1.7, 0, 0, Math.PI * 2); g.stroke();
+  // A faint sour glimmer breathing up through the slots — the dark below.
+  const pulse = 0.35 + 0.25 * Math.sin(now / 700);
+  g.fillStyle = `rgba(120,150,110,${pulse.toFixed(3)})`;
+  g.fillRect(cx - 7.2, cy - 0.3, 2.4, 0.7);
+  g.fillRect(cx + 4.8, cy - 0.3, 2.4, 0.7);
+}
+
 // --- Anvil: an iron horn on a dark stump ---
 function drawAnvil(g: CanvasRenderingContext2D, cx: number, cy: number): void {
   shadow(g, cx, cy + 11, 12, 4);
@@ -6081,6 +6134,8 @@ const MONSTER_SCALE: Record<string, number> = {
   vorlag: 2.1,
   // The Ironvale Sewers: each grade of vermin reads a size up from the last.
   sewer_rat: 1.1, gutter_spider: 1.15, sewer_kobold: 1.05, sewer_sludge: 1.3,
+  // The Ashen Hollow: the Widow towers over her hexlings.
+  ashen_widow: 1.3,
 };
 
 /** A coloured ground-glow per boss — presence you can feel a screen away. */
@@ -6105,6 +6160,7 @@ const BOSS_AURA: Record<string, string> = {
   pale_herald: "210,205,195",
   pale_warden: "228,224,214",      // the last seal's cold light
   vorlag: "96,40,120",             // the dark under the mountain
+  ashen_widow: "150,130,180",      // ash-violet hex-light
 };
 
 /** Draw a monster, scaled up (about its planted foot) by MONSTER_SCALE. */
@@ -6252,6 +6308,11 @@ function drawMonsterBody(
       return H("#3a2030", "#6a2a44");
     case "cult_magus":
       return H("#2a1830", "#7a3a58");
+    // --- The Ashen Hollow's coven: ash-grey casters, the Widow tinged violet ---
+    case "hollow_hexling":
+      return H("#575049", "#7c7266"); // ash-daubed rags
+    case "ashen_widow":
+      return H("#463f4c", "#8a7ea6"); // ash-grey witch, hex-violet trim
     // --- Act II dungeon keepers ---
     case "barrow_sentinel":
       return H("#565a64", "#7d8290"); // pale grave-iron
