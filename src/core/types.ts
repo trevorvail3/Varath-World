@@ -635,6 +635,8 @@ export type ItemId =
   | "pot_runner_1"
   | "pot_ironhide"
   | "pot_ironhide_1"
+  | "brace_tonic"
+  | "brace_tonic_1"
   | "pot_deepgrace"
   | "pot_deepgrace_1"
   | "pot_archer"

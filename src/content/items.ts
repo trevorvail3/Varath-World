@@ -5948,6 +5948,29 @@ export const items: Record<ItemId, ItemDef> = {
       "buffAmt": 6,
       "buffMs": 240000
     },
+  "brace_tonic": {
+      "id": "brace_tonic",
+      "name": "Bracing Draught (2)",
+      "description": "Ashweed steeped over greyoak gall — a hedge-brewer's guard-tonic. Each dose braces you against harm: every blow you take lands 10% softer for 3 minutes. No Faith required — the one protection any fighter can carry. Two doses.",
+      "icon": "🩹",
+      "cat": "Potions",
+      "sell": 55,
+      "buff": "mitigate",
+      "buffAmt": 0.1,
+      "buffMs": 180000,
+      "doseNext": "brace_tonic_1"
+    },
+  "brace_tonic_1": {
+      "id": "brace_tonic_1",
+      "name": "Bracing Draught (1)",
+      "description": "Ashweed steeped over greyoak gall — a hedge-brewer's guard-tonic. Each dose braces you against harm: every blow you take lands 10% softer for 3 minutes. No Faith required — the one protection any fighter can carry. One dose left.",
+      "icon": "🩹",
+      "cat": "Potions",
+      "sell": 28,
+      "buff": "mitigate",
+      "buffAmt": 0.1,
+      "buffMs": 180000
+    },
   "pot_deepgrace": {
       "id": "pot_deepgrace",
       "name": "Super Grace Potion (2)",

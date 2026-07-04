@@ -887,7 +887,18 @@ export const monsters: Record<string, MonsterStats> = {
       { "item": "ring_8", "chance": 0.04, "tier": "rare" }
     ],
     "boss": true,
-    "bossHint": "Climb down into the Ferryman's Cave — a black slot in the lonely hills NORTH of the Redrun crossings, well off the road. He fights you alone in the flooded dark; come well-fed, and bring stab or crush."
+    "bossHint": "Climb down into the Ferryman's Cave — a black slot in the lonely hills NORTH of the Redrun crossings, well off the road. He fights you alone in the flooded dark; come well-fed, and bring stab or crush. He takes his toll in your years, and the river answers his oar — step off the black water when it rises.",
+    "mechanics": [
+      // Signature: THE TOLL. He is owed a fare and he collects it in life — a
+      // steady lifedrain that turns a slow fight into a losing one. The unique
+      // pressure that makes him distinct: you can't out-attrition him, you have
+      // to out-pace him.
+      { type: "lifedrain", frac: 0.18, tell: "The Ferryman breathes in as you bleed — the toll is paid in your years." },
+      // Oar-Wave — a telegraphed surge of black water every 4th stroke.
+      { type: "slam", every: 4, mult: 2.2, radius: 1, windupMs: 2200, tell: "The Ferryman drags his oar through the flood and the black water HEAVES toward you. MOVE!" },
+      // Past a third he stops ferrying and starts drowning.
+      { type: "enrage", below: 0.3, mult: 1.4, tell: "The Ferryman lets the pole fall — no more crossings tonight, only the drowning." }
+    ]
   },
   "aelveth_white_wolf": {
     "id": "aelveth_white_wolf",
@@ -1534,7 +1545,11 @@ export const monsters: Record<string, MonsterStats> = {
     mechanics: [
       // 1. Aimed Shot — a telegraphed, doubled arrow every 4th attack.
       { type: "heavy", every: 4, mult: 2.0, tell: "The Green Baron nocks a black arrow and draws to the ear — AIMED SHOT!" },
-      // 2. Cornered — below 30% HP he turns vicious, hitting harder.
+      // 2. Waxed Greens — a poacher's oiled leathers turn a glancing blade; only
+      //    the crushing weakness he's brittle to gets full purchase. Rewards
+      //    closing with a mace/hammer instead of hacking at range.
+      { type: "scaleguard", reduce: 0.3 },
+      // 3. Cornered — below 30% HP he turns vicious, hitting harder.
       { type: "enrage", below: 0.3, mult: 1.5, tell: "The Baron laughs and stops playing the hero — every shot for the kill now!" },
     ],
     drops: [
@@ -1836,6 +1851,9 @@ export const monsters: Record<string, MonsterStats> = {
     desc: "Grey as weathered stone and half as slow. Every settlement has a wall it broke and a hunter it outlived.",
     mechanics: [
       { type: "slam", every: 5, mult: 2.4, radius: 1, windupMs: 2200, tell: "The Greyback rears to its full height — its shadow swallows the ground you stand on. MOVE!" },
+      // Weathered-stone hide: a slash or crush skids off it — only a spear finds
+      // the seams, making its stab weakness (and its bossHint's promise) real.
+      { type: "scaleguard", reduce: 0.35 },
       { type: "enrage", below: 0.25, mult: 1.5, tell: "The Greyback bleeds, and remembers how to be furious." },
     ],
     drops: [
@@ -2189,6 +2207,18 @@ export const monsters: Record<string, MonsterStats> = {
       { item: "ashiron_bar", chance: 0.5, min: 2, max: 3, tier: "uncommon" },
       { item: "marrow_shard", chance: 0.25, tier: "rare" },
       { item: "shard_of_orun", chance: 0.03, tier: "legendary" },
+    ],
+    bossHint: "It keeps the fifth seal at the Undergate's mouth and will not step aside. It strikes with sealfire at range — and its ward burns any hand that closes to melee, so a bow pays where a blade bleeds.",
+    mechanics: [
+      // Sealfire — a telegraphed, doubled bolt every 4th cast (it fights at range).
+      { type: "heavy", every: 4, mult: 2.0, tell: "The Pale Warden lifts its mask and the fifth seal blazes white — SEALFIRE!" },
+      // Signature: WARD-BURN. Its oath-ward scorches anyone who melees it — so the
+      // slash weakness is a trap of sorts: you hit harder in close, but you burn
+      // for it. Ranged (its other weakness) is the clean, safe answer. A real
+      // triangle choice instead of a single dominant style.
+      { type: "recoil", frac: 0.22, tell: "Your blade bites the Warden and its ward flares — the sealfire licks back up your arm." },
+      // Under a third, the last instruction takes over completely.
+      { type: "enrage", below: 0.3, mult: 1.4, tell: "The Warden forgets mercy and remembers only the instruction — every strike for the kill." },
     ],
   },
 

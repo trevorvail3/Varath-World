@@ -376,15 +376,27 @@ const COMBAT = {
 const BASE_MAX_HP = 10;
 
 // Special attacks: the bar charges as your blows land and is spent whole on
-// one armed finisher — melee SUNDER, bow TWIN SHOT, staff GRACE SURGE.
+// one armed finisher — the melee finisher varies by weapon family (Puncture /
+// Rending Blow / Shatter), bow TWIN SHOT, staff GRACE SURGE.
 // The bounty daily-double window: 20 hours, rolling (see claimBountyTask).
 export const DAILY_WINDOW_MS = 20 * 3_600_000;
 
 const SPEC_MAX = 100;
 const SPEC_GAIN_PER_HIT = 12;
-const SPEC_MELEE_MULT = 1.5;   // Sunder: a sure hit, half again the damage
+// Melee specials now differ by the weapon's damage TYPE (its family), not one
+// generic Sunder: a stab PUNCTURE finds the gap in armour, a slash RENDING BLOW
+// is raw power, a crush SHATTER cracks the target's guard for the whole party.
+const SPEC_STAB_MULT = 1.55;   // Puncture: a sure strike that ignores off-style/scale guard
+const SPEC_SLASH_MULT = 1.75;  // Rending Blow: the heaviest single hit
+const SPEC_CRUSH_MULT = 1.4;   // Shatter: less up-front, but drops the foe's defence
+const SPEC_MELEE_MULT = 1.5;   // fallback for an untyped melee weapon
 const SPEC_RANGED_MULT = 1.75; // Twin Shot: two shafts strike as one
 const SPEC_MAGIC_MULT = 1.8;   // Grace Surge: the bolt arrives ALL at once
+const SPEC_SHATTER_DEF = 8;    // Shatter drops the target's defence by this...
+const SPEC_SHATTER_MS = 6000;  // ...for this long — a window the whole fight exploits
+// Eating costs a beat in combat: your next swing is pushed back, so healing is a
+// real DPS trade instead of free tank-and-spam (OSRS's eat-delay tension).
+const EAT_DELAY_MS = 1800;
 
 const INVENTORY_SIZE = 28;
 
@@ -2795,6 +2807,11 @@ function eatSlot(
     data.qty -= 1;
     if (data.qty <= 0) player.inventory[slot] = null;
   }
+  // Eating costs a beat in a fight: push the next swing back so healing is a
+  // real trade against damage, not a free tank-and-spam (OSRS's eat-delay).
+  if (player.activity.kind === "combat") {
+    player.activity.nextActionAt = Math.max(player.activity.nextActionAt, ctx.now + EAT_DELAY_MS);
+  }
   events.push({ type: "LOG", message: msg });
 }
 
@@ -2805,6 +2822,7 @@ const BUFF_LABEL: Record<string, string> = {
   melee_dmg: "+Damage",
   ranged_dmg: "+Damage",
   defence: "+Defence",
+  mitigate: "Braced (−damage taken)",
   gather_speed: "+Gathering speed",
   xp_boost: "+XP",
 };
@@ -6233,6 +6251,11 @@ function playerSwing(
   // finisher: a sure hit at the family's multiplier. Twin Shot looses a second
   // arrow (spent if you have one); Grace Surge amplifies whatever bolt this is.
   const special = player.specArmed && player.spec >= SPEC_MAX;
+  // A stab finisher (Puncture) is a sure strike that finds the gap — it waives
+  // the off-style and scaleguard penalties, so a spear can pick apart a boss it
+  // isn't weakness-matched to. Slash (Rending Blow) is the heaviest raw hit;
+  // crush (Shatter) trades peak damage to cave the target's guard for a window.
+  const puncture = special && !ranged && !magic && wStyle === "stab";
   if (special) {
     player.specArmed = false;
     player.spec = 0;
@@ -6241,7 +6264,9 @@ function playerSwing(
       type: "LOG",
       message: ranged ? "TWIN SHOT — two shafts leave the string as one!"
         : magic ? "GRACE SURGE — the whole casting arrives at once!"
-        : "SUNDER — you put the whole bar behind one blow!",
+        : wStyle === "stab" ? "PUNCTURE — you find the gap and drive clean through!"
+        : wStyle === "crush" ? "SHATTER — the blow caves their guard wide open!"
+        : "RENDING BLOW — you put the whole bar behind one savage cut!",
     });
   }
 
@@ -6254,9 +6279,9 @@ function playerSwing(
     // Thick hide (scaleguard): melee shrugs off most of the blow UNLESS the hit
     // exploits the boss's weakness — so bringing the right style really matters.
     const guard = mechs.find((m) => m.type === "scaleguard");
-    if (guard && guard.type === "scaleguard" && !exploits) {
+    if (guard && guard.type === "scaleguard" && !exploits && !puncture) {
       dmg = Math.max(1, Math.round(dmg * (1 - guard.reduce)));
-    } else if (stats.boss && !exploits) {
+    } else if (stats.boss && !exploits && !puncture) {
       // Off-style vs a boss: the blow lands but can't find purchase. Together
       // with the weakness multipliers this makes the triangle decide boss
       // fights (right style ≈ 2× wrong style), as every bossHint promises.
@@ -6271,9 +6296,24 @@ function playerSwing(
     if (helmEdge > 1 && player.bounty.task?.monster === stats.id) {
       dmg = Math.round(dmg * helmEdge);
     }
-    // The special's payoff — and an ordinary landed blow feeds the next bar.
-    if (special) dmg = Math.max(1, Math.round(dmg * (ranged ? SPEC_RANGED_MULT : magic ? SPEC_MAGIC_MULT : SPEC_MELEE_MULT)));
-    else player.spec = Math.min(SPEC_MAX, player.spec + SPEC_GAIN_PER_HIT);
+    // The special's payoff — each weapon family finishes differently — and an
+    // ordinary landed blow feeds the next bar.
+    if (special) {
+      const mult = ranged ? SPEC_RANGED_MULT
+        : magic ? SPEC_MAGIC_MULT
+        : wStyle === "stab" ? SPEC_STAB_MULT
+        : wStyle === "crush" ? SPEC_CRUSH_MULT
+        : wStyle === "slash" ? SPEC_SLASH_MULT
+        : SPEC_MELEE_MULT;
+      dmg = Math.max(1, Math.round(dmg * mult));
+      // Shatter caves the target's guard: their defence drops for a short
+      // window, so the crush special sets up the whole fight rather than just
+      // spiking one hit. Keep whichever curse leaves the foe softest.
+      if (!ranged && !magic && wStyle === "crush") {
+        const held = obj.defCurse && ctx.now < obj.defCurse.until ? obj.defCurse.amount : 0;
+        obj.defCurse = { amount: Math.max(held, SPEC_SHATTER_DEF), until: ctx.now + SPEC_SHATTER_MS };
+      }
+    } else player.spec = Math.min(SPEC_MAX, player.spec + SPEC_GAIN_PER_HIT);
     obj.hp -= dmg;
     events.push({ type: "DAMAGE", targetId: obj.id, amount: dmg, weak: exploits });
     // OSRS-style combat XP, earned per point of damage dealt (not on the kill):
@@ -6714,6 +6754,11 @@ function monsterSwing(
     }
     // The Warden's Pale Greaves (Undergate unique): every blow lands a tenth softer.
     if (player.equipment.boots === "pale_greaves") dmg = Math.max(1, Math.round(dmg * 0.9));
+    // A Bracing Draught (the universal, Faith-free protection layer): while braced,
+    // every incoming blow lands `mitigate` softer — a weaker, buildless echo of
+    // the Devotion blessings, so a pure-combat main can still buy some defence.
+    const brace = buffVal(player, "mitigate");
+    if (brace > 0) dmg = Math.max(1, Math.round(dmg * (1 - Math.min(0.6, brace))));
     const before = player.hp;
     player.hp -= dmg;
     events.push({ type: "DAMAGE", targetId: "player", amount: dmg });
