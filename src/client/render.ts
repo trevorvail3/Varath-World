@@ -2867,6 +2867,7 @@ function drawObject(
       break;
     case "signpost":
       if (def.id === "duel_board") drawDuelRing(g, cx, cy, now);
+      else if (def.id === "duel_wins_board") drawWinsBoard(g, cx, cy);
       else scaled(g, cx, cy, 1.25, () => drawSignpost(g, 0, 0));
       break;
     case "waystone":
@@ -2932,6 +2933,32 @@ function drawDuelRing(g: CanvasRenderingContext2D, cx: number, cy: number, now: 
   // A finial cap on the post.
   g.fillStyle = "#c9a24a";
   g.beginPath(); g.arc(cx, cy - 20, 1.8, 0, Math.PI * 2); g.fill();
+}
+
+/** The Wins Board beside the ring: a planked standings board on two posts with a
+ *  crossed-swords crest — the public duel ledger. */
+function drawWinsBoard(g: CanvasRenderingContext2D, cx: number, cy: number): void {
+  shadow(g, cx, cy + 11, 13, 4);
+  g.fillStyle = "#3a2c1e"; // two posts
+  g.fillRect(cx - 11, cy - 6, 2.4, 18);
+  g.fillRect(cx + 8.6, cy - 6, 2.4, 18);
+  // The board face.
+  g.fillStyle = "#4a3826";
+  g.fillRect(cx - 13, cy - 20, 26, 17);
+  g.strokeStyle = "#2a2016"; g.lineWidth = 1.5;
+  g.strokeRect(cx - 13, cy - 20, 26, 17);
+  // Chalked standings lines.
+  g.strokeStyle = "rgba(232,220,180,0.7)"; g.lineWidth = 1;
+  for (let i = 0; i < 4; i++) {
+    const y = cy - 16 + i * 3.4;
+    g.beginPath(); g.moveTo(cx - 10, y); g.lineTo(cx + 6, y); g.stroke();
+  }
+  // A crossed-swords crest on the header.
+  g.strokeStyle = "#c9a24a"; g.lineWidth = 1.4;
+  g.beginPath();
+  g.moveTo(cx - 4, cy - 25); g.lineTo(cx + 3, cy - 20);
+  g.moveTo(cx + 3, cy - 25); g.lineTo(cx - 4, cy - 20);
+  g.stroke();
 }
 
 /** The Varathian Trail's billboard: a tall standings board topped with a green

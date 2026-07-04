@@ -31,6 +31,9 @@ export interface HiscoreEntry {
   you?: boolean;
   /** Varathian Trail laps run — the trail billboard ranks by this. */
   trailLaps?: number;
+  /** Duel Ring record — the public Wins Board ranks by victories. */
+  duelWins?: number;
+  duelLosses?: number;
   /** Per-skill level, keyed by skill id — shown on a player's profile. */
   skills?: Record<string, number>;
   /** A cosmetic supporter — gold name + Founder tag on the board. */
@@ -74,6 +77,8 @@ export function entryFromSave(raw: unknown, _content: Content): HiscoreEntry | n
     monstersSlain: num(stats["monstersSlain"]),
     goldEarned: num(stats["goldEarned"]),
     trailLaps: num(r["trailLaps"]),
+    duelWins: num(stats["duelWins"]),
+    duelLosses: num(stats["duelLosses"]),
     skills: skillLevels,
     founder: Array.isArray(r["flags"]) && (r["flags"] as unknown[]).includes("founder"),
   };
@@ -109,8 +114,12 @@ function rowToEntry(row: Record<string, unknown>): HiscoreEntry {
   if (row["skills"] && typeof row["skills"] === "object") {
     const sk = { ...(row["skills"] as Record<string, number>) };
     e.trailLaps = num(sk["__trail_laps"]);
+    e.duelWins = num(sk["__duel_w"]);
+    e.duelLosses = num(sk["__duel_l"]);
     if (num(sk["__founder"]) > 0) e.founder = true;
     delete sk["__trail_laps"];
+    delete sk["__duel_w"];
+    delete sk["__duel_l"];
     delete sk["__founder"];
     e.skills = sk;
   }
@@ -145,9 +154,15 @@ class SupabaseSocialBackend implements SocialBackend {
           diaries: entry.diaries,
           monsters_slain: entry.monstersSlain,
           gold_earned: entry.goldEarned,
-          // Trail laps ride in the skills JSON under a reserved key — no
-          // schema change needed on the shared board.
-          skills: { ...(entry.skills ?? {}), __trail_laps: entry.trailLaps ?? 0, __founder: entry.founder ? 1 : 0 },
+          // Trail laps + duel record ride in the skills JSON under reserved
+          // keys — no schema change needed on the shared board.
+          skills: {
+            ...(entry.skills ?? {}),
+            __trail_laps: entry.trailLaps ?? 0,
+            __duel_w: entry.duelWins ?? 0,
+            __duel_l: entry.duelLosses ?? 0,
+            __founder: entry.founder ? 1 : 0,
+          },
         },
       });
     } catch { /* offline — try again next time the board opens */ }

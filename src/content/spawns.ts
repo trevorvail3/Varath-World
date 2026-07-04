@@ -1058,6 +1058,7 @@ const rawObjects: WorldObjectDef[] = [
   // --- The Duel Ring: opt-in staked PvP, on the open stone shoulder by the
   //     north gate (a natural arena outside the walls, in Captain Morn's sight). ---
   { id: "duel_board", kind: "signpost", x: 63, y: 33, name: "The Duel Ring", lines: ["THE DUEL RING — chalk a circle, name your stakes, and let the ground decide. Gold and gear both welcome; the winner walks away with everything wagered. Opt-in only — no one is dragged into a fight here."] },
+  { id: "duel_wins_board", kind: "signpost", x: 61, y: 33, name: "The Wins Board", lines: ["THE WINS BOARD — the ring keeps score. Every duellist's victories and losses, chalked up for all of Varath to see."] },
 
   // --- The Courier waystones (one in the city, one per region) ---
   { id: "ws_ironvale", kind: "waystone", x: 58, y: 50, name: "Ironvale", target: { x: 57, y: 50 } },

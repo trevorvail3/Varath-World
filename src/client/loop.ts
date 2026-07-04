@@ -52,7 +52,7 @@ import { DUNGEON_TOP, enterableAt, instanceRectAt, INTERIOR_TOP, OVERWORLD_HEIGH
 import { DecorateUI } from "./decorate.ts";
 import { objectPos, objectHidden, travelFare, equipRequirement } from "../core/worldCore.ts";
 import { findPath, pathToAdjacent, pathToWithin } from "./pathfinding.ts";
-import { getSocial } from "./social.ts";
+import { getSocial, submitCurrent } from "./social.ts";
 
 /**
  * The bridge to the core. main.ts builds this so the loop never imports the
@@ -2284,6 +2284,13 @@ export class Game {
         this.duel.show();
         return;
       }
+      // The public Wins Board beside the ring — read the realm's duel standings.
+      if (obj.id === "duel_wins_board") {
+        this.setMarker(this.liveTile(obj));
+        this.walkBeside(this.liveTile(obj));
+        void this.showDuelStandings();
+        return;
+      }
       this.interactObject(obj.id, this.liveTile(obj));
       return;
     }
@@ -2383,6 +2390,39 @@ export class Game {
     this.dialogue.show("The Varathian Trail", lines);
   }
 
+  /** The public Wins Board by the Duel Ring: every duellist in Varath, ranked by
+   *  victories (from the shared hiscores board). */
+  private async showDuelStandings(): Promise<void> {
+    const you = this.bridge.state.player;
+    const yourName = you.appearance?.name ?? "You";
+    const yourW = you.stats.duelWins ?? 0;
+    const yourL = you.stats.duelLosses ?? 0;
+    let entries: { name: string; w: number; l: number }[] = [];
+    try {
+      // Push our own latest first, so the board others read includes this win.
+      await submitCurrent(this.bridge.content);
+      const rows = await getSocial(this.bridge.content).hiscores();
+      entries = rows.map((r) => ({ name: r.name, w: r.duelWins ?? 0, l: r.duelLosses ?? 0 }));
+    } catch { /* offline — show just your own line below */ }
+    // Make sure your own live record is represented (the board may lag a push).
+    const mine = entries.find((e) => e.name === yourName);
+    if (mine) { mine.w = Math.max(mine.w, yourW); mine.l = Math.max(mine.l, yourL); }
+    else entries.push({ name: yourName, w: yourW, l: yourL });
+    entries.sort((a, b) => b.w - a.w || a.l - b.l);
+    const ranked = entries.filter((e) => e.w > 0 || e.l > 0).slice(0, 12);
+    const lines = ["— THE WINS BOARD — duellists of Varath, by victories —"];
+    if (ranked.length === 0) lines.push("No duels fought yet. Step into the ring and be the first name here.");
+    for (let i = 0; i < ranked.length; i++) {
+      const e = ranked[i]!;
+      const yours = e.name === yourName;
+      lines.push(`${i + 1}. ${e.name} — ${e.w} Victories · ${e.l} Losses${yours ? "  ← you" : ""}`);
+    }
+    if (!ranked.some((e) => e.name === yourName)) {
+      lines.push(`You: ${yourW} Victories · ${yourL} Losses — win a wager to make the board.`);
+    }
+    this.dialogue.show("The Wins Board", lines);
+  }
+
   /** Walk beside the campfire (if not already) and open its cook menu on arrival. */
   private approachCampfire(tile: Vec2): void {
     const p = this.bridge.state.player;
@@ -2442,6 +2482,11 @@ export class Game {
         items.push({
           label: "Enter", target: obj.name, tone: "action",
           onSelect: () => { this.walkBeside(this.liveTile(obj)); this.duel.show(); },
+        });
+      } else if (obj.id === "duel_wins_board") {
+        items.push({
+          label: "Read", target: obj.name, tone: "action",
+          onSelect: () => { this.walkBeside(this.liveTile(obj)); void this.showDuelStandings(); },
         });
       } else if (obj.kind === "npc" && this.isShopkeeper(obj.id)) {
         // Shopkeepers list both Talk and Shop.
@@ -2527,6 +2572,7 @@ export class Game {
   /** Examine text: a monster shows its canon description; others use the map. */
   private examineObject(obj: WorldObjectDef): string {
     if (obj.id === "duel_board") return "The Duel Ring — step in to challenge another player. Stake gold and gear; the winner takes both purses.";
+    if (obj.id === "duel_wins_board") return "The Wins Board — every duellist in Varath, ranked by victories for all to see.";
     if (obj.kind === "monster" && obj.monster) {
       const stats = this.bridge.content.monsters[obj.monster];
       if (stats) return `${stats.desc} Combat level ${stats.level}. ${this.weaknessNote(stats)}`;
