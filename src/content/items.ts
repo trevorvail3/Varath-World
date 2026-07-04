@@ -1661,6 +1661,18 @@ export const items: Record<ItemId, ItemDef> = {
       "petBoss": "bog_warden"
     }
   },
+  "pet_greyback": {
+    "id": "pet_greyback",
+    "name": "Greycub",
+    "description": "A grey-furred cub that padded out of the wilds the season the old beast fell. It answers to no one — but it walks where you walk now.",
+    "icon": "🐻",
+    "cat": "Boss Pets",
+    "slot": "companion",
+    "rarity": "legendary",
+    "meta": {
+      "petBoss": "greyback"
+    }
+  },
   "pet_spine_warlord": {
     "id": "pet_spine_warlord",
     "name": "Cairn",

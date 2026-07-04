@@ -407,6 +407,12 @@ const SPEC_SHATTER_MS = 6000;  // ...for this long — a window the whole fight 
 // real DPS trade instead of free tank-and-spam (OSRS's eat-delay tension).
 const EAT_DELAY_MS = 1800;
 
+// The PvP ladder: a duel rating everyone starts at, and the swing per result —
+// a climbing number that gives a strong duellist a goal past the gold.
+const DUEL_RATING_BASE = 1000;
+const DUEL_RATING_WIN = 25;
+const DUEL_RATING_LOSS = 20;
+
 const INVENTORY_SIZE = 28;
 
 /** A small starting purse so the market isn't dead on arrival. */
@@ -2067,10 +2073,17 @@ export function applyIntent(
           }
         }
         player.stats.duelWins = (player.stats.duelWins ?? 0) + 1;
-        events.push({ type: "LOG", message: "VICTORY — the ring is yours, and so are both wagers." });
+        const nr = (player.stats.duelRating ?? DUEL_RATING_BASE) + DUEL_RATING_WIN;
+        player.stats.duelRating = nr;
+        player.stats.duelStreak = (player.stats.duelStreak ?? 0) + 1;
+        if ((player.stats.duelBestStreak ?? 0) < player.stats.duelStreak) player.stats.duelBestStreak = player.stats.duelStreak;
+        const streak = player.stats.duelStreak;
+        events.push({ type: "LOG", message: `VICTORY — the ring is yours, and so are both wagers. (Rating ${nr}${streak >= 2 ? ` · ${streak}-win streak` : ""})` });
       } else if (intent.outcome === "lost") {
         player.stats.duelLosses = (player.stats.duelLosses ?? 0) + 1;
-        events.push({ type: "LOG", message: "Defeated. Your wager crosses the ring." });
+        player.stats.duelRating = Math.max(0, (player.stats.duelRating ?? DUEL_RATING_BASE) - DUEL_RATING_LOSS);
+        player.stats.duelStreak = 0;
+        events.push({ type: "LOG", message: `Defeated. Your wager crosses the ring. (Rating ${player.stats.duelRating})` });
       } else {
         restore();
         events.push({
@@ -6766,6 +6779,11 @@ function monsterSwing(
       return; // the slam IS this attack — no regular swing on top
     }
   }
+  // Endless Delve DEPTH: every floor past the cache presses harder (+12%/floor).
+  // Self-limiting — you descend until it kills you; the depth reached is the score.
+  if (state.delve?.depth && def.id.startsWith("delve_")) {
+    dmgMult *= 1 + 0.12 * state.delve.depth;
+  }
 
   if (ctx.rng() < hitChance(stats.acc ?? 0, playerDefence(player, content))) {
     const raw = randInt(ctx, 1, stats.maxHit);
@@ -6879,7 +6897,13 @@ function moveWorldBoss(state: WorldState, content: Content, ctx: Ctx, events: Wo
   obj.nextWanderAt = ctx.now + 5000;
   state.creatureTiles.add(`${next.x},${next.y}`);
   const stats = monsterFor(content, def);
-  if (obj.available && stats) { obj.hp = stats.hp; obj.enraged = false; obj.slam = null; obj.swings = 0; }
+  // On relocation it licks its wounds but no longer heals to FULL — a committed
+  // chase now lands, instead of resetting the beast every time it wanders off
+  // (it recovers ~35% of its health, and its fight state resets).
+  if (obj.available && stats) {
+    obj.hp = Math.min(stats.hp, (obj.hp ?? stats.hp) + Math.round(stats.hp * 0.35));
+    obj.enraged = false; obj.slam = null; obj.swings = 0;
+  }
   events.push({ type: "WORLD_BOSS_MOVED", name: def.name, hint: compassHint(content, next) });
 }
 
@@ -6947,12 +6971,27 @@ function startDelve(state: WorldState, content: Content, ctx: Ctx, events: World
   events.push({ type: "LOG", message: "The Warden opens the way down. WAVE 1 — the dark answers." });
 }
 
-/** A delve monster died: advance the wave, or pay the cache on the last one. */
+/** A delve monster died: advance the wave, pay the cache after the last fixed
+ *  wave, then descend into endless DEPTH — the maxed-delver long tail. */
 function onDelveKill(state: WorldState, content: Content, ctx: Ctx, events: WorldEvent[]): void {
   const d = state.delve;
   if (!d) return;
   d.remaining -= 1;
   if (d.remaining > 0) return;
+  // Descend one floor deeper: re-arm the hardest wave, harder still (see the
+  // depth damage scaling in monsterSwing), and remember the record.
+  const descend = (): void => {
+    const i = state.player.flags.indexOf(delveFlag(DELVE_WAVES));
+    if (i >= 0) state.player.flags.splice(i, 1);
+    d.depth = (d.depth ?? 0) + 1;
+    if ((state.player.delveDepthRecord ?? 0) < d.depth) state.player.delveDepthRecord = d.depth;
+    d.remaining = armDelveWave(state, content, DELVE_WAVES, ctx);
+  };
+  if (d.depth) {
+    descend();
+    events.push({ type: "LOG", message: `The floor gives way. DEPTH ${d.depth} — the dark presses harder. Leave with your record, or feed it.` });
+    return;
+  }
   if (d.wave < DELVE_WAVES) {
     const done = d.wave;
     const i = state.player.flags.indexOf(delveFlag(done));
@@ -6962,8 +7001,11 @@ function onDelveKill(state: WorldState, content: Content, ctx: Ctx, events: Worl
     events.push({ type: "LOG", message: `Wave ${done} falls. WAVE ${d.wave} rises from the deep…` });
     return;
   }
+  // The fixed gauntlet is cleared: claim the cache once (the daily), then the way
+  // keeps going down — endless depth, escalating, until you leave or fall.
   grantDelveCache(state, content, ctx, events);
-  clearDelve(state);
+  descend();
+  events.push({ type: "LOG", message: "The cache is yours — but the stair keeps descending. DEPTH 1. The deeper you go the harder it bites, and the Record remembers how far." });
 }
 
 function grantDelveCache(state: WorldState, _content: Content, ctx: Ctx, events: WorldEvent[]): void {

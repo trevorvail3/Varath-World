@@ -734,6 +734,7 @@ export type ItemId =
   | "sealbreaker_bulwark"
   | "mantle_of_the_below"
   | "pet_vorlag"
+  | "pet_greyback"
   | "neck_warden"
   | "neck_amber"
   | "neck_orun"
@@ -1519,6 +1520,9 @@ export interface Player {
    * be gamed by the system clock because it runs on played time. Persisted.
    */
   delveLastFullPlayMs?: number;
+  /** Deepest Marrow Delve DEPTH floor ever reached (0/undefined = never past the
+   *  fixed waves). The endless-mode long-tail record — surfaced on Records. */
+  delveDepthRecord?: number;
   /**
    * Progress on the current Agility circuit: the course id and the next
    * obstacle order expected. Null when not mid-lap. Transient (not persisted).
@@ -1564,8 +1568,10 @@ export interface Player {
   gold: number;
   /** Standing with each of the four factions (can be negative). */
   reputation: Record<FactionId, number>;
-  /** Cumulative tallies for achievements. */
-  stats: { goldEarned: number; monstersSlain: number; duelWins?: number; duelLosses?: number };
+  /** Cumulative tallies for achievements. `duelRating` is an Elo-style ladder
+   *  number (starts at DUEL_RATING_BASE); `duelStreak` is the current win streak,
+   *  `duelBestStreak` the record — the PvP long-tail goals. */
+  stats: { goldEarned: number; monstersSlain: number; duelWins?: number; duelLosses?: number; duelRating?: number; duelStreak?: number; duelBestStreak?: number };
   /** The wager locked into a live duel: removed from the pack when both sides
    *  accept, returned or forfeited by DUEL_RESOLVE. Persisted so closing the
    *  game mid-duel can't dupe the stake — an unresolved stake found on boot is
@@ -1667,8 +1673,10 @@ export interface WorldState {
   campfire?: { x: number; y: number; expiresAt: number } | null;
   /** An active Marrow Delve run: the current wave and kills left in it. Waves
    *  reveal flag-gated arena spawns; clearing the last pays the Delve Cache.
+   *  Past the fixed waves the run continues into endless DEPTH (`depth` ≥ 1),
+   *  each floor pressing harder — leave with your record or die to it.
    *  Session-only — dying or finishing ends the run. */
-  delve?: { wave: number; remaining: number } | null;
+  delve?: { wave: number; remaining: number; depth?: number } | null;
   /** When the wandering world boss next relocates along its patrol (runtime). */
   worldBossMoveAt?: number;
   /**

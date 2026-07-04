@@ -616,6 +616,14 @@ export const quests: QuestDef[] = [
       "Vorn would destroy it. Sera would keep it sealed and unread. Calder would have you complete the rite. Maret would have you walk away. Hear them — then settle your own belief, honestly, just once.",
     ],
     steps: [
+      // The climax is HEARD, not narrated: walk to each of the four who shaped
+      // this and let them say where they stand (their stance lines fire from
+      // each NPC while this quest is live — see spawns.ts reactive lines), then
+      // settle your own belief. Showing beats Serath summarising.
+      { type: "talk", npc: "vorn", text: "Hear Vorn of the Brotherhood — he would see it destroyed" },
+      { type: "talk", npc: "sera", text: "Hear Sera of the Pale Record — she would seal it unread" },
+      { type: "talk", npc: "calder", text: "Hear Calder of the Heartmoor — he would have you complete the rite" },
+      { type: "talk", npc: "maret", text: "Hear Maret of the Lodge — she would have you walk away" },
       {
         type: "choice",
         npc: "serath",
@@ -1856,7 +1864,11 @@ export const quests: QuestDef[] = [
     name: "The Pale Script",
     act: 4,
     giver: "maerwen",
+    // The second arc only opens once the Act I–III spine is finished — Maerwen
+    // employs you AFTER you've settled the shard and the warmth, not before. Ties
+    // Act IV to the main story it was drifting free of.
     requiresLevel: { skill: "vitality", level: 40 },
+    requiresFlags: ["varath_main_story_complete"],
     intro: [
       "You have the look of someone who goes down into places. Good — sit. I'm Maerwen. Sera keeps the Record's shelves; I fill them.",
       "A grave-digger out of the grove hamlets sold me a charcoal rubbing: Pale script, the old north-folk's hand, off a tablet in the Hollow Barrows. A running wolf, cut over and over, and a road going north.",
@@ -2090,6 +2102,128 @@ export const quests: QuestDef[] = [
       flags: ["q_ashen_widow_complete", "aw_sisters_stir"],
     },
   },
+
+  // === FACTION LADDER EXTENSIONS (Batch D / audit T3·03–04) ==================
+  // The pitch is "four factions converging on one stone," but the Lodge and Pale
+  // Record ladders were the shortest. These lengthen them — and the first also
+  // repairs the white-wolf dead-end: killing the wolf set `lenne_became_contact`
+  // with a promise ("Lenne will have to be your road into the Lodge now") that
+  // no quest ever honoured. Now it does.
+  {
+    id: "q_lodge_lenne",
+    name: "The Tracker's Road",
+    giver: "lenne",
+    // The wolf-killers' way into the Lodge — the road Maret's door closed on them.
+    requiresFlags: ["lenne_became_contact"],
+    blockedByFlags: ["guild_lodge_contacted"],
+    intro: [
+      "Maret won't have you at her fire — you know why. But the wood doesn't keep grudges the way people do, and neither do I. What you did to the white wolf, you did clean, or you didn't; I'll find out which by watching how you hunt.",
+      "Bring down the ridge wolves that have come too near the treeline, and cut me greyoak from the old growth so I can read the season in the rings. Track quiet. Kill only what's asked. Then we'll talk about the Lodge.",
+    ],
+    steps: [
+      { type: "kill", monster: "ridge_wolf", count: 3, text: "Thin the ridge wolves near the treeline (0/3)" },
+      { type: "gather", item: "greyoak_log", count: 3, text: "Cut 3 Greyoak from the old growth" },
+      {
+        type: "choice",
+        npc: "lenne",
+        text: "Answer Lenne, honestly, about the white wolf",
+        prompt: "Lenne asks, not unkindly: the white wolf — do you carry it, or have you already set it down?",
+        options: [
+          {
+            label: "I carry it. It wasn't nothing.",
+            flags: ["lenne_road_done", "lodge_wolf_carried"],
+            rep: [{ faction: "lodge", amount: 12 }],
+            reply: "Lenne studies you a long moment. 'Good. A hunter who feels the kill is a hunter the wood can trust with the next one. The Lodge is yours — the harder road in, but the same fire at the end of it.'",
+          },
+          {
+            label: "It was a beast in my way. Nothing more.",
+            flags: ["lenne_road_done", "lodge_wolf_dismissed"],
+            rep: [{ faction: "lodge", amount: 6 }],
+            reply: "Lenne's jaw tightens, but she nods. 'Honest, at least. I'll take you into the Lodge — the wood tests everyone in its own time. It'll test that answer out of you or into stone. We'll see which.'",
+          },
+        ],
+      },
+    ],
+    outro: [
+      "You've a tracker's road into the Lodge now — mine, not Maret's, but it ends at the same standing. Come back when you're ready to earn the next.",
+    ],
+    reward: {
+      xp: [{ skill: "draw", amount: 2600 }, { skill: "forestry", amount: 1400 }],
+      items: [{ item: "arrow_hearthite", qty: 30 }],
+      flags: ["guild_lodge_contacted", "guild_lodge_rank_2"],
+      gold: 350,
+      rep: [{ faction: "lodge", amount: 10 }],
+    },
+  },
+  {
+    id: "q_lodge_deepwood",
+    name: "What the Treeline Hides",
+    giver: "maret",
+    requiresFlags: ["guild_lodge_rank_2"],
+    intro: [
+      "Full standing suits you. So I'll trust you with the thing the Lodge doesn't say aloud: the old growth isn't just retreating. Something is pulling it back — a pace a season, always the same direction, always toward the deep dark we don't walk into.",
+      "I won't send you into that dark yet; I'm not sure anyone comes back the same. But the bears are fleeing it, into the cleared ground, savage with fear. Put them down, mark the new treeline for me, and bring back what the wood's been shedding at its edge. We measure. We don't guess. Not yet.",
+    ],
+    steps: [
+      { type: "kill", monster: "forest_bear", count: 3, text: "Put down the fear-maddened bears in the cleared ground (0/3)" },
+      { type: "gather", item: "greyoak_log", count: 5, text: "Mark the new treeline — cut 5 Greyoak boundary-marks" },
+    ],
+    outro: [
+      "The line's moved again — further than last season, and faster. I've logged it. Whatever's in the deep dark, it's still pulling, and one day the Lodge will have to answer why. Not today. Carry Warden's rank Three, and carry the question quiet.",
+      "(The retreating wood is a thread left deliberately open — the Lodge's next chapter.)",
+    ],
+    reward: {
+      xp: [{ skill: "vitality", amount: 4200 }, { skill: "forestry", amount: 2000 }],
+      items: [{ item: "greyoak_log", qty: 8 }],
+      flags: ["guild_lodge_rank_3", "lodge_deepwood_seen"],
+      gold: 600,
+      rep: [{ faction: "lodge", amount: 15 }],
+    },
+  },
+  {
+    id: "q_pale_record_r2",
+    name: "The Second Reading",
+    giver: "sera",
+    requiresFlags: ["guild_pale_record_rank_1"],
+    intro: [
+      "Chronicler. There's a second tablet — Maerwen swears it's the twin of the first, cut by the same hand, and it's gone into a grave-sentinel's keeping in the Sunken Court. The Record wants it read before someone with worse intentions reads it for us.",
+      "Lay the sentinel down, bring me the stone, and sit with me while we read it. Rank Two of the Pale Record isn't a title — it's the right to be in the room when the past says something new.",
+    ],
+    steps: [
+      { type: "kill", monster: "barrow_sentinel", count: 1, text: "Lay down the grave-sentinel that keeps the second tablet" },
+      { type: "gather", item: "shard_of_orun", count: 1, text: "Recover a clean Shard to steady the reading" },
+      {
+        type: "choice",
+        npc: "sera",
+        text: "Decide how the Record files the second reading",
+        prompt: "The tablet says the warmth was 'kept, not made.' Sera asks: do we shelve that plainly, or seal it deeper?",
+        options: [
+          {
+            label: "Shelve it plainly. The Record hides nothing.",
+            flags: ["pale_r2_done", "pale_r2_open"],
+            rep: [{ faction: "pale_record", amount: 12 }],
+            reply: "Sera copies it out in a clear hand. 'Kept, not made. Let the next reader make of it what we couldn't. That's the whole creed — we keep; we don't decide.'",
+          },
+          {
+            label: "Seal it deeper. Some readings aren't ready.",
+            flags: ["pale_r2_done", "pale_r2_sealed"],
+            rep: [{ faction: "pale_record", amount: 8 }],
+            reply: "Sera slides it into the inner vault. 'Cautious. Maybe wise. A thing kept sealed stays a question a little longer — and questions, we can be trusted with. Answers, less so.'",
+          },
+        ],
+      },
+    ],
+    outro: [
+      "Two tablets, one hand, and a warmth that was 'kept, not made.' Whatever that means, you're the Chronicler who brought it to the shelf. Rank Two, and the Record's deeper trust with it.",
+    ],
+    reward: {
+      xp: [{ skill: "vitality", amount: 3800 }, { skill: "faith", amount: 1600 }],
+      items: [{ item: "shard_of_orun", qty: 1 }],
+      flags: ["guild_pale_record_rank_2"],
+      gold: 500,
+      rep: [{ faction: "pale_record", amount: 15 }],
+    },
+  },
 ];
 
 // ---------------------------------------------------------------------------
@@ -2108,9 +2242,9 @@ const FACTION_QUESTS = new Set<string>([
   // Ashforge Brotherhood
   "q_hammer_and_name", "q_forge_apprentice", "q_berric_question",
   // Warden's Lodge
-  "q_white_in_the_trees", "q_lodge_trial",
+  "q_white_in_the_trees", "q_lodge_trial", "q_lodge_lenne", "q_lodge_deepwood",
   // The Pale Record
-  "q_pale_record_open",
+  "q_pale_record_open", "q_pale_record_r2",
   // The Heartmoor
   "q_hm_welcome", "q_hm_seam", "q_hm_devotion",
 ]);

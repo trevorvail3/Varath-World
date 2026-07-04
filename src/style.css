@@ -539,6 +539,19 @@ body {
   margin-top: 6px;
 }
 
+/* Records → Mastery & Ladders: prestige stars, Delve depth, the duel ladder. */
+.mastery-head { font-size: 13px; margin: 2px 0 8px; color: var(--ink-dim); }
+.mastery-head b { color: var(--ink); font-variant-numeric: tabular-nums; }
+.mastery-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+.mastery-chip {
+  font-size: 12px; padding: 3px 8px; border-radius: 999px;
+  background: rgba(200, 168, 74, 0.12); border: 1px solid rgba(200, 168, 74, 0.35);
+  white-space: nowrap;
+}
+.mastery-star { color: #d9b64a; letter-spacing: 1px; }
+.mastery-row { font-size: 13px; margin-top: 5px; display: flex; align-items: center; gap: 6px; }
+.mastery-row b { color: var(--ink); font-variant-numeric: tabular-nums; }
+
 /* Section divider within a tab (Worn, Companions, Achievements, Archive). */
 .tab-subhead {
   font-family: "Cinzel", serif;

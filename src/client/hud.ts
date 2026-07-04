@@ -2124,6 +2124,33 @@ export class Hud {
       `<div class="char-cape-bar"><div class="char-cape-fill" style="width:${collPct}%"></div></div></div>` +
       collCatsBody;
 
+    // Mastery: the long-tail prestige surfacing (audit T5·01–03). Master-stars
+    // count the 25M/50M/100M-XP tiers a skill has passed (past the level-100
+    // cap the game never showed), plus the Delve depth record and the duel ladder.
+    const STAR_TIERS = [25_000_000, 50_000_000, 100_000_000];
+    let totalStars = 0, fullMastery = 0, totalXp = 0;
+    const starRows = skillIds.map((id) => {
+      const xp = player.skills[id]?.xp ?? 0;
+      totalXp += xp;
+      const stars = STAR_TIERS.filter((t) => xp >= t).length;
+      if (stars >= 3) fullMastery += 1;
+      totalStars += stars;
+      const name = (this.content.skills[id] as { name?: string } | undefined)?.name ?? id;
+      return { name, stars, xp };
+    }).filter((r) => r.stars > 0).sort((a, b) => b.xp - a.xp);
+    const starChips = starRows.length
+      ? `<div class="mastery-chips">` + starRows.map((r) =>
+          `<span class="mastery-chip" title="${escapeHtml(r.name)} — ${r.xp.toLocaleString()} XP">${escapeHtml(r.name)} <span class="mastery-star">${"★".repeat(r.stars)}</span></span>`).join("") + `</div>`
+      : `<div class="tab-note">No master stars yet — earned at 25M, 50M and 100M XP in a skill, far past level 100.</div>`;
+    const depth = player.delveDepthRecord ?? 0;
+    const st = player.stats;
+    const dRating = st.duelRating, dBest = st.duelBestStreak ?? 0, dW = st.duelWins ?? 0, dL = st.duelLosses ?? 0;
+    const masteryBody =
+      `<div class="mastery-head">Total XP <b>${Math.round(totalXp).toLocaleString()}</b> · Master stars <b>${totalStars}</b>${fullMastery ? ` · 100M skills <b>${fullMastery}</b>` : ""}</div>` +
+      starChips +
+      `<div class="mastery-row">${iconize("🕳️")} Deepest Delve — ${depth > 0 ? `<b>Depth ${depth}</b>` : "not yet past the gauntlet"}</div>` +
+      `<div class="mastery-row">${iconize("⚔️")} Duel ladder — ${dRating !== undefined ? `Rating <b>${dRating}</b> · best streak <b>${dBest}</b> · ${dW}W/${dL}L` : "step into the ring to earn a rating"}</div>`;
+
     // The top-level sections.
     const section = (key: string, title: string, count: string, body: string): string => {
       const open = this.openSecs.has(key);
@@ -2134,6 +2161,7 @@ export class Hud {
       section("bosslog", "Boss Log", `${bossSlain}/${bosses.length}`, bossBody) +
       section("collection", "Collection Log", `${collDone}/${collTotal} \u00b7 ${collPct}%`, collBody) +
       section("cape", "Cape of Varath", capeOwned ? "Earned" : `${capeMaxed}/${skillIds.length}`, capeBody) +
+      section("mastery", "Mastery & Ladders", totalStars > 0 ? `${totalStars}★` : (depth > 0 ? `Depth ${depth}` : "—"), masteryBody) +
       section("companions", "Companions", `${compOwned}/${comps.length}`, compBody) +
       section("achievements", "Achievements", `${player.achievements.length}/${achTotal}`, achBody) +
       section("archive", "Archive", `${player.lore.length}/${loreTotal}`, loreBody);

@@ -347,6 +347,11 @@ const rawObjects: WorldObjectDef[] = [
       "Teach yourself on cold ash and guesswork long enough and the metal starts telling you things. Stay, and I'll tell you the rest.",
     ],
     reactiveLines: [
+      // The Four Positions — Vorn speaks his stance while that quest is live.
+      { requiresFlags: ["act3_staged"], blockedByFlags: ["act3_finale_ready"], lines: [
+        "So it comes to this, and they've sent you round to hear us all out. Fine. Here's mine, no dressing.",
+        "That thing is a question with no clean end, and a question like that eats a kingdom alive. Destroy it. Put it in the deepest fire and let the fire decide, the way we settle everything worth settling. Seal it and someone digs it up. Study it and someone believes it. Burn it and it's DONE. That's not cruelty — that's mercy, the only kind that lasts.",
+      ] },
       { requiresFlags: ["endgame_shard_destroyed"], lines: [
         "You burned it in the deepest fire. The only clean answer to a question that was never going to have one.",
         "Good. Some things you don't seal, and you don't study, and you don't pray to. You put them in the forge and you let the forge decide. Brotherhood's proud of you — I'm proud of you.",
@@ -371,6 +376,11 @@ const rawObjects: WorldObjectDef[] = [
       "Bring me a thing with a question on it and I'll give it a home instead of a shelf over a hearth.",
     ],
     reactiveLines: [
+      // The Four Positions — Sera speaks her stance while that quest is live.
+      { requiresFlags: ["act3_staged"], blockedByFlags: ["act3_finale_ready"], lines: [
+        "You've come to hear the Record's position before you decide. I'll give it to you plainly, though it's the least satisfying of the four.",
+        "Don't destroy it — you'd be burning a page no one has read. Don't complete the rite — you'd be answering a question we don't understand well enough to ask. Seal it. Ward it. Let it stay unread, and unresolved, in a vault where the next hundred generations can be trusted with it more than we can. A thing kept a question stays holy. A thing forced to an answer just becomes another lie people kill over. Keep it open. That is the whole of my faith.",
+      ] },
       { requiresFlags: ["act2_pass_open"], lines: [
         "The north road is open, and the Record has a new first shelf. Maerwen wants to call the volume 'The Silence Beyond the Spine'. I told her the silence is over — she said that's the point of the title.",
       ] },
@@ -854,6 +864,7 @@ const rawObjects: WorldObjectDef[] = [
   { id: "gw_oak_5", kind: "tree", x: 24, y: 60, name: "Greyoak (Old Growth)", resource: "fell_greyoak", species: "greyoak" },
   { id: "maret", kind: "npc", x: 22, y: 53, name: "Maret", lines: ["Stranger on the Lodge road. You'll forgive the look — the wood teaches you to measure people.","This is Greyoak. Old before Ironvale was a name. The boar keep to the understory; give the deep wood its distance and it gives you yours.","Every season the old growth pulls back a little further. We mark the new treeline against the last. We do not ask what walks in the cleared ground.","Bring an axe worth the name and the greyoak will pay you in timber. Bring less and it will only blunt you."],
     reactiveLines: [
+      { requiresFlags: ["act3_staged"], blockedByFlags: ["act3_finale_ready"], lines: ["So they've sent you round the four of us. Good. Sit. Here's the Lodge's answer, and it's the one none of them will say to your face.","Walk away. Don't burn it, don't shelve it, don't kneel to it. Leave it in the ground it chose and go live a life that isn't about it. Every one of them — Vorn, Sera, Calder — wants to be the hand that DECIDES. That's the trap. The stone doesn't need deciding. It needs leaving be. The strongest thing you'll ever do is set it down and let it stay a mystery you didn't have to solve. The wood does that every season. So can you."] },
       { requiresFlags: ["endgame_shard_walked_away"], lines: ["You set it down and walked out of the story. Do you know how few could? Everyone else wanted to be the one who decided.","You chose the smaller, truer life. The wood understands that better than any of them. Come sit by the fire — you've earned a quiet one."] },
       { requiresFlags: ["guild_lodge_rank_2"], lines: ["Warden. Full standing, full trust. The wood took its time deciding about you — it always does — but it decided, and it doesn't go back on that.","Caelwyn's longbow suits your hand. Carry it into the deep growth and it'll remember the way, even when you don't."] },
       { requiresFlags: ["knows_forest_retreat"], lines: ["You've seen what pulls the treeline back. Carry it quiet a while yet. The wood will tell us what it means when it's ready — not before."] },
@@ -895,6 +906,7 @@ const rawObjects: WorldObjectDef[] = [
   // === HEARTMOOR (south-west) ===============================================
   { id: "calder", kind: "npc", x: 17, y: 82, name: "Calder", lines: ["Cold road, isn't it. Sit a moment — there's always a fire going at the moor's edge, and food for whoever the road gives out on.","We're the Heartmoor faithful. No, don't make the face. We feed people. What you do with the rest of it is your business.","The peat keeps things. Bog-bodies, old swords, older questions. And the warm seams — Hearthite, black and almost living. Rock, the miners say. We say otherwise. Both are true of the same stone.","Go careful past the pools. The bog knights don't sleep, and the serpents are patient."],
     reactiveLines: [
+      { requiresFlags: ["act3_staged"], blockedByFlags: ["act3_finale_ready"], lines: ["You've come to the fire to hear the Heartmoor's answer before you choose. I'll give it to you warm and honest, the way we give everything.","Complete the rite. Not for us — for the answer itself. Vorn wants to burn the question so no one has to feel it. Sera wants to bury it so no one has to face it. Maret wants you to turn your back and call the turning strength. And I'm telling you: the bravest thing, the FAITHFUL thing, is to ask. Do the rite. Let the warmth answer, whatever it answers. A god or a stone or something with no word yet — but ANSWERED, out loud, once, instead of hidden or feared forever. That's not recklessness. That's the only real courage any of the four of us is offering you."] },
       { requiresFlags: ["the_warmth_answered"], lines: ["The warmth answered. Whatever you meant by the doing of it, the Heartmoor felt it move under the world — every one of us, at the same breath.","We always said it would answer, if someone only had the nerve to ask. You had the nerve. Sit at the fire, faithful. It's as much yours as mine now."] },
       { requiresFlags: ["hm_faithful"], lines: ["You tended the seam, you broke the old watch at the Barrow, and you're still here at the fire. You're faithful now, in the only way that ever mattered — the staying.","The warmth keeps who it keeps. It kept you."] },
       { requiresFlags: ["hm_joined"], lines: ["You came to the moor's edge to understand the warm stone instead of just selling it. That's the whole beginning of faith, right there. The rest is only time at the fire."] },

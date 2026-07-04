@@ -65,8 +65,10 @@ export interface SavedProgress {
   gold: number;
   /** Faction standings. */
   reputation: Record<string, number>;
-  /** Cumulative achievement tallies. */
-  stats: { goldEarned: number; monstersSlain: number };
+  /** Cumulative achievement tallies (incl. the duel ladder: rating/streak/record). */
+  stats: { goldEarned: number; monstersSlain: number; duelWins?: number; duelLosses?: number; duelRating?: number; duelStreak?: number; duelBestStreak?: number };
+  /** Deepest Marrow Delve endless-depth floor reached. */
+  delveDepthRecord?: number;
   /** Per-boss kill tallies, keyed by monster id. */
   bossKills?: Record<string, number>;
   /** Claimed boss kill-milestone keys ("<bossId>:<kills>"). */
@@ -175,6 +177,7 @@ export function serializePlayer(state: WorldState): SavedProgress {
     bossMilestonesClaimed: [...player.bossMilestonesClaimed],
     playMs: player.playMs,
     delveLastFullPlayMs: player.delveLastFullPlayMs ?? 0,
+    delveDepthRecord: player.delveDepthRecord ?? 0,
     achievements: [...player.achievements],
     diariesClaimed: [...player.diariesClaimed],
     tradesApplied: [...player.tradesApplied],
@@ -408,6 +411,15 @@ export function hydratePlayer(
     const g = savedStats["goldEarned"], k = savedStats["monstersSlain"];
     if (finiteNum(g) && g >= 0) player.stats.goldEarned = Math.floor(g);
     if (finiteNum(k) && k >= 0) player.stats.monstersSlain = Math.floor(k);
+    // The duel ladder — these were serialized but never read back (a latent bug);
+    // the PvP rating/streak/record only persist because of this block now.
+    const dw = savedStats["duelWins"], dl = savedStats["duelLosses"];
+    const dr = savedStats["duelRating"], ds = savedStats["duelStreak"], db = savedStats["duelBestStreak"];
+    if (finiteNum(dw) && dw >= 0) player.stats.duelWins = Math.floor(dw);
+    if (finiteNum(dl) && dl >= 0) player.stats.duelLosses = Math.floor(dl);
+    if (finiteNum(dr) && dr >= 0) player.stats.duelRating = Math.floor(dr);
+    if (finiteNum(ds) && ds >= 0) player.stats.duelStreak = Math.floor(ds);
+    if (finiteNum(db) && db >= 0) player.stats.duelBestStreak = Math.floor(db);
   }
   const savedBossKills = raw["bossKills"];
   if (isRecord(savedBossKills)) {
@@ -424,6 +436,8 @@ export function hydratePlayer(
   if (finiteNum(savedPlay) && savedPlay >= 0) player.playMs = Math.floor(savedPlay);
   const savedDelve = raw["delveLastFullPlayMs"];
   if (finiteNum(savedDelve) && savedDelve > 0) player.delveLastFullPlayMs = Math.floor(savedDelve);
+  const savedDepth = raw["delveDepthRecord"];
+  if (finiteNum(savedDepth) && savedDepth > 0) player.delveDepthRecord = Math.floor(savedDepth);
   const savedPity = raw["killsSinceShard"];
   if (finiteNum(savedPity) && savedPity >= 0) player.killsSinceShard = Math.floor(savedPity);
   const savedLaps = raw["trailLaps"];

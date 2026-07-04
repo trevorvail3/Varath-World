@@ -34,6 +34,10 @@ export interface HiscoreEntry {
   /** Duel Ring record — the public Wins Board ranks by victories. */
   duelWins?: number;
   duelLosses?: number;
+  /** Duel ladder rating — the PvP prestige number (see DUEL_RATING_BASE). */
+  duelRating?: number;
+  /** Sum of raw XP across all skills — the prestige long-tail past level 100. */
+  totalXp?: number;
   /** This angler's single heaviest pier catch — for the shared records board.
    *  `pierSpecies` is an index into content.pierFish. */
   pierWeight?: number;
@@ -63,6 +67,7 @@ export function entryFromSave(raw: unknown, content: Content): HiscoreEntry | nu
   const ids = Object.keys(skills) as SkillId[];
   if (ids.length === 0) return null;
   const totalLevel = ids.reduce((n, id) => n + lvl(id), 0);
+  const totalXp = ids.reduce((n, id) => n + num(skills[id]), 0);
   // Mirrors combatLevel() in worldCore: base (ward+vitality) plus the strongest
   // offensive style — melee (edge+vigour), ranged (draw) or magic/Devotion (faith).
   const combat = Math.floor(
@@ -98,6 +103,8 @@ export function entryFromSave(raw: unknown, content: Content): HiscoreEntry | nu
     trailLaps: num(r["trailLaps"]),
     duelWins: num(stats["duelWins"]),
     duelLosses: num(stats["duelLosses"]),
+    duelRating: num(stats["duelRating"]),
+    totalXp,
     pierWeight,
     pierLength,
     pierSpecies,
@@ -138,6 +145,8 @@ function rowToEntry(row: Record<string, unknown>): HiscoreEntry {
     e.trailLaps = num(sk["__trail_laps"]);
     e.duelWins = num(sk["__duel_w"]);
     e.duelLosses = num(sk["__duel_l"]);
+    e.duelRating = num(sk["__duel_r"]);
+    e.totalXp = num(sk["__total_xp"]);
     e.pierWeight = num(sk["__pier_w"]) / 10;
     e.pierLength = num(sk["__pier_len"]);
     e.pierSpecies = num(sk["__pier_sp"]);
@@ -145,6 +154,8 @@ function rowToEntry(row: Record<string, unknown>): HiscoreEntry {
     delete sk["__trail_laps"];
     delete sk["__duel_w"];
     delete sk["__duel_l"];
+    delete sk["__duel_r"];
+    delete sk["__total_xp"];
     delete sk["__pier_w"];
     delete sk["__pier_len"];
     delete sk["__pier_sp"];
@@ -189,6 +200,8 @@ class SupabaseSocialBackend implements SocialBackend {
             __trail_laps: entry.trailLaps ?? 0,
             __duel_w: entry.duelWins ?? 0,
             __duel_l: entry.duelLosses ?? 0,
+            __duel_r: entry.duelRating ?? 0,
+            __total_xp: entry.totalXp ?? 0,
             // Best pier catch: weight ×10 (keeps one decimal as an int), length, species index.
             __pier_w: Math.round((entry.pierWeight ?? 0) * 10),
             __pier_len: entry.pierLength ?? 0,

@@ -1860,6 +1860,8 @@ export const monsters: Record<string, MonsterStats> = {
       { item: "big_bones", chance: 1, tier: "always" },
       { item: "worn_coin", chance: 1, min: 400, max: 900, tier: "always" },
       { item: "cloak_greyback", chance: 0.025, tier: "legendary" },
+      // The world boss now has a pet of its own (also the 100-kill milestone pet).
+      { item: "pet_greyback", chance: 0.004, tier: "legendary" },
       { item: "hearthite_bar", chance: 0.35, min: 1, max: 2, tier: "uncommon" },
       { item: "cut_gem", chance: 0.4, min: 1, max: 2, tier: "uncommon" },
       { item: "shard_of_orun", chance: 0.03, tier: "legendary" },

@@ -18,7 +18,9 @@ type Metric = { key: keyof HiscoreEntry; label: string; fmt: (e: HiscoreEntry) =
 
 const METRICS: Metric[] = [
   { key: "totalLevel", label: "Total", fmt: (e) => e.totalLevel.toLocaleString() },
+  { key: "totalXp", label: "Total XP", fmt: (e) => (e.totalXp ?? 0).toLocaleString() },
   { key: "combat", label: "Combat", fmt: (e) => String(e.combat) },
+  { key: "duelRating", label: "Duel", fmt: (e) => String(e.duelRating ?? 0) },
   { key: "playMs", label: "Played", fmt: (e) => fmtPlay(e.playMs) },
   { key: "diaries", label: "Diaries", fmt: (e) => String(e.diaries) },
   { key: "monstersSlain", label: "Slain", fmt: (e) => e.monstersSlain.toLocaleString() },
