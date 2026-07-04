@@ -25,9 +25,10 @@
 import type { Content, Intent, ItemId, Player } from "../core/types.ts";
 import {
   DUEL_MAX_TICKS, DUEL_TICK_MS, duelCreate, duelHash, duelSeed, duelStart, duelStep,
+  fighterFingerprint,
   type DuelEvent, type DuelFighter, type DuelIntent, type DuelState,
 } from "../core/duelCore.ts";
-import { duelFighterFrom } from "../core/worldCore.ts";
+import { duelEquip, duelFighterFrom, duelStatsFor } from "../core/worldCore.ts";
 import { currentUser, rest } from "./supabase.ts";
 
 export interface StakeItem { item: ItemId; qty: number }
@@ -382,7 +383,7 @@ export class DuelSession {
       this.transport.send({
         k: "ticks", duelId: this.duelId, from: this.myId, through: this.myThrough,
         intents: send ? send[1].map((i) => [send[0], i] as [number, DuelIntent]) : [],
-        ...(hashTick !== null && this.state ? { hash: [hashTick, this.myHashes.get(hashTick) ?? duelHash(this.state)] as [number, number] } : {}),
+        ...(hashTick !== null && this.state ? { hash: [hashTick, this.myHashes.get(hashTick) ?? this.frameHash()] as [number, number] } : {}),
       });
       this.advance();
       // A silent partner forfeits: no packets for FORFEIT_MS mid-fight.
@@ -395,6 +396,14 @@ export class DuelSession {
     this.onChange();
   }
 
+  /** The desync fingerprint: the replicated state plus both fighters' live
+   *  stats (so a gear swap that diverges between clients is caught). */
+  private frameHash(): number {
+    if (!this.state) return 0;
+    const [a, b] = this.fightersAB();
+    return duelHash(this.state) ^ fighterFingerprint(a) ^ Math.imul(fighterFingerprint(b), 31);
+  }
+
   /** Step the sim for every tick BOTH intent streams cover. */
   private advance(): void {
     const st = this.state;
@@ -405,19 +414,39 @@ export class DuelSession {
       // My intents live under my (mine) map; map both onto the shared a/b order.
       const myAt = this.myIntents.get(next) ?? [];
       const theirAt = this.theirIntents.get(next) ?? [];
-      const evs = duelStep(st, { a, b }, {
-        a: this.iAmA ? myAt : theirAt,
-        b: this.iAmA ? theirAt : myAt,
-      });
+      const aAt = this.iAmA ? myAt : theirAt;
+      const bAt = this.iAmA ? theirAt : myAt;
+      // Gear swaps resolve in the same a-then-b order as duelStep, BEFORE the
+      // tick's swings — so this tick's blow uses the new weapon. duelStep only
+      // reads eat/spec (it ignores equip intents), so the fighter mutation here
+      // is the whole of the swap. Both clients recompute from identical kits.
+      this.applyEquips("a", a, next, aAt);
+      this.applyEquips("b", b, next, bAt);
+      const evs = duelStep(st, { a, b }, { a: aAt, b: bAt });
       this.frameEvents.push(...evs);
       if (st.tick % HASH_EVERY === 0) {
-        const h = duelHash(st);
+        const h = duelHash(st) ^ fighterFingerprint(a) ^ Math.imul(fighterFingerprint(b), 31);
         this.myHashes.set(st.tick, h);
         const theirs = this.theirHashes.get(st.tick);
         if (theirs !== undefined && theirs !== h) { this.voidDuel(); return; }
       }
     }
     if (st.over) this.finish(st.winner);
+  }
+
+  /** Apply this side's gear-swap intents for a tick, recomputing its stats. */
+  private applyEquips(side: "a" | "b", fighter: DuelFighter, tick: number, intents: DuelIntent[]): void {
+    for (const it of intents) {
+      if (it.t !== "equip") continue;
+      const res = duelEquip(fighter.bench, fighter.equipment, fighter.kit, it.item, this.content);
+      if (!res) continue;
+      fighter.bench = res.bench;
+      fighter.equipment = res.equipment;
+      const s = duelStatsFor(fighter.kit, fighter.equipment, this.content);
+      fighter.acc = s.acc; fighter.dmg = s.dmg; fighter.def = s.def;
+      fighter.speedTicks = s.speedTicks; fighter.ranged = s.ranged;
+      this.frameEvents.push({ tick, side, kind: "equip", item: it.item });
+    }
   }
 
   /** Any desync = nobody's fight: both stakes come home. */

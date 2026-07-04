@@ -5676,31 +5676,101 @@ function playerDefence(player: Player, content: Content): number {
  * only ever exchange intents.
  */
 export function duelFighterFrom(player: Player, content: Content): import("./duelCore.ts").DuelFighter {
-  const ranged = isRanged(player, content);
-  const acc = ranged ? rangedAccuracy(player, content) : playerAccuracy(player, content);
-  const dmg = ranged ? rangedMaxHit(player, content) : playerMaxHit(player, content);
   const food: { item: ItemId; heal: number; count: number }[] = [];
+  const bench: ItemId[] = [];
   for (const slot of player.inventory) {
     if (!slot) continue;
-    const heals = content.items[slot.item]?.heals ?? 0;
-    if (heals <= 0) continue;
-    const ex = food.find((f) => f.item === slot.item);
-    if (ex) ex.count += slot.qty;
-    else food.push({ item: slot.item, heal: heals, count: slot.qty });
+    const def = content.items[slot.item];
+    const heals = def?.heals ?? 0;
+    if (heals > 0) {
+      const ex = food.find((f) => f.item === slot.item);
+      if (ex) ex.count += slot.qty;
+      else food.push({ item: slot.item, heal: heals, count: slot.qty });
+    }
+    // Equippable combat gear carried into the ring becomes the switch pool
+    // (arrows/mounts/companions aren't swap targets in a stationary duel).
+    const eslot = def?.slot;
+    if (eslot && EQUIP_SLOTS.has(eslot) && eslot !== "ammo" && eslot !== "mount" && eslot !== "companion") {
+      for (let i = 0; i < slot.qty; i++) bench.push(slot.item);
+    }
   }
+  const kit: import("./duelCore.ts").DuelKit = {
+    skills: player.skills,
+    combatStyle: player.combatStyle,
+    buffs: player.buffs,
+  };
+  const stats = duelStatsFor(kit, player.equipment, content);
   return {
     name: player.appearance.name,
     look: player.appearance,
     equipment: { ...player.equipment },
     combatLevel: combatLevel(player),
     maxHp: player.maxHp,
-    acc,
-    dmg,
-    def: playerDefence(player, content),
-    speedTicks: Math.max(3, Math.round(playerSpeed(player, content) / 600)),
-    ranged,
+    ...stats,
     food,
+    bench,
+    kit,
   };
+}
+
+/** Re-derive a fighter's combat stats from a frozen kit + a worn-gear set — the
+ *  SAME formulas duelFighterFrom uses, factored out so a mid-fight gear swap
+ *  recomputes identically on both clients (see duelCore's DuelKit). */
+export function duelStatsFor(
+  kit: import("./duelCore.ts").DuelKit,
+  equipment: Partial<Record<EquipSlot, ItemId>>,
+  content: Content,
+): { acc: number; dmg: number; def: number; speedTicks: number; ranged: boolean } {
+  // A stub with only the fields the combat formulas read (skills/equipment/
+  // style/buffs). Cast is safe: playerAccuracy et al. touch nothing else.
+  const stub = { skills: kit.skills, equipment, combatStyle: kit.combatStyle, buffs: kit.buffs } as unknown as Player;
+  const ranged = isRanged(stub, content);
+  return {
+    acc: ranged ? rangedAccuracy(stub, content) : playerAccuracy(stub, content),
+    dmg: ranged ? rangedMaxHit(stub, content) : playerMaxHit(stub, content),
+    def: playerDefence(stub, content),
+    speedTicks: Math.max(3, Math.round(playerSpeed(stub, content) / 600)),
+    ranged,
+  };
+}
+
+/**
+ * Wear a bench piece mid-duel, mirroring the pack-equip rules (slot target,
+ * level requirement, two-hand conflicts) but moving displaced gear back to the
+ * bench instead of the pack. Pure and deterministic: both clients run it on
+ * identical inputs, so the resulting worn set — and the recomputed stats — match.
+ * Returns null if the swap is illegal (wrong slot, level too low, not on bench).
+ */
+export function duelEquip(
+  bench: ItemId[],
+  equipment: Partial<Record<EquipSlot, ItemId>>,
+  kit: import("./duelCore.ts").DuelKit,
+  item: ItemId,
+  content: Content,
+): { bench: ItemId[]; equipment: Partial<Record<EquipSlot, ItemId>> } | null {
+  const def = content.items[item];
+  const eslot = def?.slot;
+  if (!eslot || !EQUIP_SLOTS.has(eslot) || eslot === "ammo" || eslot === "mount" || eslot === "companion") return null;
+  const idx = bench.indexOf(item);
+  if (idx === -1) return null; // must be carried into the ring
+  // Honour the wield requirement against the frozen kit's skills.
+  const req = equipRequirement(content, item);
+  if (req && (kit.skills[req.skill]?.level ?? 1) < req.level) return null;
+
+  const target = eslot as EquipSlot;
+  const nextBench = bench.slice();
+  nextBench.splice(idx, 1);
+  const nextEquip = { ...equipment };
+  const stow = (id: ItemId | undefined): void => { if (id) nextBench.push(id); };
+  // Two-hand conflicts, same as the pack equip: a two-hander clears the offhand;
+  // an offhand clears a worn two-hander.
+  if (target === "mainhand" && def.twoHand) stow(nextEquip.offhand), delete nextEquip.offhand;
+  if (target === "offhand" && nextEquip.mainhand && content.items[nextEquip.mainhand]?.twoHand) {
+    stow(nextEquip.mainhand); delete nextEquip.mainhand;
+  }
+  stow(nextEquip[target]);   // whatever was in the slot goes back to the bench
+  nextEquip[target] = item;
+  return { bench: nextBench, equipment: nextEquip };
 }
 
 /** The player's swing interval (ms): the active weapon's speed, or default. */

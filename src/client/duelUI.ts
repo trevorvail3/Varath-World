@@ -25,6 +25,7 @@ export class DuelUI {
   private open = false;
   private lastPhase = "idle";
   private lastLobbySig = "";
+  private lastKitSig = "";
   private splats: Splat[] = [];
   private raf = 0;
 
@@ -241,6 +242,8 @@ export class DuelUI {
       this.modal.innerHTML = `
         <div class="duel-head"><span class="duel-title">${iconize("⚔️")} vs ${escapeHtml(v.partnerName)}</span></div>
         <canvas class="duel-arena" width="420" height="230"></canvas>
+        <div class="duel-kit-head">Your kit — tap gear to switch, food to eat</div>
+        <div class="duel-kit"></div>
         <div class="duel-actions fight">
           <button class="duel-btn eat" type="button">Eat</button>
           <button class="duel-btn spec" type="button">${iconize("⚡")} Special</button>
@@ -252,10 +255,47 @@ export class DuelUI {
         e.stopPropagation();
         if (window.confirm("Forfeit the duel? Your stake is lost.")) this.session.cancel();
       });
+      this.lastKitSig = "";
       const loop = (): void => { this.drawArena(); this.raf = requestAnimationFrame(loop); };
       this.raf = requestAnimationFrame(loop);
     }
     this.drawArena();
+  }
+
+  /** The switch strip: worn-swappable gear + food, tappable. Rebuilt only when
+   *  the kit changes (bench/food shift), so taps aren't dropped every frame. */
+  private updateKit(v: ReturnType<DuelSession["view"]>): void {
+    const el = this.modal.querySelector(".duel-kit") as HTMLElement | null;
+    const me = v.me;
+    const st = v.state;
+    if (!el || !me || !st) return;
+    const side = v.iAmA ? st.a : st.b;
+    // Food remaining = carried minus what this side has eaten.
+    const eaten = new Map<string, number>();
+    for (const e of side.eaten) eaten.set(e.item, (eaten.get(e.item) ?? 0) + e.count);
+    const foods = me.food
+      .map((f) => ({ item: f.item, heal: f.heal, left: f.count - (eaten.get(f.item) ?? 0) }))
+      .filter((f) => f.left > 0);
+    // Bench gear, grouped by item id with a count.
+    const gear = new Map<string, number>();
+    for (const b of me.bench) gear.set(b, (gear.get(b) ?? 0) + 1);
+    const sig = `${[...gear].map(([i, n]) => `${i}:${n}`).join(",")}|${foods.map((f) => `${f.item}:${f.left}`).join(",")}`;
+    if (sig === this.lastKitSig) return;
+    this.lastKitSig = sig;
+
+    const chip = (item: ItemId, badge: string, kind: "gear" | "food"): string => {
+      const def = this.content.items[item];
+      return `<button class="duel-kit-chip ${kind}" data-item="${escapeHtml(item)}" data-kind="${kind}" title="${escapeHtml(def?.name ?? item)}">${def ? itemIconSVG(def) : ""}${badge ? `<span class="duel-kit-badge">${badge}</span>` : ""}</button>`;
+    };
+    const gearHtml = [...gear.entries()].map(([item, n]) => chip(item as ItemId, n > 1 ? String(n) : "", "gear")).join("");
+    const foodHtml = foods.map((f) => chip(f.item, String(f.left), "food")).join("");
+    el.innerHTML = (gearHtml + foodHtml) || `<span class="duel-kit-empty">You brought no switches or food.</span>`;
+    el.querySelectorAll(".duel-kit-chip").forEach((c) => c.addEventListener("pointerdown", (e) => {
+      e.stopPropagation();
+      const item = (c as HTMLElement).dataset["item"] as ItemId;
+      if ((c as HTMLElement).dataset["kind"] === "gear") this.session.act({ t: "equip", item });
+      else this.session.act({ t: "eat", item });
+    }));
   }
 
   private pushSplat(e: DuelEvent): void {
@@ -263,11 +303,13 @@ export class DuelUI {
     else if (e.kind === "miss") this.splats.push({ side: e.side === "a" ? "b" : "a", text: "0", color: "#5a74a4", born: performance.now() });
     else if (e.kind === "eat") this.splats.push({ side: e.side, text: `+${e.value}`, color: "#5fd06a", born: performance.now() });
     else if (e.kind === "spec") this.splats.push({ side: e.side, text: "SPEC!", color: "#f2cf6b", born: performance.now() });
+    else if (e.kind === "equip") this.splats.push({ side: e.side, text: "SWAP", color: "#c9a24a", born: performance.now() });
   }
 
   private drawArena(): void {
     const v = this.session.view();
     for (const e of v.events) this.pushSplat(e);
+    this.updateKit(v);
     const cv = this.modal.querySelector(".duel-arena") as HTMLCanvasElement | null;
     const st = v.state;
     if (!cv || !st || !v.me || !v.foe) return;
@@ -304,6 +346,10 @@ export class DuelUI {
       g.textAlign = "center";
       g.fillStyle = "#eddfba";
       g.fillText(`${f.name} (${f.combatLevel})`, x, 22);
+      // The live style — updates the instant a bow or blade is swapped in.
+      g.font = "600 9px 'EB Garamond', serif";
+      g.fillStyle = f.ranged ? "#8fd0a0" : "#d9a679";
+      g.fillText(f.ranged ? "RANGED" : "MELEE", x, 47);
       // spec pips under the bar
       g.fillStyle = "#8fb7f0";
       g.fillRect(x - 58, 36, 116 * (s.spec / 100), 2.5);

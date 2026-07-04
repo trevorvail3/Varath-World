@@ -2763,6 +2763,25 @@ button.inv-slot {
   width: 100%; border-radius: 8px; border: 1px solid var(--panel-edge);
   background: #141009; display: block;
 }
+.duel-kit-head { font-family: "Cinzel", serif; font-size: 10px; color: var(--ink-dim); letter-spacing: 0.03em; }
+.duel-kit {
+  display: flex; flex-wrap: wrap; gap: 4px; min-height: 44px; align-content: flex-start;
+  padding: 4px; border: 1px solid var(--panel-edge); border-radius: 8px; background: rgba(0,0,0,0.2);
+  max-height: 96px; overflow-y: auto;
+}
+.duel-kit-chip {
+  position: relative; width: 38px; height: 38px; padding: 2px; cursor: pointer;
+  background: rgba(0,0,0,0.28); border: 1px solid var(--panel-edge); border-radius: 6px;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.duel-kit-chip svg { width: 28px; height: 28px; }
+.duel-kit-chip.gear:hover { border-color: var(--gold); }
+.duel-kit-chip.food:hover { border-color: #5fd06a; }
+.duel-kit-badge {
+  position: absolute; right: 1px; bottom: 0; font-size: 10px; color: #ffe9a8;
+  text-shadow: 0 1px 2px #000; font-family: "EB Garamond", serif;
+}
+.duel-kit-empty { font-family: "EB Garamond", serif; font-size: 12px; color: var(--ink-dim); font-style: italic; padding: 8px; }
 
 /* --- Login gate (shown before character creation) --- */
 .login-backdrop {

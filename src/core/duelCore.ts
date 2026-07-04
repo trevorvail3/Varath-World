@@ -21,7 +21,7 @@
  * "each client applies its own half" trust model live trading already uses.
  */
 
-import type { Appearance, EquipSlot, ItemId } from "./types.ts";
+import type { Appearance, CombatStyle, EquipSlot, ItemId, Player } from "./types.ts";
 
 /** One duel tick, in real milliseconds (matches the world's combat feel). */
 export const DUEL_TICK_MS = 600;
@@ -44,8 +44,23 @@ const HIT_CAP = 0.95;
 /** A bite of food carried into the ring: what it heals and what it was. */
 export interface DuelFood { item: ItemId; heal: number; count: number }
 
-/** Everything the fight needs to know about one combatant — a SNAPSHOT taken
- *  when the stakes lock, so mid-duel bank runs can't change the fight. */
+/**
+ * The recompute kit: the player state the combat formulas read, frozen at
+ * snapshot time, so BOTH clients can re-derive a fighter's stats when they swap
+ * gear mid-fight. Skills/style/buffs never change during a duel; only the worn
+ * `equipment` does, and equipment lives on the fighter itself. Because the kit
+ * and the swap intent are identical on both machines, the recompute agrees.
+ */
+export interface DuelKit {
+  skills: Player["skills"];
+  combatStyle: CombatStyle;
+  buffs: Record<string, { amount: number; until: number }>;
+}
+
+/** Everything the fight needs to know about one combatant. Stats are a SNAPSHOT
+ *  taken when the stakes lock (no mid-duel bank runs), but the OSRS switch game
+ *  is preserved: `bench` is the swappable gear carried into the ring, and `kit`
+ *  lets both sims recompute acc/dmg/def/speed when a piece is equipped. */
 export interface DuelFighter {
   name: string;
   /** Cosmetics so the ring can draw the real person (look + worn gear ids). */
@@ -60,6 +75,10 @@ export interface DuelFighter {
   speedTicks: number;
   ranged: boolean;
   food: DuelFood[];
+  /** Equippable gear brought into the ring but not worn — the switch pool. */
+  bench: ItemId[];
+  /** Frozen player state for recomputing stats on a mid-fight gear swap. */
+  kit: DuelKit;
 }
 
 /** The live, replicated state of one side. */
@@ -72,13 +91,17 @@ export interface DuelSideState {
   eaten: DuelFood[];   // consumed bites, settled against the real pack after
 }
 
-export type DuelIntent = { t: "eat" } | { t: "spec" };
+export type DuelIntent =
+  | { t: "eat"; item?: ItemId }   // eat a specific food, or the biggest bite
+  | { t: "spec" }
+  | { t: "equip"; item: ItemId }; // swap a bench piece into its slot
 
 export interface DuelEvent {
   tick: number;
-  side: "a" | "b";        // who ACTED (swung / ate / armed)
-  kind: "hit" | "miss" | "eat" | "spec" | "end";
+  side: "a" | "b";        // who ACTED (swung / ate / armed / swapped)
+  kind: "hit" | "miss" | "eat" | "spec" | "equip" | "end";
   value?: number;         // damage dealt or HP healed
+  item?: ItemId;          // the food eaten or the gear equipped
 }
 
 export interface DuelState {
@@ -135,12 +158,23 @@ function hitChance(att: number, def: number): number {
   return clamp(att / (att + def * DEF_WEIGHT), HIT_FLOOR, HIT_CAP);
 }
 
-/** Best remaining bite in the snapshot's satchel (biggest heal first). */
-function nextBite(f: DuelFighter, s: DuelSideState): DuelFood | null {
+/** Bites of a given food still left in the satchel. */
+function bitesLeft(f: DuelFighter, s: DuelSideState, item: ItemId): number {
+  const total = f.food.filter((fd) => fd.item === item).reduce((n, fd) => n + fd.count, 0);
+  const eaten = s.eaten.filter((e) => e.item === item).reduce((n, e) => n + e.count, 0);
+  return total - eaten;
+}
+
+/** The bite to eat: a specific food if asked (and any remains), else the biggest
+ *  heal still in the satchel. */
+function nextBite(f: DuelFighter, s: DuelSideState, prefer?: ItemId): DuelFood | null {
+  if (prefer) {
+    const fd = f.food.find((x) => x.item === prefer);
+    if (fd && bitesLeft(f, s, prefer) > 0) return fd;
+  }
   let best: DuelFood | null = null;
   for (const fd of f.food) {
-    const eaten = s.eaten.filter((e) => e.item === fd.item).reduce((n, e) => n + e.count, 0);
-    if (fd.count - eaten <= 0) continue;
+    if (bitesLeft(f, s, fd.item) <= 0) continue;
     if (!best || fd.heal > best.heal) best = fd;
   }
   return best;
@@ -167,12 +201,12 @@ export function duelStep(
     const f = fighters[side];
     for (const it of intents[side]) {
       if (it.t === "eat" && t >= s.eatReadyAt && s.hp < f.maxHp) {
-        const bite = nextBite(f, s);
+        const bite = nextBite(f, s, it.item);
         if (!bite) continue;
         s.eaten.push({ item: bite.item, heal: bite.heal, count: 1 });
         s.hp = Math.min(f.maxHp, s.hp + bite.heal);
         s.eatReadyAt = t + DUEL_EAT_CD_TICKS;
-        events.push({ tick: t, side, kind: "eat", value: bite.heal });
+        events.push({ tick: t, side, kind: "eat", value: bite.heal, item: bite.item });
       } else if (it.t === "spec" && !s.specArmed && s.spec >= SPEC_MAX) {
         s.specArmed = true;
         s.spec = 0;
@@ -230,5 +264,18 @@ export function duelHash(state: DuelState): number {
     h = (Math.imul(h, 31) + s.eaten.length) | 0;
   }
   h = (Math.imul(h, 31) + state.rngState) | 0;
+  return h | 0;
+}
+
+/** A fingerprint of a fighter's LIVE combat stats — folded into the desync hash
+ *  so a gear swap that lands differently on the two clients is caught (the base
+ *  state hash doesn't see equipment). */
+export function fighterFingerprint(f: DuelFighter): number {
+  let h = 0;
+  h = (Math.imul(h, 31) + Math.round(f.acc)) | 0;
+  h = (Math.imul(h, 31) + Math.round(f.dmg)) | 0;
+  h = (Math.imul(h, 31) + Math.round(f.def)) | 0;
+  h = (Math.imul(h, 31) + f.speedTicks + (f.ranged ? 101 : 0)) | 0;
+  h = (Math.imul(h, 31) + f.bench.length) | 0;
   return h | 0;
 }
