@@ -2404,6 +2404,55 @@ function buildDungeonSites(): WorldObjectDef[] {
     { id: "rem_hb_b1", kind: "remains", variant: "brazier", x: hbx + 3, y: hby + 3, name: "A Watchman's Brazier" },
     { id: "rem_hb_b2", kind: "remains", variant: "brazier", x: hbx + 8, y: hby + 3, name: "A Watchman's Brazier" },
   );
+
+  // --- SITE 8: THE IRONVALE SEWERS — the beginner grind-dungeon. A grate by the
+  //     city stables drops into the old drains: a spine tunnel with four flooded
+  //     bays, each a grade harder than the last. No bounty gate — everything down
+  //     here is fair game for a brand-new hunter, and it all pays a small bounty.
+  const sewers = DUNGEONS.find((d) => d.id === "ironvale_sewers")!;
+  const swx = sewers.x0, swy = sewers.y0;
+  const smth = { x: 69, y: 84 }; // a drain grate on the dirt below Ironvale's stables
+  out.push(
+    {
+      id: "portal_sewers", kind: "portal", x: smth.x, y: smth.y, name: "The Ironvale Sewers",
+      dungeon: "ironvale_sewers", target: { x: swx + sewers.entry.x, y: swy + sewers.entry.y },
+      lines: ["A rusted iron grate set in the dirt below the stables, big enough to drop through. Cold, sour air breathes up out of the dark — and somewhere below, a great many small things are moving. The board pays a copper or two for every one you thin out."],
+    },
+    { id: "ret_sewers", kind: "portal", x: swx + sewers.exit.x, y: swy + sewers.exit.y, name: "The Grate", target: { x: smth.x, y: smth.y + 1 }, lines: ["You climb the slick rungs back up to the daylight and the smell of the stables."] },
+    // Chamber marks — plain level warnings, posted inside each bay off the neck.
+    { id: "plq_sew_entry", kind: "signpost", x: swx + 5, y: swy + 2, name: "A Drain-Warden's Board", lines: ["'THE IRONVALE SEWERS. Four bays, four grades of vermin — rats, then spiders, then the kobolds, then whatever's grown in the sump. Work your way down as you're able. Good hunting-ground for a new hand; the board pays for all of it.'"] },
+    { id: "plq_sew_rats", kind: "signpost", x: swx + 10, y: swy + 4, name: "Bay Mark: THE RAT WARREN", lines: ["'Sewer rats. Level 4 or so. Where every hunter cuts their teeth.'"] },
+    { id: "plq_sew_spiders", kind: "signpost", x: swx + 10, y: swy + 10, name: "Bay Mark: THE WEB GALLERY", lines: ["'Gutter spiders. Level 9. Mind the webs — and the numbing bite.'"] },
+    { id: "plq_sew_kobolds", kind: "signpost", x: swx + 11, y: swy + 15, name: "Bay Mark: THE KOBOLD DEN", lines: ["'Sewer kobolds. Level 15. They fight with pipe and spite. Bring a shield.'"] },
+    { id: "plq_sew_sump", kind: "signpost", x: swx + 11, y: swy + 21, name: "Bay Mark: THE SUMP", lines: ["'The sludge. Level 22. It came out of the runoff and it does not stop coming. The deepest the drains go.'"] },
+    // THE RAT WARREN (~lvl 4) — sewer rats in the fouled earth.
+    { id: "sew_rat_1", kind: "monster", monster: "sewer_rat", x: swx + 9, y: swy + 4, name: "Sewer Rat" },
+    { id: "sew_rat_2", kind: "monster", monster: "sewer_rat", x: swx + 11, y: swy + 4, name: "Sewer Rat" },
+    { id: "sew_rat_3", kind: "monster", monster: "sewer_rat", x: swx + 14, y: swy + 5, name: "Sewer Rat" },
+    { id: "sew_rat_4", kind: "monster", monster: "sewer_rat", x: swx + 16, y: swy + 6, name: "Sewer Rat" },
+    // THE WEB GALLERY (~lvl 9) — gutter spiders in the old brick gallery.
+    { id: "sew_spider_1", kind: "monster", monster: "gutter_spider", x: swx + 11, y: swy + 9, name: "Gutter Spider" },
+    { id: "sew_spider_2", kind: "monster", monster: "gutter_spider", x: swx + 14, y: swy + 10, name: "Gutter Spider" },
+    { id: "sew_spider_3", kind: "monster", monster: "gutter_spider", x: swx + 16, y: swy + 9, name: "Gutter Spider" },
+    { id: "sew_spider_4", kind: "monster", monster: "gutter_spider", x: swx + 12, y: swy + 11, name: "Gutter Spider" },
+    // THE KOBOLD DEN (~lvl 15) — sewer kobolds in the deep den.
+    { id: "sew_kob_1", kind: "monster", monster: "sewer_kobold", x: swx + 12, y: swy + 14, name: "Sewer Kobold" },
+    { id: "sew_kob_2", kind: "monster", monster: "sewer_kobold", x: swx + 15, y: swy + 15, name: "Sewer Kobold" },
+    { id: "sew_kob_3", kind: "monster", monster: "sewer_kobold", x: swx + 17, y: swy + 14, name: "Sewer Kobold" },
+    { id: "sew_kob_4", kind: "monster", monster: "sewer_kobold", x: swx + 13, y: swy + 16, name: "Sewer Kobold" },
+    // THE SUMP (~lvl 22) — the sludge in the flooded bottom.
+    { id: "sew_sludge_1", kind: "monster", monster: "sewer_sludge", x: swx + 11, y: swy + 19, name: "Sewer Sludge" },
+    { id: "sew_sludge_2", kind: "monster", monster: "sewer_sludge", x: swx + 17, y: swy + 20, name: "Sewer Sludge" },
+    { id: "sew_sludge_3", kind: "monster", monster: "sewer_sludge", x: swx + 16, y: swy + 21, name: "Sewer Sludge" },
+    { id: "sew_sludge_4", kind: "monster", monster: "sewer_sludge", x: swx + 11, y: swy + 22, name: "Sewer Sludge" },
+    // Dressing: a lantern at the grate-foot, old leavings, a drowned scavenger.
+    { id: "rem_sew_b1", kind: "remains", variant: "brazier", x: swx + 4, y: swy + 2, name: "A Drain-Lantern" },
+    { id: "rem_sew_1", kind: "remains", variant: "bones", x: swx + 13, y: swy + 4, name: "Gnawed Bones" },
+    { id: "rem_sew_2", kind: "remains", variant: "bones", x: swx + 15, y: swy + 10, name: "A Wrapped Husk" },
+    { id: "rem_sew_3", kind: "remains", variant: "skeleton", x: swx + 16, y: swy + 15, name: "A Scavenger's End" },
+    { id: "rem_sew_4", kind: "remains", variant: "coins", x: swx + 14, y: swy + 15, name: "A Spilled Purse" },
+    { id: "rem_sew_5", kind: "remains", variant: "bones", x: swx + 12, y: swy + 21, name: "Old Bones in the Muck" },
+  );
   return out;
 }
 

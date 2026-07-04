@@ -21,7 +21,7 @@ export const bountyGuides: BountyGuide[] = [
     icon: "🪶",
     desc: "An old tracker who patrols the Knuckle Hills. Sends new hunters after small game and common prey.",
     levelReq: 1,
-    zones: ["knuckle_hills", "greyoak_wood", "petty_outlaws"],
+    zones: ["knuckle_hills", "greyoak_wood", "petty_outlaws", "ironvale_sewers"],
     xpMult: 1.0,
     marksMult: 1.0,
   },
@@ -118,6 +118,19 @@ export const bountyTasks: Record<string, BountyTaskDef[]> = {
     { monster: "bandit", required: 12, xp: 800, marks: 30, minLevel: 12 },
     { monster: "highwayman", required: 10, xp: 1000, marks: 38, minLevel: 16 },
     { monster: "cutthroat", required: 8, xp: 1200, marks: 46, minLevel: 24 },
+  ],
+  // The Ironvale Sewers — Rook's beginner grind-dungeon under the city stables.
+  // Four grades of vermin, no kill-gate, so a fresh hunter can climb the whole
+  // ladder here: rats → spiders → kobolds → the sump's sludge.
+  ironvale_sewers: [
+    { monster: "sewer_rat", required: 20, xp: 320, marks: 12, minLevel: 1 },
+    { monster: "sewer_rat", required: 45, xp: 700, marks: 26, minLevel: 8 },
+    { monster: "gutter_spider", required: 15, xp: 700, marks: 28, minLevel: 8 },
+    { monster: "gutter_spider", required: 30, xp: 1400, marks: 56, minLevel: 14 },
+    { monster: "sewer_kobold", required: 12, xp: 1300, marks: 52, minLevel: 14 },
+    { monster: "sewer_kobold", required: 25, xp: 2600, marks: 106, minLevel: 22 },
+    { monster: "sewer_sludge", required: 10, xp: 2000, marks: 82, minLevel: 20 },
+    { monster: "sewer_sludge", required: 20, xp: 4200, marks: 172, minLevel: 28 },
   ],
   // The lawless roads — outlaw gangs from footpad to captain, ranging the whole
   // map. Serath posts these alongside the Spine and moor work.
@@ -239,6 +252,11 @@ export const huntingGrounds: Record<string, HuntingGround> = {
   poacher: { name: "the Poachers' Blind", hint: "the hides on the Greyoak verge", x: 27, y: 77, r: 5 },
   bandit: { name: "Waylayers' Bend", hint: "the bad turn on the west road", x: 58, y: 80, r: 5 },
   highwayman: { name: "the Burnt Waystation", hint: "the gutted post-house on the east road", x: 101, y: 80, r: 5 },
+  // --- Rook's beginner grind-dungeon: the Ironvale Sewers -------------------
+  sewer_rat: { name: "the Rat Warren", hint: "first bay of the Ironvale Sewers — the grate is by the city stables", x: 96, y: 243, r: 5 },
+  gutter_spider: { name: "the Web Gallery", hint: "second bay of the Ironvale Sewers, down the spine tunnel", x: 97, y: 248, r: 5 },
+  sewer_kobold: { name: "the Kobold Den", hint: "third bay of the Ironvale Sewers", x: 98, y: 253, r: 5 },
+  sewer_sludge: { name: "the Sump", hint: "the flooded bottom of the Ironvale Sewers", x: 97, y: 258, r: 6 },
   // --- The Hunt Warrens: the guild's slayer grounds under the Old Quarry ----
   warren_creeper: { name: "the Warren Burrows", hint: "first chamber of the Hunt Warrens, below the Old Quarry", x: 150, y: 230, r: 6 },
   dusk_stalker: { name: "the Warren Dens", hint: "second chamber of the Hunt Warrens — listen for the whistle", x: 147, y: 237, r: 6 },

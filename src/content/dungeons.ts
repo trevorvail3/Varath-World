@@ -354,6 +354,42 @@ const HOLLOW_BELOW_ROWS = [
   "                              ", // 15
 ];
 
+// ============================================================================
+// SITE 8 — THE IRONVALE SEWERS (a beginner grind-crawl under the city)
+// A grate in the fountain-yard drops into the old drains. No puzzles, no gate:
+// four flooded bays, each with one grade of vermin, so a brand-new hunter has a
+// dungeon of their own. A spine tunnel runs south off the entry landing, with a
+// side chamber every few tiles: the Rat Warren, the Web Gallery, the Kobold Den
+// and, at the bottom, the flooded Sump.
+//     0         1         2
+//     012345678901234567890123
+const SEWER_ROWS = [
+  "                        ", // 0
+  "  ......                ", // 1  entry landing (ladder back up at the nook)
+  "  ......                ", // 2
+  "  ..............        ", // 3  east to the Rat Warren
+  "  ..    .....,,,,,,      ", // 4  THE RAT WARREN — bare, fouled earth
+  "  ..        ,,,,,,,~     ", // 5
+  "  ..        ,,,,,,,      ", // 6
+  "  ..                    ", // 7
+  "  ..........            ", // 8  east to the Web Gallery
+  "  ..     .........~     ", // 9  THE WEB GALLERY
+  "  ..     .........      ", // 10
+  "  ..     .........      ", // 11
+  "  ..                    ", // 12
+  "  ..........            ", // 13 east to the Kobold Den
+  "  ..      .........     ", // 14 THE KOBOLD DEN
+  "  ..      .........     ", // 15
+  "  ..      .........     ", // 16
+  "  ..                    ", // 17
+  "  ..........            ", // 18 east to the Sump
+  "  ..      ...~~~...      ", // 19 THE SUMP — the flooded bottom
+  "  ..      ...~~~...      ", // 20
+  "  ..      .........      ", // 21 a plank bridge across the sump
+  "  ..      ...~~~...      ", // 22
+  "                        ", // 23
+];
+
 export const DUNGEON_LAYOUTS: DungeonLayout[] = [
   {
     id: "hollow_barrows",
@@ -417,5 +453,14 @@ export const DUNGEON_LAYOUTS: DungeonLayout[] = [
     rows: HOLLOW_BELOW_ROWS,
     entry: { x: 5, y: 2 },
     exit: { x: 3, y: 1 },
+  },
+  {
+    id: "ironvale_sewers",
+    name: "The Ironvale Sewers",
+    x0: 84,
+    row0: 44,
+    rows: SEWER_ROWS,
+    entry: { x: 4, y: 1 },
+    exit: { x: 3, y: 2 },
   },
 ];

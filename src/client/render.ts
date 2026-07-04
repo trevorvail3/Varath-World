@@ -6079,6 +6079,8 @@ const MONSTER_SCALE: Record<string, number> = {
   dusk_stalker: 1.15, hollow_hound: 1.25, warren_shade: 1.2, iron_maw: 1.5,
   // The Hollow Below: the level-125 apex towers over everything.
   vorlag: 2.1,
+  // The Ironvale Sewers: each grade of vermin reads a size up from the last.
+  sewer_rat: 1.1, gutter_spider: 1.15, sewer_kobold: 1.05, sewer_sludge: 1.3,
 };
 
 /** A coloured ground-glow per boss — presence you can feel a screen away. */
@@ -6285,6 +6287,16 @@ function drawMonsterBody(
       return drawBat(g, cx, cy, now); // a stooping shape out of the dark
     case "vorlag":
       return drawHunger(g, cx, cy, now); // the level-125 apex
+    // --- The Ironvale Sewers: the beginner grind-dungeon's four grades ---
+    case "sewer_rat":
+      return drawRat(g, cx, cy, now); // slick water-rat (default figure, up-scaled)
+    case "gutter_spider":
+      return drawSpider(g, cx, cy, now);
+    case "sewer_kobold":
+      return H("#5f6a3e", "#3a4426"); // hunched drain-scavenger in mildew greens
+    case "sewer_ooze":
+    case "sewer_sludge":
+      return drawOoze(g, cx, cy, now);
     default:
       return drawRat(g, cx, cy, now);
   }
@@ -6721,6 +6733,83 @@ function drawRat(g: CanvasRenderingContext2D, cx: number, cy: number, now: numbe
   circle(g, cx - 12, cy + 1 + bob, 1.3);
   g.fillStyle = "#1a140f"; // eye
   circle(g, cx - 8, cy - 2 + bob, 1);
+}
+
+// --- Gutter Spider: a pale, long-legged sewer spider. Its eight legs flex as
+//     it shifts, and a cluster of small eyes catches the light. ---
+function drawSpider(g: CanvasRenderingContext2D, cx: number, cy: number, now: number): void {
+  const flex = Math.sin(now / 220) * 1.4; // legs pump slowly
+  shadow(g, cx, cy + 7, 10, 3.5);
+  g.strokeStyle = "#3a3230"; // eight legs, four to a side
+  g.lineWidth = 1.6;
+  g.lineCap = "round";
+  for (let i = 0; i < 4; i++) {
+    const sp = (i - 1.5) * 3;               // fan the legs along the body
+    const lift = (i % 2 === 0 ? flex : -flex);
+    // left side
+    g.beginPath();
+    g.moveTo(cx - 3, cy + sp * 0.4);
+    g.quadraticCurveTo(cx - 11, cy + sp - 3 + lift, cx - 15, cy + sp + 3 - lift);
+    g.stroke();
+    // right side
+    g.beginPath();
+    g.moveTo(cx + 3, cy + sp * 0.4);
+    g.quadraticCurveTo(cx + 11, cy + sp - 3 - lift, cx + 15, cy + sp + 3 + lift);
+    g.stroke();
+  }
+  g.lineCap = "butt";
+  g.fillStyle = "#5a4f48"; // abdomen (rear)
+  g.beginPath();
+  g.ellipse(cx + 2, cy + 1, 7, 6, 0, 0, Math.PI * 2);
+  g.fill();
+  g.fillStyle = "#6e625a"; // pale mottling
+  g.beginPath();
+  g.ellipse(cx + 3, cy - 1, 4, 2.4, 0, 0, Math.PI * 2);
+  g.fill();
+  g.fillStyle = "#4a4038"; // cephalothorax (front)
+  circle(g, cx - 5, cy, 4.5);
+  g.fillStyle = "#d8d0c4"; // clustered eyes
+  circle(g, cx - 8, cy - 1.5, 1);
+  circle(g, cx - 8, cy + 1.5, 1);
+  circle(g, cx - 6.5, cy - 2.5, 0.8);
+  circle(g, cx - 6.5, cy + 2.5, 0.8);
+}
+
+// --- Sewer Sludge: a churning mound of runoff. It swells and slumps, glossy
+//     green, with a few bubbles rising and popping across its surface. ---
+function drawOoze(g: CanvasRenderingContext2D, cx: number, cy: number, now: number): void {
+  const pulse = 0.5 + 0.5 * Math.sin(now / 380); // swell / slump
+  const rx = 11 + pulse * 1.6;
+  const ry = 8 + (1 - pulse) * 1.6;
+  shadow(g, cx, cy + 8, rx, 4);
+  g.fillStyle = "#3d5a34"; // base body
+  g.beginPath();
+  g.ellipse(cx, cy + 1, rx, ry, 0, 0, Math.PI * 2);
+  g.fill();
+  g.fillStyle = "#54763f"; // dome
+  g.beginPath();
+  g.ellipse(cx, cy - 2, rx * 0.7, ry * 0.7, 0, 0, Math.PI * 2);
+  g.fill();
+  g.fillStyle = "#7fa758"; // glossy highlight
+  g.beginPath();
+  g.ellipse(cx - 3, cy - 4, 3.5, 2.2, 0, 0, Math.PI * 2);
+  g.fill();
+  // drips off the leading edge
+  g.fillStyle = "#3d5a34";
+  const drip = 2 + pulse * 2.5;
+  g.beginPath();
+  g.ellipse(cx - rx * 0.6, cy + ry - 1, 2, drip, 0, 0, Math.PI * 2);
+  g.fill();
+  // a couple of rising bubbles
+  const b1 = ((now / 900) % 1);
+  g.fillStyle = "rgba(200,224,170,0.55)";
+  circle(g, cx + 2, cy + 2 - b1 * 8, 1.4);
+  const b2 = ((now / 1100 + 0.5) % 1);
+  circle(g, cx - 4, cy + 2 - b2 * 7, 1.1);
+  // two dim eyes so it reads as a creature, not scenery
+  g.fillStyle = "#1a2414";
+  circle(g, cx - 3, cy - 2, 1.3);
+  circle(g, cx + 3, cy - 2, 1.3);
 }
 
 // --- Hill Wolf: larger, lean and grey ---

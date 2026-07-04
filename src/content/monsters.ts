@@ -44,6 +44,114 @@ export const monsters: Record<string, MonsterStats> = {
       { item: "shard_of_orun", chance: 0.001, tier: "legendary" }
     ]
   },
+  "sewer_rat": {
+    "id": "sewer_rat",
+    "name": "Sewer Rat",
+    "icon": "🐀",
+    "level": 4,
+    "hp": 14,
+    "acc": 6,
+    "def": 2,
+    "maxHit": 3,
+    "speed": 3000,
+    "xp": 12,
+    "attackStyle": "stab",
+    "weakness": [
+      "slash"
+    ],
+    "desc": "A slick, water-fattened rat that has never seen daylight. They nest in the fouled earth of the Ironvale drains.",
+    "drops": [
+      { item: "raw_rat_meat", chance: 1, tier: "always" },
+      { item: "bones", chance: 1, tier: "always" },
+      { item: "raw_hide", chance: 0.4, tier: "common" },
+      { item: "rat_tail", chance: 0.3, tier: "common" },
+      { item: "chipped_tooth", chance: 0.14, tier: "common" },
+      { item: "scrap_cloth", chance: 0.12, tier: "common" },
+      { item: "worn_coin", chance: 0.18, min: 1, max: 5, tier: "uncommon" },
+      { item: "uncut_sapphire", chance: 0.009, tier: "rare" },
+      { item: "shard_of_orun", chance: 0.001, tier: "legendary" }
+    ]
+  },
+  "gutter_spider": {
+    "id": "gutter_spider",
+    "name": "Gutter Spider",
+    "icon": "🕷️",
+    "level": 9,
+    "hp": 30,
+    "acc": 12,
+    "def": 6,
+    "maxHit": 5,
+    "speed": 3200,
+    "xp": 26,
+    "attackStyle": "stab",
+    "weakness": [
+      "crush"
+    ],
+    "desc": "A pale, long-legged spider that strings its webs across the old brick galleries. Its bite carries a numbing venom.",
+    "drops": [
+      { item: "bones", chance: 1, tier: "always" },
+      { item: "spider_silk", chance: 0.5, tier: "common" },
+      { item: "chipped_tooth", chance: 0.15, tier: "common" },
+      { item: "sinew", chance: 0.2, tier: "common" },
+      { item: "worn_coin", chance: 0.22, min: 2, max: 7, tier: "common" },
+      { item: "rough_gem", chance: 0.05, tier: "uncommon" },
+      { item: "uncut_sapphire", chance: 0.011, tier: "rare" },
+      { item: "shard_of_orun", chance: 0.001, tier: "legendary" }
+    ]
+  },
+  "sewer_kobold": {
+    "id": "sewer_kobold",
+    "name": "Sewer Kobold",
+    "icon": "👺",
+    "level": 15,
+    "hp": 55,
+    "acc": 22,
+    "def": 12,
+    "maxHit": 8,
+    "speed": 3400,
+    "xp": 44,
+    "attackStyle": "crush",
+    "weakness": [
+      "stab"
+    ],
+    "desc": "A hunched, scavenging kobold that has claimed the deep brick den as its own. It fights with a length of rusted pipe.",
+    "drops": [
+      { item: "bones", chance: 1, tier: "always" },
+      { item: "scrap_cloth", chance: 0.35, tier: "common" },
+      { item: "sinew", chance: 0.25, tier: "common" },
+      { item: "worn_coin", chance: 0.28, min: 3, max: 10, tier: "common" },
+      { item: "rough_gem", chance: 0.08, tier: "uncommon" },
+      { item: "uncut_emerald", chance: 0.006, tier: "rare" },
+      { item: "marrow_shard", chance: 0.004, tier: "rare" },
+      { item: "shard_of_orun", chance: 0.001, tier: "legendary" }
+    ]
+  },
+  "sewer_sludge": {
+    "id": "sewer_sludge",
+    "name": "Sewer Sludge",
+    "icon": "🟢",
+    "level": 22,
+    "hp": 95,
+    "acc": 40,
+    "def": 8,
+    "maxHit": 12,
+    "speed": 4200,
+    "xp": 70,
+    "attackStyle": "crush",
+    "weakness": [
+      "slash"
+    ],
+    "desc": "A churning mass of the sump's runoff, congealed into something that hunts. It smothers what it catches.",
+    "drops": [
+      { item: "bones", chance: 1, tier: "always" },
+      { item: "scrap_cloth", chance: 0.3, tier: "common" },
+      { item: "worn_coin", chance: 0.32, min: 4, max: 14, tier: "common" },
+      { item: "rough_gem", chance: 0.12, tier: "uncommon" },
+      { item: "uncut_emerald", chance: 0.01, tier: "rare" },
+      { item: "marrow_shard", chance: 0.008, tier: "rare" },
+      { item: "shard_of_orun", chance: 0.0015, tier: "legendary" }
+    ]
+  },
   "hill_wolf": {
     "id": "hill_wolf",
     "name": "Hill Wolf",
