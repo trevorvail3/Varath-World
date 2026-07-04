@@ -425,11 +425,11 @@ export const quests: QuestDef[] = [
     requiresFlags: ["guild_pale_record_contacted"],
     intro: [
       "I've been stuck on the same four words since the Equinox: 'the stone remembered.'",
-      "Bring me a clean Shard, and clear the Bog Barrow of what guards the Underloft dead. With both, I can assemble the rite — and finally learn what it does.",
+      "Bring me a clean Shard, and clear the hollow that's taken up watch over the Bog Barrow's dead — one of the Heartmoor's own, gone wrong. With both, I can assemble the rite — and finally learn what it does.",
     ],
     steps: [
       { type: "gather", item: "shard_of_orun", count: 1, text: "Acquire a clean Shard of Orun" },
-      { type: "kill", monster: "bog_knight", count: 1, text: "Clear the Bog Barrow's guardian" },
+      { type: "kill", monster: "cult_zealot", count: 1, text: "Clear the hollow guarding the Bog Barrow" },
       {
         type: "choice",
         npc: "sera",
@@ -478,9 +478,13 @@ export const quests: QuestDef[] = [
     requiresFlags: ["knows_rite_partial"],
     intro: [
       "They've all sent word to me, because I keep the pass and I take no side. The richest seam ever found, in contested ground. Four hands reaching for it.",
-      "The Brotherhood. The Lodge. The Order. The Heartmoor. None of them is lying to you — that's what makes this hard. Hear them, then decide. Your choice settles it.",
+      "But the Heartmoor didn't wait to be asked — they've put hollows on the seam already, warming themselves at it like it's an altar. Clear them off the ground first. No one settles a question at knifepoint. Then hear the four of them, and decide. Your choice settles it.",
     ],
     steps: [
+      // The main spine's first kill now lands here in Act II (~level 42), not at
+      // the level-64 wraith in Act III — so the campaign asks for steel before
+      // the endgame, as the ladder audit flagged.
+      { type: "kill", monster: "cult_zealot", count: 2, text: "Clear the Heartmoor hollows off the seam (0/2)" },
       {
         type: "choice",
         npc: "serath",
@@ -1465,6 +1469,51 @@ export const quests: QuestDef[] = [
       xp: [{ skill: "forestry", amount: 2000 }, { skill: "woodcraft", amount: 1200 }],
       items: [{ item: "greyoak_log", qty: 5 }],
       gold: 250,
+    },
+  },
+
+  {
+    // A level-40 combat contract that fills the audit's 36–47 quest desert (no
+    // kill quest sat between level 35 and 48). Repurposes the marauder — a
+    // level-40 monster that, until now, no quest ever sent the player to fight.
+    id: "q_sq_marauders",
+    name: "The Toll on the Old Road",
+    giver: "maret",
+    requiresLevel: { level: 40 },
+    intro: [
+      "The camps have put a new crew on the old west road — marauders, the axe-and-shoulder sort, taking a 'toll' off anyone too poor to argue.",
+      "The Lodge won't ride out for a road that isn't ours, but I'll pay for it out of my own purse. Break their crew — three of them, at least — and take back what they've been stacking. A spear or a bow does best; they wear stolen plate and swing crushing.",
+    ],
+    steps: [
+      { type: "kill", monster: "marauder", count: 3, text: "Break the marauder crew (0/3)" },
+      { type: "gather", item: "worn_coin", count: 1, text: "Recover a scrap of the stolen toll" },
+      {
+        type: "choice",
+        npc: "maret",
+        text: "Decide what's done with the toll-chest",
+        prompt: "Their toll-chest is heavier than a road crew should carry. What's done with it?",
+        options: [
+          {
+            label: "Return it to the road-folk it was taken from.",
+            flags: ["sq_marauders_done", "sq_marauders_returned"],
+            rep: [{ faction: "lodge", amount: 10 }],
+            reply: "Maret weighs the purse and hands most of it back. 'Won't make us rich. Makes us the kind the road trusts. That's worth more out here.'",
+          },
+          {
+            label: "Keep it. Danger money — you earned it.",
+            flags: ["sq_marauders_done", "sq_marauders_kept"],
+            reply: "Maret shrugs. 'You bled for it. I'll not lecture. Just don't let the road hear it was you who kept the toll.'",
+          },
+        ],
+      },
+    ],
+    outro: [
+      "The old road's quiet again — for a season, anyway. There's always another crew. But you handle yourself; the Lodge remembers that.",
+    ],
+    reward: {
+      xp: [{ skill: "vitality", amount: 3200 }],
+      items: [{ item: "cured_leather", qty: 3 }],
+      gold: 400,
     },
   },
 

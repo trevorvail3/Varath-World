@@ -554,6 +554,22 @@ export const items: Record<ItemId, ItemDef> = {
     "cat": "Logs",
     "sell": 5
   },
+  "alder_log": {
+    "id": "alder_log",
+    "name": "Alderwood Log",
+    "description": "Soft, russet timber from the streambanks. Catches a spark eagerly — a firemaker's first friend after ashwood.",
+    "icon": "🪵",
+    "cat": "Logs",
+    "sell": 9
+  },
+  "birch_log": {
+    "id": "birch_log",
+    "name": "Silverbirch Log",
+    "description": "Pale, paper-barked and clean-burning. The bark peels off in ribbons that light in a breath.",
+    "icon": "🪵",
+    "cat": "Logs",
+    "sell": 16
+  },
   "coldpine_log": {
     "id": "coldpine_log",
     "name": "Coldpine Log",
@@ -5636,6 +5652,15 @@ export const items: Record<ItemId, ItemDef> = {
     "icon": "🌸",
     "cat": "Foraged",
     "sell": 55
+  },
+  "forage_orunbloom": {
+    "id": "forage_orunbloom",
+    "name": "Orunbloom",
+    "description": "A gold-hearted bloom that opens only where Orun's seam runs near the surface — the rarest forage in Varath. Eat it and its light kindles your Grace; a master forager's find.",
+    "icon": "🌼",
+    "cat": "Foraged",
+    "sell": 240,
+    "graceRestore": 25
   },
   "forge_token": {
     "id": "forge_token",

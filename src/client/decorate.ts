@@ -23,6 +23,7 @@ const CATEGORY_LABEL: Record<string, string> = {
   seating: "Seats", table: "Tables", bed: "Beds", storage: "Storage",
   lighting: "Lights", plant: "Plants", display: "Décor", hall: "Wall art",
   rug: "Rugs", kitchen: "Kitchen", forge: "Forge", alchemy: "Alchemy", workshop: "Workshop",
+  devotion: "Devotion",
 };
 
 interface Deps {

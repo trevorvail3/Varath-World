@@ -208,6 +208,10 @@ add({ id: "fur_forge_stone", name: "Stone Anvil", category: "forge", levelReq: 2
 add({ id: "fur_forge_iron", name: "Iron Anvil", category: "forge", levelReq: 45, xp: 230, comfort: 17, station: "anvil", footprint: [1, 1], materials: { ashiron_bar: 5, cut_coldvein: 2 }, blurb: "A full-size iron anvil that rings clean under the hammer." });
 add({ id: "fur_alch_cauldron", name: "Herbalist's Cauldron", category: "alchemy", levelReq: 30, xp: 160, comfort: 11, station: "cauldron", footprint: [1, 1], materials: { knucklestone_bar: 3, glass_vial: 4 }, blurb: "A black pot on a trivet, racked with vials. Brew at your own coals." });
 add({ id: "fur_alch_still", name: "Alchemist's Still", category: "alchemy", levelReq: 55, xp: 280, comfort: 20, station: "cauldron", footprint: [1, 1], materials: { ashiron_bar: 3, glass_flask: 4, cut_gem: 1 }, blurb: "Copper coil and glasswork; the brews come out cleaner." });
+// The Construction capstone (lvl 90) — and the skill's one bridge to Faith: a
+// home Altar of Orun that refills Grace, so a master builder never has to trek
+// to a town shrine again. Ties the two skills the audit flagged as flat at the top.
+add({ id: "fur_home_altar", name: "Home Altar of Orun", category: "devotion", levelReq: 90, xp: 520, comfort: 24, station: "shrine", light: true, footprint: [1, 1], materials: { vault_stone: 2, hearthite_bar: 2, cut_gem: 2 }, render: { shape: "brazier", wood: "#c9a84a", accent: "#6e5a24", glow: "#ffd66b" }, blurb: "A gold-seamed altar of dressed vault-stone, its bowl lit with Orun's own light. Kneel and your Grace refills — no more trudging to the town shrine." });
 
 // ===========================================================================
 // ROOM SURFACES — walls + floors the player can swap wholesale.
@@ -245,7 +249,7 @@ export function furnitureFor(category: string): FurnitureDef[] {
 /** Every distinct furniture category, in a sensible display order. */
 export const FURNITURE_CATEGORIES = [
   "seating", "table", "bed", "storage", "lighting", "plant", "display", "hall", "rug",
-  "kitchen", "forge", "alchemy", "workshop",
+  "kitchen", "forge", "alchemy", "workshop", "devotion",
 ] as const;
 
 /** A home-comfort "rating" title, the visible reward for furnishing a home. */

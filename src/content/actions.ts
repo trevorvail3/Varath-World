@@ -118,6 +118,32 @@ export const actions: SkillAction[] = [
     }
   },
   {
+    "id": "mine_hearthite",
+    "skill": "mining",
+    "name": "Hearthite Seam",
+    "levelReq": 93,
+    "xp": 340,
+    "produces": "hearthite_ore",
+    "note": "The forge-ore itself, past the voidstone. Mine it and the game's best gear no longer depends on a boss's whim — Mining 100 finally smiths its own.",
+    "rareDrop": {
+      "item": "rough_gem",
+      "chance": 0.1
+    }
+  },
+  {
+    "id": "mine_gemvein",
+    "skill": "mining",
+    "name": "Prismatic Vein",
+    "levelReq": 96,
+    "xp": 180,
+    "produces": "rough_gem",
+    "note": "A gem-shot seam deep past the hearthite. Rough gems by the fistful — and now and then an uncut stone worth cutting.",
+    "rareDrop": {
+      "item": "uncut_emerald",
+      "chance": 0.12
+    }
+  },
+  {
     "id": "smelt_knucklestone",
     "skill": "smithing",
     "name": "Knucklestone Bar",
@@ -1077,6 +1103,37 @@ export const actions: SkillAction[] = [
     }
   },
   {
+    "id": "fell_alder",
+    "skill": "forestry",
+    "name": "Alderwood",
+    "levelReq": 8,
+    "xp": 40,
+    "produces": "alder_log",
+    "note": "A new tree to fell by level 8 — so the opening stretch isn't nineteen straight levels of ashwood.",
+    "rareDrop": {
+      "item": "bird_nest",
+      "chance": 0.08
+    },
+    "woodShardDrop": {
+      "chance": 0.05
+    }
+  },
+  {
+    "id": "fell_birch",
+    "skill": "forestry",
+    "name": "Silverbirch",
+    "levelReq": 14,
+    "xp": 55,
+    "produces": "birch_log",
+    "rareDrop": {
+      "item": "bird_nest",
+      "chance": 0.09
+    },
+    "woodShardDrop": {
+      "chance": 0.05
+    }
+  },
+  {
     "id": "fell_coldpine",
     "skill": "forestry",
     "name": "Coldpine",
@@ -1786,6 +1843,59 @@ export const actions: SkillAction[] = [
     "rareDrop": {
       "item": "thick_hide",
       "chance": 0.2
+    }
+  },
+  {
+    "id": "hunt_marten",
+    "skill": "hunter",
+    "name": "Reed Marten",
+    "levelReq": 10,
+    "group": "quarry",
+    "xp": 44,
+    "produces": "raw_hide",
+    "note": "An intermediate catch — so the first twenty levels of Hunter aren't one long wait for the boar.",
+    "rareDrop": {
+      "item": "wolf_pelt",
+      "chance": 0.06
+    }
+  },
+  {
+    "id": "hunt_lynx",
+    "skill": "hunter",
+    "name": "Fen Lynx",
+    "levelReq": 37,
+    "group": "quarry",
+    "xp": 112,
+    "produces": "raw_wolf_meat",
+    "rareDrop": {
+      "item": "bear_pelt",
+      "chance": 0.1
+    }
+  },
+  {
+    "id": "hunt_ram",
+    "skill": "hunter",
+    "name": "Crag Ram",
+    "levelReq": 52,
+    "group": "quarry",
+    "xp": 158,
+    "produces": "raw_bear_meat",
+    "rareDrop": {
+      "item": "sinew",
+      "chance": 0.12
+    }
+  },
+  {
+    "id": "hunt_elk",
+    "skill": "hunter",
+    "name": "Bog Elk",
+    "levelReq": 67,
+    "group": "quarry",
+    "xp": 212,
+    "produces": "venison",
+    "rareDrop": {
+      "item": "sinew",
+      "chance": 0.16
     }
   },
   {
@@ -2551,6 +2661,17 @@ export const actions: SkillAction[] = [
     "group": "forage"
   },
   {
+    "id": "surv_forage_orunbloom",
+    "skill": "survivalist",
+    "name": "Forage Orunbloom",
+    "levelReq": 90,
+    "xp": 240,
+    "baseTime": 11000,
+    "produces": "forage_orunbloom",
+    "note": "The capstone forage — so the last twenty levels aren't nineteen levels of dawnspore. Opens only where Orun's seam surfaces.",
+    "group": "forage"
+  },
+  {
     "id": "surv_forage_deepmoss",
     "skill": "survivalist",
     "name": "Forage Deepmoss",
@@ -2579,6 +2700,8 @@ export const actions: SkillAction[] = [
     "baseTime": 3000,
     "requiresAny": [
       "ashwood_log",
+      "alder_log",
+      "birch_log",
       "coldpine_log",
       "stonewood_log",
       "greyoak_log",

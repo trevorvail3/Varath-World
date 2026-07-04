@@ -235,6 +235,15 @@ function fishingCapeWorn(player: Player, content: Content): boolean {
   return skill === "fishing" || skill === "max" || skill === "ironvale";
 }
 
+/** True if the player wears a cape that masters mining (the Stone Master's Cape,
+ *  or a max / Cape of Varath). It lends a miner's edge — ore comes a touch faster,
+ *  the perk that finally gives the mining cape a mechanical reason to wear it. */
+function miningCapeWorn(player: Player, content: Content): boolean {
+  const cape = player.equipment.cape ? content.items[player.equipment.cape] : undefined;
+  const skill = cape?.cat === "Capes" ? cape.meta?.skill : undefined;
+  return skill === "mining" || skill === "max" || skill === "ironvale";
+}
+
 /** True while a grandmaster completion cape — the Cape of Varath or its Ironvale
  *  reskin — is worn. It carries the all-round master bonuses (see grantXp,
  *  syncMaxHp, the combat-stat helpers, and the Bounty-Marks payout). */
@@ -1330,6 +1339,9 @@ function beginGather(
   }
   // A gathering tincture speeds every gather (fishing has no tool but still buffs).
   speedMult *= 1 - Math.min(0.6, buffVal(player, "gather_speed"));
+  // The Stone Master's Cape earns its keep: worn, ore comes ~15% faster — the
+  // mining cape's first real mechanical perk (see miningCapeWorn).
+  if (action.skill === "mining" && miningCapeWorn(player, content)) speedMult *= 0.85;
   // Fishing reels on its own tier-scaled timer (so even the first catch waits the
   // right beat); the gather tincture still trims it.
   const baseInterval = kind === "fishing"
@@ -2245,7 +2257,7 @@ export function applyIntent(
       break;
     }
     case "USE_FURNITURE": {
-      useFurniture(state, content, intent.hotspotId, events);
+      useFurniture(state, content, intent.hotspotId, ctx, events);
       break;
     }
     case "BUILD_ROOM": {
@@ -3750,11 +3762,12 @@ function buildRoom(
   events.push({ type: "LOG", message: `You raise your home to a ${up.name}. The ${up.room} opens onto the house.` });
 }
 
-/** Use a built functional piece as a station — bank / cook / build, at home. */
+/** Use a built functional piece as a station — bank / cook / build / pray, at home. */
 function useFurniture(
   state: WorldState,
   content: Content,
   hotspotId: string,
+  ctx: Ctx,
   events: WorldEvent[],
 ): void {
   const obj = state.objects[hotspotId];
@@ -3766,6 +3779,23 @@ function useFurniture(
   if (f.station === "bank") {
     state.player.station = { kind: "bank" };
     events.push({ type: "OPEN_BANK" });
+    return;
+  }
+  // A home Altar of Orun: kneel and pray to refill Grace, exactly like a world
+  // shrine (same one-a-minute cooldown, so it can't be camped as a free battery).
+  if (f.station === "shrine") {
+    const player = state.player;
+    const gm = graceMax(player);
+    if (player.grace >= gm) {
+      events.push({ type: "LOG", message: `You kneel at the ${f.name}. Your Grace is already full.` });
+    } else if (ctx.now < (obj.graceCooldownUntil ?? 0)) {
+      const wait = Math.ceil(((obj.graceCooldownUntil ?? 0) - ctx.now) / 1000);
+      events.push({ type: "LOG", message: `The ${f.name} is spent from your last prayer — its grace returns in ${wait}s.` });
+    } else {
+      player.grace = gm;
+      obj.graceCooldownUntil = ctx.now + SHRINE_RECHARGE_MS;
+      events.push({ type: "LOG", message: `You kneel at your ${f.name} and pray. Orun's grace fills you.` });
+    }
     return;
   }
   // Any other station value is a crafting-station ObjKind (fire/workbench/etc).

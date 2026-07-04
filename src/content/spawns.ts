@@ -693,6 +693,12 @@ const rawObjects: WorldObjectDef[] = [
   { id: "tree_1", kind: "tree", x: 54, y: 28, name: "Ashwood Tree", resource: "fell_ashwood", species: "ashwood" },
   { id: "tree_2", kind: "tree", x: 60, y: 26, name: "Ashwood Tree", resource: "fell_ashwood", species: "ashwood" },
   { id: "tree_3", kind: "tree", x: 66, y: 29, name: "Ashwood Tree", resource: "fell_ashwood", species: "ashwood" },
+  // Alderwood (8) and Silverbirch (14) break up Forestry's flat opening stretch
+  // — a new tree to fell before Coldpine at 20, so it isn't 19 levels of ashwood.
+  { id: "tree_alder_1", kind: "tree", x: 52, y: 30, name: "Alderwood Tree", resource: "fell_alder", species: "coldpine" },
+  { id: "tree_alder_2", kind: "tree", x: 69, y: 31, name: "Alderwood Tree", resource: "fell_alder", species: "coldpine" },
+  { id: "tree_birch_1", kind: "tree", x: 57, y: 33, name: "Silverbirch Tree", resource: "fell_birch", species: "ashwood" },
+  { id: "tree_birch_2", kind: "tree", x: 101, y: 30, name: "Silverbirch Tree", resource: "fell_birch", species: "ashwood" },
 
   // --- Knucklestone rocks on the outcrop, north-east (Mining) ---
   { id: "rock_1", kind: "rock", x: 84, y: 32, name: "Knucklestone Rock", resource: "mine_knucklestone" },
@@ -866,6 +872,9 @@ const rawObjects: WorldObjectDef[] = [
   { id: "trap_wolf_1", kind: "trap", x: 19, y: 57, name: "Wolf Snare", resource: "hunt_wolf" },
   { id: "trap_bear_1", kind: "trap", x: 13, y: 59, name: "Bear Snare", resource: "hunt_bear" },
   { id: "trap_bear_2", kind: "trap", x: 26, y: 58, name: "Bear Snare", resource: "hunt_bear" },
+  // Intermediate quarry that break Hunter's 15-level gaps (marten 10, lynx 37).
+  { id: "trap_marten_1", kind: "trap", x: 22, y: 54, name: "Marten Box-Trap", resource: "hunt_marten" },
+  { id: "trap_lynx_1", kind: "trap", x: 14, y: 54, name: "Lynx Snare", resource: "hunt_lynx" },
 
   // === THE SPINE (north) ====================================================
   { id: "serath", kind: "npc", bountyGuide: "serath", x: 42, y: 8, name: "Serath, the Spine Warden", lines: ["Far enough, for now. This is the Spine — Orun's backbone, the faithful say. Whatever it is, it does not forgive carelessness.","Ridge wolves on the low passes. Higher, the stone crawlers and the trolls. And the wraiths, where the wind never stops. Go up only as far as you can come down.","The Cut yields good metal — ashiron, and ribstone deeper. Bring a pick that can take the cold.","Two things you'll find and not understand: the Wind-Shrine, worn to the shape of a vertebra, and the Vault, shut from the inside. Measure them if you must. Don't pretend to read them.","The Vault sits high — climb the pass to the top of the Spine, past the Wind-Shrine, where the snow never leaves. Few go that far. Fewer come down."] },
@@ -905,6 +914,9 @@ const rawObjects: WorldObjectDef[] = [
   { id: "hm_fish_eel", kind: "fishing_spot", x: 24, y: 94, name: "Eel Pool", resource: "fish_bramblecarp", catches: POOL_MOOR },
   { id: "hm_fish_shad", kind: "fishing_spot", x: 22, y: 96, name: "Peat Pool", resource: "fish_bramblecarp", catches: POOL_MOOR },
   { id: "trap_moorhart", kind: "trap", x: 16, y: 84, name: "Hart Snare", resource: "hunt_moorhart" },
+  // Intermediate quarry filling the mid-Hunter gaps (ram 52, elk 67).
+  { id: "trap_ram_1", kind: "trap", x: 25, y: 88, name: "Ram Snare", resource: "hunt_ram" },
+  { id: "trap_elk_1", kind: "trap", x: 19, y: 87, name: "Elk Snare", resource: "hunt_elk" },
   // (The old Bog Barrow arena is retired: its mouth now opens into the Sunken
   // Court crawl — see buildDungeonSites — and the Bog Warden stalks the open
   // moor below, a remote grind boss like the other retired arena keepers.)
@@ -925,6 +937,12 @@ const rawObjects: WorldObjectDef[] = [
   { id: "md_golem_1", kind: "monster", monster: "deep_golem", x: 92, y: 29, name: "Deepstone Golem" },
   { id: "md_rock_1", kind: "rock", x: 88, y: 21, name: "Voidstone Shaft", resource: "mine_voidstone" },
   { id: "md_rock_2", kind: "rock", x: 92, y: 28, name: "Voidstone Shaft", resource: "mine_voidstone" },
+  // The forge-ore itself, deepest in the Marrow — "Hearthite lies beyond the
+  // voidstone" made real, so Mining 100 finally smiths best-in-slot gear, and a
+  // prismatic vein past it for gems (fills the empty 89-100 mining band).
+  { id: "md_rock_hearthite_1", kind: "rock", x: 90, y: 25, name: "Hearthite Seam", resource: "mine_hearthite" },
+  { id: "md_rock_hearthite_2", kind: "rock", x: 86, y: 24, name: "Hearthite Seam", resource: "mine_hearthite" },
+  { id: "md_rock_gem_1", kind: "rock", x: 91, y: 19, name: "Prismatic Vein", resource: "mine_gemvein" },
   { id: "marrow_vault", kind: "shrine", x: 95, y: 14, name: "The Marrow Vault", lines: ["Walls too smooth to be the dark's work, and a door that was opened from the inside. Whatever stayed down here, stayed because it chose to."] },
   { id: "marrow_keeper", kind: "npc", x: 94, y: 15, name: "The Marrow Keeper", lines: ["You came down the long dark and the door let you. Few things it lets through.","I kept the watch when there was an order to keep it for. Now there is only the watch, and the stone, and the warmth that will not cool.","Ask what you came to ask. But know that I have stood here longer than your kingdom, and even I cannot tell you whether the warmth is a god."] },
   { id: "portal_marrow", kind: "portal", x: 92, y: 14, name: "The Marrow Vault", dungeon: "marrow_vault", target: { x: 56, y: 118 }, lines: ["The vault door lets you pass."] },
@@ -1241,6 +1259,10 @@ const rawObjects: WorldObjectDef[] = [
   { id: "fg_ashroot_11", kind: "forage_spot", x: 40, y: 63, name: "Ashroot Snarl", resource: "surv_forage_ashroot" },
   { id: "fg_ashbloom_12", kind: "forage_spot", x: 41, y: 64, name: "Ashbloom Stand", resource: "surv_forage_ashbloom" },
   { id: "fg_dawnspore_13", kind: "forage_spot", x: 42, y: 66, name: "Dawnspore Ring", resource: "surv_forage_dawnspore" },
+  // Orunbloom (90) — the capstone forage, where Orun's seam surfaces. Fills
+  // Survivalist's empty 81-100 band with a real gather node, not flat grind.
+  { id: "fg_orunbloom_1", kind: "forage_spot", x: 40, y: 67, name: "Orunbloom Glade", resource: "surv_forage_orunbloom" },
+  { id: "fg_orunbloom_2", kind: "forage_spot", x: 38, y: 63, name: "Orunbloom Glade", resource: "surv_forage_orunbloom" },
   // --- A couple of early clumps closer to the roads, for new foragers. ---
   { id: "fg_mushroom_near", kind: "forage_spot", x: 46, y: 37, name: "Mushroom Cluster", resource: "surv_forage_mushroom" },
   { id: "fg_fiber_near", kind: "forage_spot", x: 51, y: 33, name: "Fibreweed", resource: "surv_forage_fiber" },
@@ -1370,6 +1392,14 @@ const rawObjects: WorldObjectDef[] = [
   { id: "course_ashfen_2", kind: "agility_obstacle", x: 69, y: 85, name: "Ashfen Gauntlet: Rope Swing", course: "course_ashfen", order: 2, exit: { x: 69, y: 86 }, xp: 360, levelReq: 70, obstacle: "rope" },
   { id: "course_ashfen_3", kind: "agility_obstacle", x: 66, y: 87, name: "Ashfen Gauntlet: Wall Scramble", course: "course_ashfen", order: 3, exit: { x: 65, y: 87 }, xp: 360, levelReq: 70, obstacle: "wall" },
   { id: "course_ashfen_4", kind: "agility_obstacle", x: 64, y: 85, name: "Ashfen Gauntlet: Stepping Stones", course: "course_ashfen", order: 4, exit: { x: 64, y: 84 }, xp: 360, levelReq: 70, obstacle: "stones" },
+  // A fifth, grandmaster circuit — the Ashfen High Line (Agility 85+) — the last
+  // fixed course, filling the empty 70→cap band. Set just east of the Gauntlet on
+  // the same flats (validated-walkable terrain), the biggest per-lap payout of all.
+  { id: "course_highline_0", kind: "agility_obstacle", x: 72, y: 84, name: "Ashfen High Line: Balance Log", course: "course_highline", order: 0, exit: { x: 73, y: 84 }, xp: 470, levelReq: 85, obstacle: "log" },
+  { id: "course_highline_1", kind: "agility_obstacle", x: 75, y: 84, name: "Ashfen High Line: Climbing Net", course: "course_highline", order: 1, exit: { x: 75, y: 85 }, xp: 470, levelReq: 85, obstacle: "net" },
+  { id: "course_highline_2", kind: "agility_obstacle", x: 77, y: 86, name: "Ashfen High Line: Rope Swing", course: "course_highline", order: 2, exit: { x: 77, y: 87 }, xp: 470, levelReq: 85, obstacle: "rope" },
+  { id: "course_highline_3", kind: "agility_obstacle", x: 74, y: 87, name: "Ashfen High Line: Wall Scramble", course: "course_highline", order: 3, exit: { x: 73, y: 87 }, xp: 470, levelReq: 85, obstacle: "wall" },
+  { id: "course_highline_4", kind: "agility_obstacle", x: 72, y: 86, name: "Ashfen High Line: Stepping Stones", course: "course_highline", order: 4, exit: { x: 72, y: 85 }, xp: 470, levelReq: 85, obstacle: "stones" },
 
   // === THE VARATHIAN TRAIL — a whole-map agility circuit (Agility 50+) =========
   // Eight checkpoints ringing the outskirts, one in each region. They must be
