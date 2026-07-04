@@ -34,6 +34,11 @@ export interface HiscoreEntry {
   /** Duel Ring record — the public Wins Board ranks by victories. */
   duelWins?: number;
   duelLosses?: number;
+  /** This angler's single heaviest pier catch — for the shared records board.
+   *  `pierSpecies` is an index into content.pierFish. */
+  pierWeight?: number;
+  pierLength?: number;
+  pierSpecies?: number;
   /** Per-skill level, keyed by skill id — shown on a player's profile. */
   skills?: Record<string, number>;
   /** A cosmetic supporter — gold name + Founder tag on the board. */
@@ -50,7 +55,7 @@ export interface SocialBackend {
 const num = (v: unknown): number => (typeof v === "number" && Number.isFinite(v) ? v : 0);
 
 /** Build a hiscore entry from a raw save blob (the shape save.ts writes). */
-export function entryFromSave(raw: unknown, _content: Content): HiscoreEntry | null {
+export function entryFromSave(raw: unknown, content: Content): HiscoreEntry | null {
   if (!raw || typeof raw !== "object") return null;
   const r = raw as Record<string, unknown>;
   const skills = (r["skills"] ?? {}) as Partial<Record<SkillId, number>>;
@@ -68,8 +73,22 @@ export function entryFromSave(raw: unknown, _content: Content): HiscoreEntry | n
   const stats = (r["stats"] ?? {}) as Record<string, unknown>;
   const skillLevels: Record<string, number> = {};
   for (const id of ids) skillLevels[id] = lvl(id);
+  const myName = typeof app["name"] === "string" && app["name"] ? (app["name"] as string) : "Wanderer";
+  // This angler's own heaviest pier catch (rivals seeded on the board are skipped).
+  let pierWeight = 0, pierLength = 0, pierSpecies = 0;
+  const recs = r["fishingRecords"];
+  if (Array.isArray(recs)) {
+    for (const rec of recs as { species?: string; weight?: number; length?: number; angler?: string }[]) {
+      if (!rec || rec.angler !== myName || !Number.isFinite(rec.weight)) continue;
+      if ((rec.weight ?? 0) > pierWeight) {
+        pierWeight = rec.weight ?? 0;
+        pierLength = rec.length ?? 0;
+        pierSpecies = Math.max(0, content.pierFish.findIndex((f) => f.name === rec.species));
+      }
+    }
+  }
   return {
-    name: typeof app["name"] === "string" && app["name"] ? (app["name"] as string) : "Wanderer",
+    name: myName,
     totalLevel,
     combat,
     playMs: num(r["playMs"]),
@@ -79,6 +98,9 @@ export function entryFromSave(raw: unknown, _content: Content): HiscoreEntry | n
     trailLaps: num(r["trailLaps"]),
     duelWins: num(stats["duelWins"]),
     duelLosses: num(stats["duelLosses"]),
+    pierWeight,
+    pierLength,
+    pierSpecies,
     skills: skillLevels,
     founder: Array.isArray(r["flags"]) && (r["flags"] as unknown[]).includes("founder"),
   };
@@ -116,10 +138,16 @@ function rowToEntry(row: Record<string, unknown>): HiscoreEntry {
     e.trailLaps = num(sk["__trail_laps"]);
     e.duelWins = num(sk["__duel_w"]);
     e.duelLosses = num(sk["__duel_l"]);
+    e.pierWeight = num(sk["__pier_w"]) / 10;
+    e.pierLength = num(sk["__pier_len"]);
+    e.pierSpecies = num(sk["__pier_sp"]);
     if (num(sk["__founder"]) > 0) e.founder = true;
     delete sk["__trail_laps"];
     delete sk["__duel_w"];
     delete sk["__duel_l"];
+    delete sk["__pier_w"];
+    delete sk["__pier_len"];
+    delete sk["__pier_sp"];
     delete sk["__founder"];
     e.skills = sk;
   }
@@ -161,6 +189,10 @@ class SupabaseSocialBackend implements SocialBackend {
             __trail_laps: entry.trailLaps ?? 0,
             __duel_w: entry.duelWins ?? 0,
             __duel_l: entry.duelLosses ?? 0,
+            // Best pier catch: weight ×10 (keeps one decimal as an int), length, species index.
+            __pier_w: Math.round((entry.pierWeight ?? 0) * 10),
+            __pier_len: entry.pierLength ?? 0,
+            __pier_sp: entry.pierSpecies ?? 0,
             __founder: entry.founder ? 1 : 0,
           },
         },

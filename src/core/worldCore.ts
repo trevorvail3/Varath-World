@@ -1828,6 +1828,22 @@ export function applyIntent(
       events.push({ type: "LOG", message: "Trade complete." });
       break;
     }
+    case "SET_PIER_RECORDS": {
+      // The client has merged the online board's catches into the local top-five.
+      // Sanitise, keep the heaviest five, and re-run the Golden-Rod check so a
+      // champion out-fished by a real rival elsewhere loses the trophy.
+      const clean = (Array.isArray(intent.records) ? intent.records : [])
+        .filter((r) => r && typeof r.species === "string" && typeof r.angler === "string"
+          && Number.isFinite(r.weight) && Number.isFinite(r.length) && r.weight > 0)
+        .map((r) => ({ species: r.species, angler: r.angler, weight: r.weight, length: Math.round(r.length) }))
+        .sort((a, b) => b.weight - a.weight)
+        .slice(0, 5);
+      if (clean.length > 0) {
+        player.fishingRecords = clean;
+        revokeGoldRodIfDethroned(player, content, events);
+      }
+      break;
+    }
     case "DUEL_STAKE": {
       // Lock a duel wager into escrow: validate ownership, then move the gold
       // and items OUT of the pack onto player.duelStake. One stake at a time.

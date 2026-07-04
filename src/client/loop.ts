@@ -17,6 +17,7 @@
 
 import type {
   Content,
+  FishRecord,
   Intent,
   ItemId,
   MonsterStats,
@@ -53,6 +54,7 @@ import { DecorateUI } from "./decorate.ts";
 import { objectPos, objectHidden, travelFare, equipRequirement } from "../core/worldCore.ts";
 import { findPath, pathToAdjacent, pathToWithin } from "./pathfinding.ts";
 import { getSocial, submitCurrent } from "./social.ts";
+import { currentUser } from "./supabase.ts";
 
 /**
  * The bridge to the core. main.ts builds this so the loop never imports the
@@ -854,6 +856,10 @@ export class Game {
           break;
         case "OPEN_RECORDS":
           this.records.show(this.bridge.state);
+          // Pull in other anglers' catches, then refresh the board with them.
+          void this.syncPierBoard().then(() => {
+            if (this.records.isOpen()) this.records.show(this.bridge.state);
+          });
           break;
         case "HOOKED_FISH":
           audio.play("splash");
@@ -867,25 +873,16 @@ export class Game {
           // Sits a touch above the "+N XP" drop (which spawns at the player) so
           // the catch and the XP gain read as two separate lines, not a mush.
           this.floats.push({ x: p.x, y: p.y - 0.9, text: label, color: ev.rank > 0 ? "#f4d98b" : "#9fd0d8", born: now });
-          // Topping the board is a big moment — a level-up-style fanfare. If the
-          // champion doesn't yet hold the Golden Rod, point them to Jacob.
           if (ev.rank === 1) {
-            const pl = this.bridge.state.player;
-            const ownsRod = pl.equipment.mainhand === "rod_gold"
-              || pl.inventory.some((s) => s?.item === "rod_gold")
-              || (pl.bank["rod_gold"] ?? 0) > 0;
-            this.levelUp.champion(ev.species, ev.weight, !ownsRod);
+            // Topping YOUR board is a big moment — but the Golden Rod belongs to
+            // the pier's ONE champion, so confirm you still top the shared board
+            // (a rival elsewhere may out-fish you) before the claim fanfare.
             audio.play("levelup");
+            void this.resolvePierChampion(ev.species, ev.weight, ev.length, ev.newChampion);
           } else {
             // Every other catch gets its own popup revealing the size (kept secret
             // during the fight).
             this.levelUp.catch(ev.species, ev.weight, ev.length);
-          }
-          // A genuine takeover (not beating your own record) is broadcast to the
-          // whole world in the chat feed.
-          if (ev.newChampion) {
-            const name = this.bridge.state.player.appearance.name;
-            this.hud.worldAnnounce(`${name} landed a ${ev.weight.toFixed(1)}kg ${ev.species} — the Drowned Pier's new Fishing champion!`);
           }
           break;
         }
@@ -2421,6 +2418,56 @@ export class Game {
       lines.push(`You: ${yourW} Victories · ${yourL} Losses — win a wager to make the board.`);
     }
     this.dialogue.show("The Wins Board", lines);
+  }
+
+  /** Fold the online board's catches into the local pier records so every
+   *  angler's heaviest fish shows up — and the Golden Rod tracks the ONE global
+   *  champion (a dethroned holder loses it via the core's revoke check). No-op
+   *  offline: the local board stands. */
+  private async syncPierBoard(): Promise<void> {
+    if (!currentUser()) return;
+    let rows;
+    try {
+      await submitCurrent(this.bridge.content); // publish our own best first
+      rows = await getSocial(this.bridge.content).hiscores();
+    } catch { return; }
+    const pier = this.bridge.content.pierFish;
+    // One row per angler (their heaviest), from the shared board + what we hold
+    // locally (keeps the seeded rivals in play until real players beat them).
+    const bestByAngler = new Map<string, FishRecord>();
+    const consider = (rec: FishRecord): void => {
+      if (!rec || !(rec.weight > 0)) return;
+      const cur = bestByAngler.get(rec.angler);
+      if (!cur || rec.weight > cur.weight) bestByAngler.set(rec.angler, rec);
+    };
+    for (const rec of this.bridge.state.player.fishingRecords) consider(rec);
+    for (const r of rows) {
+      if (!r.pierWeight || r.pierWeight <= 0) continue;
+      const sp = pier[r.pierSpecies ?? 0]?.name ?? pier[0]?.name ?? "Saltgill";
+      consider({ species: sp, weight: r.pierWeight, length: r.pierLength ?? 0, angler: r.name });
+    }
+    const top = [...bestByAngler.values()].sort((a, b) => b.weight - a.weight).slice(0, 5);
+    if (top.length > 0) this.dispatch({ type: "SET_PIER_RECORDS", records: top });
+  }
+
+  /** After a rank-1 catch: reconcile with the shared board, then fire the right
+   *  fanfare — the champion claim only if you actually top all of Varath. */
+  private async resolvePierChampion(species: string, weight: number, length: number, newChampion: boolean): Promise<void> {
+    await this.syncPierBoard();
+    const pl = this.bridge.state.player;
+    const stillLeader = pl.fishingRecords[0]?.angler === pl.appearance.name;
+    if (!stillLeader) {
+      // A rival elsewhere holds the pier — reveal the catch, but no false claim.
+      this.levelUp.catch(species, weight, length);
+      return;
+    }
+    const ownsRod = pl.equipment.mainhand === "rod_gold"
+      || pl.inventory.some((s) => s?.item === "rod_gold")
+      || (pl.bank["rod_gold"] ?? 0) > 0;
+    this.levelUp.champion(species, weight, !ownsRod);
+    if (newChampion) {
+      this.hud.worldAnnounce(`${pl.appearance.name} landed a ${weight.toFixed(1)}kg ${species} — the Drowned Pier's new Fishing champion!`);
+    }
   }
 
   /** Walk beside the campfire (if not already) and open its cook menu on arrival. */

@@ -1773,6 +1773,15 @@ export interface DuelResolveIntent {
   foodEaten?: { item: ItemId; qty: number }[];
 }
 
+/** Replace the pier's records board with a merged shared top-five (the client
+ *  folds in other players' catches from the online board). Applying it re-runs
+ *  the Golden-Rod check, so a champion beaten by a real rival elsewhere is
+ *  correctly dethroned. */
+export interface SetPierRecordsIntent {
+  type: "SET_PIER_RECORDS";
+  records: FishRecord[];
+}
+
 /** "Wear the gear in this inventory slot" (swapping out anything already worn). */
 export interface EquipIntent {
   type: "EQUIP";
@@ -2169,6 +2178,7 @@ export type Intent =
   | TradeApplyIntent
   | DuelStakeIntent
   | DuelResolveIntent
+  | SetPierRecordsIntent
   | OpenNestIntent
   | FounderClaimIntent
   | LandFishIntent
