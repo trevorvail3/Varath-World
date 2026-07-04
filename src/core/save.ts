@@ -202,16 +202,50 @@ export function serializePlayer(state: WorldState): SavedProgress {
 }
 
 /**
+ * Version-to-version save migrations. Each entry upgrades a blob FROM that
+ * version to the next one. Add a migrator here whenever SAVE_VERSION is bumped,
+ * so existing characters survive the change instead of being silently wiped.
+ * (Empty today — version 1 is the current format.)
+ */
+const SAVE_MIGRATIONS: Record<number, (raw: Record<string, unknown>) => Record<string, unknown>> = {
+  // Example for the next bump:
+  // 1: (raw) => ({ ...raw, version: 2, /* transform any changed fields here */ }),
+};
+
+/**
+ * Bring a saved blob up to the current SAVE_VERSION. Returns the migrated record,
+ * or null if it can't be safely loaded — either it's from a NEWER build (we
+ * won't guess how to down-migrate) or there's no migration path from its
+ * version. The rest of the loader already ignores unknown/renamed fields, so an
+ * up-to-date blob loads field-by-field without losing skills, gold or items.
+ */
+function migrateSave(raw: Record<string, unknown>): Record<string, unknown> | null {
+  let v = typeof raw["version"] === "number" ? (raw["version"] as number) : 0;
+  if (v > SAVE_VERSION) return null; // a newer client wrote this — don't trust our guess
+  let cur = raw;
+  while (v < SAVE_VERSION) {
+    const migrate = SAVE_MIGRATIONS[v];
+    if (!migrate) return null; // no path from this version; fail safe rather than corrupt
+    cur = migrate(cur);
+    v = typeof cur["version"] === "number" ? (cur["version"] as number) : v + 1;
+  }
+  return cur;
+}
+
+/**
  * Validate and apply a saved blob onto a freshly-created world. Returns true if
- * anything was loaded. Anything malformed, unknown, or from an older version is
- * ignored rather than trusted — a corrupt save can never crash the game.
+ * anything was loaded. Older saves are migrated up to the current format first;
+ * anything malformed, from a newer build, or with no migration path is ignored
+ * rather than trusted — a corrupt save can never crash or wipe the game.
  */
 export function hydratePlayer(
   state: WorldState,
   content: Content,
-  raw: unknown,
+  rawUnknown: unknown,
 ): boolean {
-  if (!isRecord(raw) || raw["version"] !== SAVE_VERSION) return false;
+  if (!isRecord(rawUnknown)) return false;
+  const raw = migrateSave(rawUnknown);
+  if (!raw) return false;
   const { player } = state;
 
   // --- Skills (only ids this build knows; XP must be a sane number) ---

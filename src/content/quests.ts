@@ -669,14 +669,20 @@ export const quests: QuestDef[] = [
             reply: "✦ NOTHING LASTS FOREVER ✦  You burn the Shard in the deepest fire. The warmth goes out forever, and the question can never be asked again.",
           },
           {
+            // Sealing it "holy by staying unknown" is the Keeper's own agnostic
+            // stance — offered only to a player who settled on not-knowing.
             label: "Secure it. Keep the question open.",
             flags: ["chose_secure", "endgame_shard_secured"],
+            requiresFlags: ["belief_keeper_wisdom"],
             giveItem: "cape_ending_vault",
             reply: "✦ KEEP THE RECORD ✦  You seal the unread Shard in the Order's inner vault. The mystery is kept, holy by staying unknown.",
           },
           {
+            // You cannot perform a rite you don't believe in — the rite ending
+            // is offered only to a player who settled on belief.
             label: "Use it. Perform the rite.",
             flags: ["chose_use", "endgame_shard_used", "the_warmth_answered"],
+            requiresFlags: ["player_belief_believer"],
             giveItem: "cape_ending_dawn",
             reply: "✦ THE WARMTH BENEATH ✦  You speak the rite. The warmth moves down — and something deep answers. It is never named, and never explained.",
           },

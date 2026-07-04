@@ -356,7 +356,10 @@ function boot(newChar: CreatedCharacter | null, cloudReady: boolean): void {
         ? `Welcome back, ${state.player.appearance.name}. The hills are as you left them.`
         : `You set foot on the Knuckle Hills, ${state.player.appearance.name}. An old man waves from the clearing.`,
     );
-    if (!restored) guide.start();
+    // Start (or resume) the opening coach — start() self-guards on graduation
+    // and on "looks advanced", so a player who quit mid-first-quest gets the
+    // coach back, while veterans never see it again (Tier-0 fix).
+    guide.start(state.player);
     // A founder's one-time cache window — after the intro/primer, once the
     // player is actually standing in the world.
     maybeShowFounderClaim(app!, state, dispatch);

@@ -3718,7 +3718,7 @@ export const items: Record<ItemId, ItemDef> = {
   "cape_max": {
     "id": "cape_max",
     "name": "Cape of Varath",
-    "description": "All master cape bonuses combined: +5% all XP, +20 max HP, +5 Edge/Vigour/Draw/Ward, +25% Hunt Marks, +10% crop survival, potions last 25% longer, smelting 10% faster. The mark of a complete Varath.",
+    "description": "The master's cape, worn: +5% to all XP, +20 max HP, +5 Edge, Vigour, Draw and Ward, +25% Hunt Marks, and a master angler's edge at the pier. The mark of a complete Varath.",
     "icon": "🌟",
     "cat": "Capes",
     "slot": "cape",
@@ -3730,7 +3730,7 @@ export const items: Record<ItemId, ItemDef> = {
   "cape_ironvale": {
     "id": "cape_ironvale",
     "name": "Ironvale's Cape",
-    "description": "A prestige reskin of the Cape of Varath. Carries every benefit of the Cape of Varath — it is the same power, differently dressed. Awarded only to those who have filled the collection log, claimed every achievement, and cleared every dungeon.",
+    "description": "A prestige reskin of the Cape of Varath. Carries every benefit of the Cape of Varath — it is the same power, differently dressed. Awarded only to those who have filled the collection log and claimed every achievement.",
     "icon": "✨",
     "cat": "Capes",
     "slot": "cape",

@@ -51,7 +51,7 @@ import { getTrackedQuest } from "./questTrack.ts";
 import { resolveGear } from "./gearLook.ts";
 import { DUNGEON_TOP, enterableAt, instanceRectAt, INTERIOR_TOP, OVERWORLD_HEIGHT } from "../content/map.ts";
 import { DecorateUI } from "./decorate.ts";
-import { objectPos, objectHidden, travelFare, equipRequirement } from "../core/worldCore.ts";
+import { objectPos, objectHidden, travelFare, equipRequirement, combatLevel } from "../core/worldCore.ts";
 import { findPath, pathToAdjacent, pathToWithin } from "./pathfinding.ts";
 import { getSocial, submitCurrent } from "./social.ts";
 import { currentUser } from "./supabase.ts";
@@ -1836,7 +1836,12 @@ export class Game {
             !player.questsDone.includes(q.id) &&
             (!q.requires || player.questsDone.includes(q.requires)) &&
             (!q.requiresFlags || q.requiresFlags.every((f) => player.flags.includes(f))) &&
-            (!q.blockedByFlags || !q.blockedByFlags.some((f) => player.flags.includes(f))),
+            (!q.blockedByFlags || !q.blockedByFlags.some((f) => player.flags.includes(f))) &&
+            // Mirror the core's level gate so a giver doesn't flash a false "!"
+            // before the player is actually strong enough to be offered it.
+            (!q.requiresLevel || (q.requiresLevel.skill
+              ? player.skills[q.requiresLevel.skill].level >= q.requiresLevel.level
+              : combatLevel(player) >= q.requiresLevel.level)),
         );
         if (offer) mark = "!";
       }

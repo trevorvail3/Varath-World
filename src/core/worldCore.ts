@@ -35,7 +35,9 @@ import type {
   MonsterStats,
   ObjKind,
   Player,
+  QuestChoice,
   QuestDef,
+  QuestObjective,
   QuestState,
   RepChange,
   SkillAction,
@@ -231,6 +233,14 @@ function fishingCapeWorn(player: Player, content: Content): boolean {
   const cape = player.equipment.cape ? content.items[player.equipment.cape] : undefined;
   const skill = cape?.cat === "Capes" ? cape.meta?.skill : undefined;
   return skill === "fishing" || skill === "max" || skill === "ironvale";
+}
+
+/** True while a grandmaster completion cape — the Cape of Varath or its Ironvale
+ *  reskin — is worn. It carries the all-round master bonuses (see grantXp,
+ *  syncMaxHp, the combat-stat helpers, and the Bounty-Marks payout). */
+function varathCapeWorn(player: Player): boolean {
+  const c = player.equipment.cape;
+  return c === "cape_max" || c === "cape_ironvale";
 }
 
 function rollPierFish(player: Player, content: Content, rodTier: number, ctx: Ctx): HookedFish {
@@ -1403,6 +1413,8 @@ function grantXp(
   }
   // An XP-boost tincture (Herblore) lifts all XP gains while it lasts.
   amount = amount * (1 + buffVal(state.player, "xp_boost"));
+  // The Cape of Varath (or its Ironvale reskin) lends +5% to every XP gain.
+  if (varathCapeWorn(state.player)) amount = amount * 1.05;
   s.xp = Math.min(s.xp + amount, XP_CAP); // level caps at 100; XP still climbs to 100M
   events.push({ type: "XP_GAINED", skill, amount });
   const after = levelFromXp(content.xpForLevel, s.xp);
@@ -4966,11 +4978,14 @@ function handleNpcTalk(
     }
     if (obj.type === "choice" && obj.npc === npcId) {
       // Don't advance — ask the client to present the options (no dialogue box).
+      // Options can be gated by flags so a finale only offers the endings the
+      // player's story left open (Tier-0 fix). The client picks by index into
+      // this same filtered list, so applyChoice re-filters identically.
       events.push({
         type: "QUEST_CHOICE",
         quest: qid,
         prompt: obj.prompt,
-        options: obj.options.map((o) => o.label),
+        options: visibleChoiceOptions(obj, player).map((o) => o.label),
       });
       return [];
     }
@@ -5087,12 +5102,19 @@ function grantQuestReward(
   events: WorldEvent[],
 ): void {
   const { player } = state;
-  // Quest XP is paid as an XP lamp: the player chooses which skill to pour it
-  // into (OSRS-style), rather than it landing in a fixed skill. Each reward
-  // entry becomes one lamp of its amount.
-  for (const x of def.reward.xp ?? []) {
-    (player.xpLamps ??= []).push(x.amount);
-    events.push({ type: "XP_LAMP", amount: x.amount, pending: player.xpLamps.length });
+  // Quest XP rewards now honour their skill labels (Tier-0 fix — the labels
+  // used to be discarded, making a "60k Vitality / 8k Edge" reward really 68k
+  // of pour-anywhere XP). A SINGLE labelled entry grants straight to that skill,
+  // so quests can scaffold a specific skill's dead band. A MULTI-entry reward
+  // stays a player-choice lamp, but as one honest pooled amount rather than a
+  // misleading per-skill list.
+  const xp = def.reward.xp ?? [];
+  if (xp.length === 1) {
+    grantXp(state, content, xp[0]!.skill, xp[0]!.amount, events);
+  } else if (xp.length > 1) {
+    const pooled = xp.reduce((n, x) => n + x.amount, 0);
+    (player.xpLamps ??= []).push(pooled);
+    events.push({ type: "XP_LAMP", amount: pooled, pending: player.xpLamps.length });
   }
   for (const it of def.reward.items ?? []) {
     // A reward must never be lost to a full pack — if it won't fit, bank it.
@@ -5176,9 +5198,76 @@ function checkAchievements(
     if (evalAchievement(player, content, a.cond).met) {
       player.achievements.push(a.id);
       events.push({ type: "ACHIEVEMENT", id: a.id, name: a.name });
-      events.push({ type: "LOG", message: `Achievement unlocked: ${a.name}!` });
+      // Each achievement pays a small Hunt-Marks bounty — a real currency with a
+      // rich shop, so completionism finally buys something (Tier-0 fix).
+      if (player.bounty) player.bounty.marks += ACHIEVEMENT_MARKS;
+      events.push({ type: "LOG", message: `Achievement unlocked: ${a.name}! (+${ACHIEVEMENT_MARKS} Hunt Marks)` });
     }
   }
+  // Reward filling the collection log at quarter milestones, and hand over the
+  // grandmaster completion cape once the log AND every achievement are done.
+  checkCollectionMilestones(state, content, events);
+  maybeGrantCompletionCape(state, content, events);
+}
+
+const ACHIEVEMENT_MARKS = 25; // Hunt Marks per achievement unlocked
+// Collection-log completion pays an XP lamp at each quarter, once.
+const COLLECTION_MILESTONES: { pct: number; flag: string; lamp: number }[] = [
+  { pct: 25, flag: "coll_milestone_25", lamp: 10000 },
+  { pct: 50, flag: "coll_milestone_50", lamp: 25000 },
+  { pct: 75, flag: "coll_milestone_75", lamp: 50000 },
+  { pct: 100, flag: "coll_milestone_100", lamp: 100000 },
+];
+
+/** Every item the collection log tracks (all catalogued gear/loot — the same
+ *  universe the Records tab counts: catalogued, non-Quest items). */
+function collectionProgress(player: Player, content: Content): { done: number; total: number } {
+  const owned = new Set(player.collection ?? []);
+  let done = 0, total = 0;
+  for (const id of Object.keys(content.items) as ItemId[]) {
+    const d = content.items[id];
+    if (!d.cat || d.cat === "Quest") continue;
+    total += 1;
+    if (owned.has(id)) done += 1;
+  }
+  return { done, total };
+}
+
+/** Pay the collection-log quarter-milestone lamps (once each). */
+function checkCollectionMilestones(state: WorldState, content: Content, events: WorldEvent[]): void {
+  const { player } = state;
+  const { done, total } = collectionProgress(player, content);
+  if (total === 0) return;
+  const pct = (done / total) * 100;
+  for (const m of COLLECTION_MILESTONES) {
+    if (pct >= m.pct && !player.flags.includes(m.flag)) {
+      player.flags.push(m.flag);
+      (player.xpLamps ??= []).push(m.lamp);
+      events.push({ type: "XP_LAMP", amount: m.lamp, pending: player.xpLamps.length });
+      events.push({ type: "LOG", message: `Collection Log ${m.pct}% complete — a lamp of ${m.lamp.toLocaleString()} XP is yours to spend.` });
+    }
+  }
+}
+
+/** True once the player owns cape_ironvale anywhere (equipped, pack, or bank). */
+function ownsCompletionCape(player: Player): boolean {
+  if (player.equipment.cape === "cape_ironvale") return true;
+  if ((player.bank["cape_ironvale"] ?? 0) > 0) return true;
+  return player.inventory.some((s) => s?.item === "cape_ironvale");
+}
+
+/** Grant Ironvale's Cape — the true grandmaster prize — the moment the
+ *  collection log is full AND every achievement is claimed (Tier-0 fix: the
+ *  cape had no code path to be earned). Banked so a full pack never loses it. */
+function maybeGrantCompletionCape(state: WorldState, content: Content, events: WorldEvent[]): void {
+  const { player } = state;
+  if (ownsCompletionCape(player)) return;
+  if (player.achievements.length < content.achievements.length) return;
+  const { done, total } = collectionProgress(player, content);
+  if (total === 0 || done < total) return;
+  player.bank["cape_ironvale"] = (player.bank["cape_ironvale"] ?? 0) + 1;
+  events.push({ type: "ITEM_GAINED", item: "cape_ironvale", qty: 1 });
+  events.push({ type: "LOG", message: "You have filled the collection log and claimed every achievement. Ironvale's Cape is sent to your bank — the mark of a complete Varath." });
 }
 
 /** Adjust faction standing and announce each change. */
@@ -5201,14 +5290,31 @@ function questAvailable(player: Player, q: QuestDef): boolean {
   if (player.quests[q.id] || player.questsDone.includes(q.id)) return false;
   if (q.requires && !player.questsDone.includes(q.requires)) return false;
   if (q.requiresLevel) {
+    // A skill-less level gate means COMBAT level, not summed total level — a
+    // "recommended level 45" quest should gate on how tough you are, not on the
+    // trivially-met sum of every skill (Tier-0 fix).
     const have = q.requiresLevel.skill
       ? skillLvl(player, q.requiresLevel.skill)
-      : (Object.keys(player.skills) as SkillId[]).reduce((n, s) => n + skillLvl(player, s), 0);
+      : combatLevel(player);
     if (have < q.requiresLevel.level) return false;
   }
   if (q.requiresFlags && !q.requiresFlags.every((f) => player.flags.includes(f))) return false;
   if (q.blockedByFlags && q.blockedByFlags.some((f) => player.flags.includes(f))) return false;
   return true;
+}
+
+/** The choice options a player may actually see, after flag gating. A finale
+ *  can thus offer only the endings the player's story left open (Tier-0 fix).
+ *  Both the QUEST_CHOICE emit and applyChoice call this so indices always align. */
+function visibleChoiceOptions(
+  obj: Extract<QuestObjective, { type: "choice" }>,
+  player: Player,
+): QuestChoice[] {
+  return obj.options.filter((o) => {
+    if (o.requiresFlags && !o.requiresFlags.every((f) => player.flags.includes(f))) return false;
+    if (o.blockedByFlags && o.blockedByFlags.some((f) => player.flags.includes(f))) return false;
+    return true;
+  });
 }
 
 /** Apply a player's pick at a quest's "choice" step, then advance the quest. */
@@ -5225,7 +5331,9 @@ function applyChoice(
   if (!def || !st) return;
   const obj = def.steps[st.step];
   if (!obj || obj.type !== "choice") return;
-  const pick = obj.options[option];
+  // Resolve the pick against the SAME flag-filtered list the client was shown,
+  // so a gated finale ending can't be selected by a stale index.
+  const pick = visibleChoiceOptions(obj, player)[option];
   if (!pick) return;
   // A riddle's wrong answer: speak the hint and stay on the step — the player
   // can come back and try again. Nothing else about the pick applies.
@@ -5471,7 +5579,10 @@ function claimBountyTask(
   const daily = epochNow > 0 && epochNow - (player.bounty.lastClaimDay ?? 0) >= DAILY_WINDOW_MS;
   if (daily) player.bounty.lastClaimDay = epochNow;
   const dailyBonus = daily ? task.marks : 0;
-  player.bounty.marks += task.marks + streakBonus + milestoneBonus + dailyBonus;
+  // The Cape of Varath lends +25% to the whole Hunt-Marks payout.
+  const subtotal = task.marks + streakBonus + milestoneBonus + dailyBonus;
+  const capeBonus = varathCapeWorn(player) ? Math.round(subtotal * 0.25) : 0;
+  player.bounty.marks += subtotal + capeBonus;
   player.bounty.task = null;
   grantXp(state, content, "bounty", xp, events);
   const kitNote = hasKit ? " (Hunter's Kit bonus)" : "";
@@ -5737,7 +5848,8 @@ function weaponStyle(player: Player, content: Content): string | undefined {
  */
 function playerAccuracy(player: Player, content: Content): number {
   const styleBonus = player.combatStyle === "edge" ? COMBAT.styleBonus : 0;
-  return skillLvl(player, "edge") + equipStat(player, content, "acc") + styleBonus + buffVal(player, "melee_acc");
+  const cape = varathCapeWorn(player) ? 5 : 0; // Cape of Varath: +5 Edge
+  return skillLvl(player, "edge") + equipStat(player, content, "acc") + styleBonus + cape + buffVal(player, "melee_acc");
 }
 
 /** Max Hitpoints at a given Vitality level — the skill-info milestone maths
@@ -5756,7 +5868,8 @@ export function vigourBaseHit(level: number): number {
 function playerMaxHit(player: Player, content: Content): number {
   const styleBonus = player.combatStyle === "vigour" ? COMBAT.styleBonus : 0;
   const str = Math.round(skillLvl(player, "vigour") * COMBAT.dmgSkillScale);
-  return str + equipStat(player, content, "dmg") + styleBonus + buffVal(player, "melee_dmg");
+  const cape = varathCapeWorn(player) ? 5 : 0; // Cape of Varath: +5 Vigour
+  return str + equipStat(player, content, "dmg") + styleBonus + cape + buffVal(player, "melee_dmg");
 }
 
 /** The bow the player is wielding, if any — a ranged weapon worn in the mainhand. */
@@ -5776,7 +5889,8 @@ function rangedAccuracy(player: Player, content: Content): number {
   const ammo = player.equipment.ammo;
   const ba = bow ? content.items[bow].acc ?? 0 : 0;
   const aa = ammo ? content.items[ammo].acc ?? 0 : 0;
-  return skillLvl(player, "draw") + ba + aa + equipStat(player, content, "rngAcc") + buffVal(player, "ranged_acc");
+  const cape = varathCapeWorn(player) ? 5 : 0; // Cape of Varath: +5 Draw
+  return skillLvl(player, "draw") + ba + aa + equipStat(player, content, "rngAcc") + cape + buffVal(player, "ranged_acc");
 }
 
 /** Ranged max hit: Draw + bow + arrow damage + any ranged-damage buff. */
@@ -5786,7 +5900,8 @@ function rangedMaxHit(player: Player, content: Content): number {
   const bd = bow ? content.items[bow].dmg ?? 0 : 0;
   const ad = ammo ? content.items[ammo].dmg ?? 0 : 0;
   const str = Math.round(skillLvl(player, "draw") * COMBAT.dmgSkillScale);
-  return str + bd + ad + equipStat(player, content, "rngDmg") + buffVal(player, "ranged_dmg");
+  const cape = varathCapeWorn(player) ? 5 : 0; // Cape of Varath: +5 Draw
+  return str + bd + ad + equipStat(player, content, "rngDmg") + cape + buffVal(player, "ranged_dmg");
 }
 
 /** The casting staff the player is wielding, if any (a magic weapon in mainhand). */
@@ -5827,7 +5942,8 @@ function magicMaxHit(player: Player, content: Content): number {
 
 /** Player defence rating: Ward + summed armour defence (+ any Defence buff). */
 function playerDefence(player: Player, content: Content): number {
-  return skillLvl(player, "ward") + equipStat(player, content, "def") + buffVal(player, "defence");
+  const cape = varathCapeWorn(player) ? 5 : 0; // Cape of Varath: +5 Ward
+  return skillLvl(player, "ward") + equipStat(player, content, "def") + cape + buffVal(player, "defence");
 }
 
 /**
@@ -5945,7 +6061,7 @@ function playerSpeed(player: Player, content: Content): number {
 
 /** Keep max HP = base + Vitality level; growing it tops up current HP too. */
 function syncMaxHp(player: Player): void {
-  const m = BASE_MAX_HP + skillLvl(player, "vitality");
+  const m = BASE_MAX_HP + skillLvl(player, "vitality") + (varathCapeWorn(player) ? 20 : 0);
   if (m > player.maxHp) player.hp += m - player.maxHp;
   player.maxHp = m;
   if (player.hp > player.maxHp) player.hp = player.maxHp;

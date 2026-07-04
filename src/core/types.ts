@@ -2379,6 +2379,11 @@ export interface QuestChoice {
   giveItem?: ItemId;
   /** Reputation changes with factions for picking this option. */
   rep?: RepChange[];
+  /** This option is only OFFERED when the player holds all of these flags —
+   *  used to gate a finale's endings by the path the player actually walked. */
+  requiresFlags?: string[];
+  /** This option is HIDDEN when the player holds any of these flags. */
+  blockedByFlags?: string[];
 }
 
 /** One thing a quest step asks of the player. */

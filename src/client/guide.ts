@@ -24,6 +24,7 @@
  */
 
 import type { Content, Player, WorldState } from "../core/types.ts";
+import { getTrackedQuest, setTrackedQuest } from "./questTrack.ts";
 
 /** Quest-derived phases of the opening coach, in the order a new player meets them. */
 type Phase = "off" | "greet" | "mine" | "smelt" | "deliver" | "graduate";
@@ -48,6 +49,10 @@ const GRAD_COMBAT =
 
 /** localStorage keys: the set of tip ids already shown, and a one-time init marker. */
 const SEEN_KEY = "varath-tips-seen";
+/** Set once the opening coach has graduated (or the player already looks
+ *  advanced), so it never re-runs — and so it CAN resume across a session
+ *  boundary until then, rather than only starting for a brand-new session. */
+const COACH_KEY = "varath-coach-graduated";
 const INIT_KEY = "varath-tips-init";
 
 /** How long a tip banner lingers before it fades on its own (ms). */
@@ -161,8 +166,16 @@ export class Guide {
     return this.phase;
   }
 
-  /** Begin the opening coach (call once, for a brand-new player). */
-  start(): void {
+  /** Begin (or RESUME) the opening coach. Safe to call on every load: it starts
+   *  for anyone who still looks like a beginner and hasn't already graduated —
+   *  so a player who closed the tab mid-first-quest gets the coach back instead
+   *  of losing it forever (Tier-0 fix), while veterans are never re-taught. */
+  start(player: Player): void {
+    try { if (localStorage.getItem(COACH_KEY)) return; } catch { /* storage blocked */ }
+    if (looksAdvanced(player)) {
+      try { localStorage.setItem(COACH_KEY, "1"); } catch { /* ignore */ }
+      return;
+    }
     this.active = true;
   }
 
@@ -181,6 +194,39 @@ export class Guide {
     }
 
     this.updateTips(state);
+    // Once the coach has retired, keep the current quest's objective PINNED in
+    // the top-left banner — the Wayfarer's Primer promises exactly this. A
+    // transient tip borrows the banner and reverts to the objective on fade.
+    this.objectiveText = this.computeObjective(state);
+    if (this.tipTimer === null) this.showObjective();
+  }
+
+  /** The pinned objective line, or hide the banner if there's no active quest. */
+  private objectiveText: string | null = null;
+  private showObjective(): void {
+    if (this.objectiveText) this.show(this.objectiveText);
+    else this.banner.classList.add("hidden");
+  }
+
+  /** Resolve the tracked quest's current step into a one-line objective, and
+   *  auto-track the newest active quest when nothing is tracked (or the tracked
+   *  quest is finished) so the top-left goal and the gold arrow always aim
+   *  somewhere. */
+  private computeObjective(state: WorldState): string | null {
+    const p = state.player;
+    let tid = getTrackedQuest();
+    if (!tid || !p.quests[tid]) {
+      const active = Object.keys(p.quests);
+      if (active.length === 0) { if (tid) setTrackedQuest(null); return null; }
+      tid = active[active.length - 1]!; // the most recently accepted quest
+      setTrackedQuest(tid);
+    }
+    const def = this.content.quests.find((q) => q.id === tid);
+    const st = p.quests[tid];
+    if (!def || !st) return null;
+    const step = def.steps[st.step] as { text?: string } | undefined;
+    if (!step?.text) return null;
+    return `◈ ${def.name} — ${step.text}`;
   }
 
   // --- Opening coach ---------------------------------------------------------
@@ -195,6 +241,7 @@ export class Guide {
       this.phase = "graduate";
       if (!this.graduated) {
         this.graduated = true;
+        try { localStorage.setItem(COACH_KEY, "1"); } catch { /* ignore */ }
         this.runGraduation();
       }
       return;
@@ -261,8 +308,8 @@ export class Guide {
   private showTip(text: string): void {
     this.show(text);
     this.tipTimer = window.setTimeout(() => {
-      this.banner.classList.add("hidden");
       this.tipTimer = null;
+      this.showObjective(); // revert to the pinned objective, not a blank banner
     }, TIP_MS);
   }
 

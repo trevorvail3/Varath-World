@@ -1812,7 +1812,16 @@ export const monsters: Record<string, MonsterStats> = {
       { type: "slam", every: 4, mult: 2.2, radius: 1, windupMs: 2000, tell: "The Horror's eye fixes on the ground beneath you — the stone begins to scream. MOVE!" },
       { type: "enrage", below: 0.3, mult: 1.4, tell: "The Horror's eye splits open wider — the dark itself leans in!" },
     ],
-    drops: [],
+    drops: [
+      { item: "big_bones", chance: 1, tier: "always" },
+      { item: "worn_coin", chance: 1, min: 450, max: 950, tier: "always" },
+      // The Horror's Lantern — its signature unique (the deep's own cold light).
+      { item: "horror_lantern", chance: 0.04, tier: "legendary" },
+      { item: "hearthite_bar", chance: 0.4, min: 1, max: 2, tier: "uncommon" },
+      { item: "cut_gem", chance: 0.5, min: 1, max: 3, tier: "uncommon" },
+      { item: "marrow_shard", chance: 0.3, min: 1, max: 2, tier: "rare" },
+      { item: "shard_of_orun", chance: 0.04, tier: "legendary" },
+    ],
   },
 
   // === THE GREYBACK — the wandering world boss. It patrols the wild edges of
@@ -2171,10 +2180,15 @@ export const monsters: Record<string, MonsterStats> = {
     "boss": true,
     "desc": "The keeper of the fifth seal, sworn upon the Undergate until the wolf runs home. It is not angry. It is not cruel. It simply has one instruction left, and you are standing on it.",
     "drops": [
+      { item: "big_bones", chance: 1, tier: "always" },
       { item: "worn_coin", chance: 1, min: 500, max: 900, tier: "always" },
+      // The Warden's own regalia — its mask and greaves now drop from it.
+      { item: "pale_mask", chance: 0.04, tier: "rare" },
+      { item: "pale_greaves", chance: 0.04, tier: "rare" },
       { item: "cut_gem", chance: 0.6, min: 2, max: 4, tier: "uncommon" },
       { item: "ashiron_bar", chance: 0.5, min: 2, max: 3, tier: "uncommon" },
       { item: "marrow_shard", chance: 0.25, tier: "rare" },
+      { item: "shard_of_orun", chance: 0.03, tier: "legendary" },
     ],
   },
 
