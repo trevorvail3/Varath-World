@@ -601,3 +601,61 @@ begin
   delete from trades where id = p_id and a_done and b_done;
 end $$;
 ```
+
+## The Duel Ring — opt-in staked PvP (run this for the duel window)
+
+Unlike trading, duels don't need per-side RPCs. The whole safety model lives in
+the game core, not the server: stakes are escrowed out of each player's own save
+the moment both accept (the `DUEL_STAKE` intent), the fight is a **deterministic
+lockstep simulation** both clients run from a shared seed (so neither can fake a
+hit or a win — a divergence is caught by periodic state-hash checks and voids the
+duel, returning both stakes), and the result is applied to each save by that
+client's own idempotent `DUEL_RESOLVE`. Closing the game mid-duel forfeits the
+stake (enforced on next boot). Quitting is never a way to keep it.
+
+So the server only needs a **dumb message bus**: a single append-only table the
+two clients insert tiny JSON packets into (hello / challenge / offer / confirm /
+per-tick intents + state hashes) and poll. No trust lives here, so there are no
+functions — just insert + read, guarded by RLS so only signed-in players can use
+it. Paste and **Run**:
+
+```sql
+create table if not exists public.duel_msgs (
+  id      bigint generated always as identity primary key,
+  at      timestamptz not null default now(),
+  payload jsonb not null
+);
+create index if not exists duel_msgs_id on public.duel_msgs (id);
+
+alter table public.duel_msgs enable row level security;
+
+-- Any signed-in player may post a duel packet…
+drop policy if exists duel_msgs_insert on public.duel_msgs;
+create policy duel_msgs_insert on public.duel_msgs for insert
+  to authenticated with check (true);
+
+-- …and read the recent stream (clients filter to their own duel by payload).
+drop policy if exists duel_msgs_read on public.duel_msgs;
+create policy duel_msgs_read on public.duel_msgs for select
+  to authenticated using (true);
+```
+
+**Housekeeping (optional).** The bus is chatty — a duel is dozens of tiny rows —
+so prune old packets on a schedule instead of letting the table grow forever.
+If you have `pg_cron`, this clears anything older than an hour every 15 minutes:
+
+```sql
+-- select cron.schedule('prune-duel-msgs', '*/15 * * * *',
+--   $$delete from public.duel_msgs where at < now() - interval '1 hour'$$);
+```
+
+Otherwise just run `delete from public.duel_msgs where at < now() - interval '1 day';`
+by hand now and then. Nothing durable lives here — losing the whole table only
+cancels any duel mid-handshake (which the clients treat as a void), so it is safe
+to truncate at any time.
+
+> **Note for testing.** `BusDuelTransport` (the signed-in path) can't be exercised
+> from a sandbox — it needs this SQL applied against a live project and two
+> authenticated sessions. The offline/local path (`LocalDuelTransport`, a
+> `BroadcastChannel`) needs no backend at all and is what the automated two-tab
+> browser test drives, so the duel flow is verifiable without touching prod.

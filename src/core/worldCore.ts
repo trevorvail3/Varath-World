@@ -1828,6 +1828,89 @@ export function applyIntent(
       events.push({ type: "LOG", message: "Trade complete." });
       break;
     }
+    case "DUEL_STAKE": {
+      // Lock a duel wager into escrow: validate ownership, then move the gold
+      // and items OUT of the pack onto player.duelStake. One stake at a time.
+      if (player.duelStake) {
+        events.push({ type: "LOG", message: "You already have a wager locked in a duel." });
+        break;
+      }
+      const gold = Math.max(0, Math.floor(intent.gold));
+      if (gold > player.gold) {
+        events.push({ type: "LOG", message: "You don't have that much gold to stake." });
+        break;
+      }
+      const items: { item: ItemId; qty: number }[] = [];
+      let short = false;
+      for (const s of intent.items) {
+        const qty = Math.max(0, Math.floor(s.qty));
+        if (qty <= 0) continue;
+        if (countItem(player, s.item) < qty) { short = true; break; }
+        items.push({ item: s.item, qty });
+      }
+      if (short) {
+        events.push({ type: "LOG", message: "You can't stake what you don't carry." });
+        break;
+      }
+      player.gold -= gold;
+      for (const s of items) removeItems(player, s.item, s.qty);
+      player.duelStake = { duelId: intent.duelId, gold, items };
+      events.push({ type: "LOG", message: "Your wager is locked in. Win, and both purses are yours." });
+      break;
+    }
+    case "DUEL_RESOLVE": {
+      // Idempotent by design: only the duel holding my escrow can settle it.
+      const stake = player.duelStake;
+      if (!stake || stake.duelId !== intent.duelId) break;
+      delete player.duelStake;
+      // The food eaten during the fight was real — deduct it (all outcomes
+      // except a voided fight, which never "happened").
+      if (intent.outcome !== "void") {
+        for (const f of intent.foodEaten ?? []) {
+          const q = Math.floor(f.qty);
+          if (q > 0) removeItems(player, f.item, Math.min(q, countItem(player, f.item)));
+        }
+      }
+      const restore = (): void => {
+        player.gold += stake.gold;
+        for (const s of stake.items) {
+          if (canAddItem(player, s.item)) addItem(player, s.item, s.qty, events);
+          else {
+            player.bank[s.item] = (player.bank[s.item] ?? 0) + s.qty;
+            events.push({ type: "LOG", message: `${content.items[s.item]?.name ?? s.item} was returned to your bank.` });
+          }
+        }
+      };
+      if (intent.outcome === "won") {
+        restore();
+        const w = intent.winnings;
+        if (w) {
+          player.gold += Math.max(0, Math.floor(w.gold));
+          player.stats.goldEarned += Math.max(0, Math.floor(w.gold));
+          for (const s of w.items) {
+            const q = Math.floor(s.qty);
+            if (q <= 0 || !content.items[s.item]) continue;
+            if (canAddItem(player, s.item)) addItem(player, s.item, q, events);
+            else {
+              player.bank[s.item] = (player.bank[s.item] ?? 0) + q;
+              events.push({ type: "LOG", message: `${content.items[s.item].name} was sent to your bank.` });
+            }
+          }
+        }
+        player.stats.duelWins = (player.stats.duelWins ?? 0) + 1;
+        events.push({ type: "LOG", message: "VICTORY — the ring is yours, and so are both wagers." });
+      } else if (intent.outcome === "lost") {
+        player.stats.duelLosses = (player.stats.duelLosses ?? 0) + 1;
+        events.push({ type: "LOG", message: "Defeated. Your wager crosses the ring." });
+      } else {
+        restore();
+        events.push({
+          type: "LOG",
+          message: intent.outcome === "draw" ? "A dead heat — both wagers walk home." : "The duel was called off. Your wager is returned.",
+        });
+      }
+      break;
+    }
     case "DEPOSIT": {
       if (!atStation(player, "bank", "the bank", events)) break;
       depositItem(player, intent.item, intent.qty);
@@ -5582,6 +5665,42 @@ function magicMaxHit(player: Player, content: Content): number {
 /** Player defence rating: Ward + summed armour defence (+ any Defence buff). */
 function playerDefence(player: Player, content: Content): number {
   return skillLvl(player, "ward") + equipStat(player, content, "def") + buffVal(player, "defence");
+}
+
+/**
+ * Snapshot a player for the duel ring (see duelCore.ts). Taken the moment
+ * stakes lock, so the fight is sealed against mid-duel gear or bank tricks:
+ * accuracy/damage/defence through the SAME formulas PvE uses (style bonus,
+ * gear sums, live potion buffs), weapon cadence in duel ticks, and the pack's
+ * food as a satchel of bites. Both clients exchange these snapshots and then
+ * only ever exchange intents.
+ */
+export function duelFighterFrom(player: Player, content: Content): import("./duelCore.ts").DuelFighter {
+  const ranged = isRanged(player, content);
+  const acc = ranged ? rangedAccuracy(player, content) : playerAccuracy(player, content);
+  const dmg = ranged ? rangedMaxHit(player, content) : playerMaxHit(player, content);
+  const food: { item: ItemId; heal: number; count: number }[] = [];
+  for (const slot of player.inventory) {
+    if (!slot) continue;
+    const heals = content.items[slot.item]?.heals ?? 0;
+    if (heals <= 0) continue;
+    const ex = food.find((f) => f.item === slot.item);
+    if (ex) ex.count += slot.qty;
+    else food.push({ item: slot.item, heal: heals, count: slot.qty });
+  }
+  return {
+    name: player.appearance.name,
+    look: player.appearance,
+    equipment: { ...player.equipment },
+    combatLevel: combatLevel(player),
+    maxHp: player.maxHp,
+    acc,
+    dmg,
+    def: playerDefence(player, content),
+    speedTicks: Math.max(3, Math.round(playerSpeed(player, content) / 600)),
+    ranged,
+    food,
+  };
 }
 
 /** The player's swing interval (ms): the active weapon's speed, or default. */

@@ -2857,7 +2857,8 @@ function drawObject(
       drawDeadfall(g, cx, cy, def.species === "snag" ? "snag" : "log");
       break;
     case "signpost":
-      scaled(g, cx, cy, 1.25, () => drawSignpost(g, 0, 0));
+      if (def.id === "duel_board") drawDuelRing(g, cx, cy, now);
+      else scaled(g, cx, cy, 1.25, () => drawSignpost(g, 0, 0));
       break;
     case "waystone":
       drawWaystone(g, cx, cy, now);
@@ -2884,6 +2885,44 @@ function drawObject(
       drawPierGate(g, cx, cy);
       break;
   }
+}
+
+/** The Duel Ring: a chalked stone circle with two crossed-sword banner posts,
+ *  reading unmistakably as a fighting pit rather than a road sign. */
+function drawDuelRing(g: CanvasRenderingContext2D, cx: number, cy: number, now: number): void {
+  shadow(g, cx, cy + 10, 20, 6);
+  // The chalked ring on the ground (a flattened ellipse for the ground plane).
+  g.save();
+  g.translate(cx, cy + 4);
+  g.scale(1, 0.5);
+  g.strokeStyle = "rgba(232,220,180,0.85)";
+  g.lineWidth = 2;
+  g.beginPath(); g.arc(0, 0, 18, 0, Math.PI * 2); g.stroke();
+  g.strokeStyle = "rgba(201,162,74,0.45)";
+  g.lineWidth = 1;
+  g.beginPath(); g.arc(0, 0, 13, 0, Math.PI * 2); g.stroke();
+  g.restore();
+  // A banner post at the back with a crossed-swords pennant.
+  g.fillStyle = "#3a2c1e";
+  g.fillRect(cx - 1, cy - 20, 2.2, 24);
+  const wave = Math.sin(now / 380) * 1.6;
+  g.fillStyle = "#7a2230";
+  g.beginPath();
+  g.moveTo(cx + 1, cy - 20);
+  g.lineTo(cx + 14 + wave, cy - 17);
+  g.lineTo(cx + 1, cy - 10);
+  g.closePath();
+  g.fill();
+  // Two little crossed swords on the pennant.
+  g.strokeStyle = "#e8dcb4";
+  g.lineWidth = 1.1;
+  g.beginPath();
+  g.moveTo(cx + 4, cy - 18); g.lineTo(cx + 9, cy - 13);
+  g.moveTo(cx + 9, cy - 18); g.lineTo(cx + 4, cy - 13);
+  g.stroke();
+  // A finial cap on the post.
+  g.fillStyle = "#c9a24a";
+  g.beginPath(); g.arc(cx, cy - 20, 1.8, 0, Math.PI * 2); g.fill();
 }
 
 /** The Varathian Trail's billboard: a tall standings board topped with a green

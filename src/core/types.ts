@@ -1553,7 +1553,12 @@ export interface Player {
   /** Standing with each of the four factions (can be negative). */
   reputation: Record<FactionId, number>;
   /** Cumulative tallies for achievements. */
-  stats: { goldEarned: number; monstersSlain: number };
+  stats: { goldEarned: number; monstersSlain: number; duelWins?: number; duelLosses?: number };
+  /** The wager locked into a live duel: removed from the pack when both sides
+   *  accept, returned or forfeited by DUEL_RESOLVE. Persisted so closing the
+   *  game mid-duel can't dupe the stake — an unresolved stake found on boot is
+   *  treated as an abandoned duel and forfeited. */
+  duelStake?: { duelId: string; gold: number; items: { item: ItemId; qty: number }[] };
   /** Per-boss kill tally (keyed by monster id), shown in the Boss Log. */
   bossKills: Record<string, number>;
   /** Claimed boss kill-milestone keys ("<bossId>:<kills>"). */
@@ -1745,6 +1750,27 @@ export interface TradeApplyIntent {
   tradeId: number;
   give: { gold: number; items: { item: ItemId; qty: number }[] };
   get: { gold: number; items: { item: ItemId; qty: number }[] };
+}
+
+/** Lock my wager into a duel: gold + items leave the pack into escrow. */
+export interface DuelStakeIntent {
+  type: "DUEL_STAKE";
+  duelId: string;
+  gold: number;
+  items: { item: ItemId; qty: number }[];
+}
+
+/** Settle a finished duel against MY save (each client applies its own half,
+ *  like TRADE_APPLY). Idempotent: only applies while the matching stake is
+ *  held in escrow. `won` restores my stake and adds the winnings; `lost`
+ *  forfeits the stake; `draw`/`void` return it. Food eaten during the fight
+ *  is deducted from the real pack here. */
+export interface DuelResolveIntent {
+  type: "DUEL_RESOLVE";
+  duelId: string;
+  outcome: "won" | "lost" | "draw" | "void";
+  winnings?: { gold: number; items: { item: ItemId; qty: number }[] };
+  foodEaten?: { item: ItemId; qty: number }[];
 }
 
 /** "Wear the gear in this inventory slot" (swapping out anything already worn). */
@@ -2141,6 +2167,8 @@ export type Intent =
   | ClaimBossMilestoneIntent
   | GeMoveIntent
   | TradeApplyIntent
+  | DuelStakeIntent
+  | DuelResolveIntent
   | OpenNestIntent
   | FounderClaimIntent
   | LandFishIntent

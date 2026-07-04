@@ -2716,6 +2716,54 @@ button.inv-slot {
 .trade-btn.dim:hover { color: var(--ember); background: transparent; }
 .trade-btn.accept-trade.on { background: #5a8a4a; border-color: #8fce7f; color: #0e1408; }
 
+/* --- The Duel Ring (opt-in staked PvP) --- */
+.duel-backdrop {
+  position: fixed; inset: 0; z-index: 66; pointer-events: auto;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(0, 0, 0, 0.62);
+}
+.duel-backdrop.hidden { display: none; }
+.duel-modal {
+  background: var(--panel, #1c1812); border: 1px solid var(--gold);
+  border-radius: 10px; padding: 12px 14px;
+  width: calc(100% - 32px); max-width: 470px; max-height: 90vh; overflow-y: auto;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6); display: flex; flex-direction: column; gap: 8px;
+}
+.duel-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.duel-title { font-family: "Cinzel", serif; color: var(--gold); font-size: 15px; letter-spacing: 0.04em; }
+.duel-record { font-family: "EB Garamond", serif; font-size: 12px; color: var(--ink-dim); margin-left: auto; }
+.duel-close { background: transparent; border: 0; color: var(--ink-dim); font-size: 18px; line-height: 1; cursor: pointer; }
+.duel-close:hover { color: var(--ember); }
+.duel-sub { font-family: "EB Garamond", serif; font-size: 12px; color: var(--ink-dim); font-style: italic; line-height: 1.35; }
+.duel-ask { font-family: "EB Garamond", serif; color: var(--ink); font-size: 15px; padding: 14px 4px; text-align: center; line-height: 1.4; }
+.duel-ask.win { color: var(--gold); font-family: "Cinzel", serif; }
+.duel-actions { display: flex; gap: 8px; justify-content: center; }
+.duel-actions.fight { justify-content: space-between; }
+.duel-peers { display: flex; flex-direction: column; gap: 6px; max-height: 300px; overflow-y: auto; }
+.duel-peer {
+  display: flex; align-items: center; gap: 8px; padding: 7px 9px;
+  border: 1px solid var(--panel-edge); border-radius: 8px; background: rgba(0,0,0,0.18);
+}
+.duel-peer-name { font-family: "Cinzel", serif; font-size: 13px; color: var(--ink); flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.duel-peer-lvl { font-family: "EB Garamond", serif; font-size: 12px; color: var(--ink-dim); display: inline-flex; align-items: center; gap: 3px; }
+.duel-empty { font-family: "EB Garamond", serif; font-size: 13px; color: var(--ink-dim); font-style: italic; padding: 20px 8px; text-align: center; line-height: 1.4; }
+.duel-btn {
+  font-family: "Cinzel", serif; font-size: 13px; cursor: pointer; white-space: nowrap;
+  color: #1a140f; background: var(--ember, #d2742c); border: 1px solid #f2cf6b;
+  border-radius: 8px; padding: 7px 14px;
+}
+.duel-btn:hover { background: #e08a3e; }
+.duel-btn:disabled { opacity: 0.42; cursor: default; }
+.duel-btn.dim { background: transparent; color: var(--ink-dim); border-color: var(--panel-edge); }
+.duel-btn.dim:hover { color: var(--ember); background: transparent; }
+.duel-btn.on { background: #5a8a4a; border-color: #8fce7f; color: #0e1408; }
+.duel-btn.armed { background: #c9a24a; border-color: #f2cf6b; color: #1a140f; box-shadow: 0 0 8px rgba(201,162,74,0.7); }
+.duel-btn.challenge { padding: 5px 12px; font-size: 12px; }
+.duel-arena {
+  width: 100%; border-radius: 8px; border: 1px solid var(--panel-edge);
+  background: #141009; display: block;
+}
+
 /* --- Login gate (shown before character creation) --- */
 .login-backdrop {
   position: fixed; inset: 0; z-index: 50;

@@ -33,6 +33,7 @@ import { BankUI } from "./bankUI.ts";
 import { ShopUI } from "./shopUI.ts";
 import { BountyUI } from "./bountyUI.ts";
 import { RecordsUI } from "./recordsUI.ts";
+import { DuelUI } from "./duelUI.ts";
 import { TensionUI } from "./tensionUI.ts";
 import { LevelUp } from "./levelUp.ts";
 import { ActiveSkill } from "./activeSkill.ts";
@@ -376,6 +377,7 @@ export class Game {
   private shop: ShopUI;
   private bounty: BountyUI;
   private records: RecordsUI;
+  private duel: DuelUI;
   private tension: TensionUI;
   /** Active "Cook all" run: keep cooking every cookable dish at this fire. */
   private cookAll: { objId: string } | null = null;
@@ -436,6 +438,7 @@ export class Game {
     this.shop = new ShopUI(uiRoot, bridge.content, (intent) => this.dispatch(intent));
     this.bounty = new BountyUI(uiRoot, bridge.content, (intent) => this.dispatch(intent));
     this.records = new RecordsUI(uiRoot, () => this.bridge.state.player.appearance.name);
+    this.duel = new DuelUI(uiRoot, bridge.content, () => this.bridge.state.player, (intent) => this.dispatch(intent));
     this.tension = new TensionUI(uiRoot, (success) => this.dispatch({ type: "LAND_FISH", success }));
     this.levelUp = new LevelUp(uiRoot, bridge.content);
     this.activeSkill = new ActiveSkill(uiRoot, bridge.content);
@@ -487,6 +490,13 @@ export class Game {
 
   start(): void {
     this.hud.log("Welcome to The Knuckle Hills.");
+    // A duel stake still escrowed on boot means the game was closed mid-fight —
+    // quitting forfeits, so the stake is settled as a loss and never returned.
+    const stake = this.bridge.state.player.duelStake;
+    if (stake) {
+      this.dispatch({ type: "DUEL_RESOLVE", duelId: stake.duelId, outcome: "lost" });
+      this.hud.log("You abandoned a duel — your stake was forfeited.");
+    }
     // An XP reward left unspent last session? Prompt for its skill now.
     const lamps = this.bridge.state.player.xpLamps;
     if (lamps && lamps.length > 0) this.openXpLamp(lamps[0]!);
@@ -505,6 +515,10 @@ export class Game {
     };
     requestAnimationFrame(frame);
   }
+
+  /** Open the Duel Ring window directly (used by the interact intercept and the
+   *  automated two-tab duel test seam). */
+  openDuelRing(): void { this.duel.show(); }
 
   /** Send an intent and immediately react to its events (for UI actions). */
   dispatch(intent: Intent): void {
@@ -672,6 +686,7 @@ export class Game {
     // 4) Refresh the HUD readouts and the minimap.
     this.hud.update(this.bridge.state);
     this.activeSkill.update(this.bridge.state, now);
+    this.duel.tick(); // pop the ring window when a challenge lands + drain fight events
     this.minimap.draw(this.bridge.state, this.bridge.content);
     if (this.worldMap.isOpen()) {
       this.worldMap.draw(
@@ -2262,6 +2277,13 @@ export class Game {
         this.delveMenu(obj, sx, sy);
         return;
       }
+      // The Duel Ring — step up to it and the opt-in PvP window opens.
+      if (obj.id === "duel_board") {
+        this.setMarker(this.liveTile(obj));
+        this.walkBeside(this.liveTile(obj));
+        this.duel.show();
+        return;
+      }
       this.interactObject(obj.id, this.liveTile(obj));
       return;
     }
@@ -2415,7 +2437,13 @@ export class Game {
     if (obj) {
       title = obj.name;
       description = this.examineObject(obj); // shown as the inspect line
-      if (obj.kind === "npc" && this.isShopkeeper(obj.id)) {
+      if (obj.id === "duel_board") {
+        // The Duel Ring — "Enter" opens the opt-in PvP window.
+        items.push({
+          label: "Enter", target: obj.name, tone: "action",
+          onSelect: () => { this.walkBeside(this.liveTile(obj)); this.duel.show(); },
+        });
+      } else if (obj.kind === "npc" && this.isShopkeeper(obj.id)) {
         // Shopkeepers list both Talk and Shop.
         items.push({
           label: "Talk to", target: obj.name, tone: "action",
@@ -2498,6 +2526,7 @@ export class Game {
 
   /** Examine text: a monster shows its canon description; others use the map. */
   private examineObject(obj: WorldObjectDef): string {
+    if (obj.id === "duel_board") return "The Duel Ring — step in to challenge another player. Stake gold and gear; the winner takes both purses.";
     if (obj.kind === "monster" && obj.monster) {
       const stats = this.bridge.content.monsters[obj.monster];
       if (stats) return `${stats.desc} Combat level ${stats.level}. ${this.weaknessNote(stats)}`;

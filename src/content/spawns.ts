@@ -1055,6 +1055,10 @@ const rawObjects: WorldObjectDef[] = [
   { id: "sign_south", kind: "signpost", x: 62, y: 70, name: "Fingerpost", lines: ["▼ THE ASHFEN FLATS, and the HEARTMOOR away south-west.   IRONVALE ▲."] },
   { id: "sign_east", kind: "signpost", x: 84, y: 52, name: "Fingerpost", lines: ["▶ THE REDRUN and the river road to the sea.   IRONVALE ◀."] },
 
+  // --- The Duel Ring: opt-in staked PvP, on the open stone shoulder by the
+  //     north gate (a natural arena outside the walls, in Captain Morn's sight). ---
+  { id: "duel_board", kind: "signpost", x: 63, y: 33, name: "The Duel Ring", lines: ["THE DUEL RING — chalk a circle, name your stakes, and let the ground decide. Gold and gear both welcome; the winner walks away with everything wagered. Opt-in only — no one is dragged into a fight here."] },
+
   // --- The Courier waystones (one in the city, one per region) ---
   { id: "ws_ironvale", kind: "waystone", x: 58, y: 50, name: "Ironvale", target: { x: 57, y: 50 } },
   { id: "ws_greyoak", kind: "waystone", x: 20, y: 53, name: "Greyoak Wood", target: { x: 21, y: 53 } },
