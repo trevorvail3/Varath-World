@@ -1,0 +1,12 @@
+# Netlify build config for Varath World.
+# Lets you deploy this repo to Netlify in one click (Add new site → Import from
+# GitHub → pick this repo). Netlify reads this file: it runs the production
+# build and publishes the static `dist/` output. The game builds with
+# base "./", so it works served from the site root, a /world subpath, or a
+# world.ironvail.co subdomain — no code changes either way.
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+[build.environment]
+  NODE_VERSION = "20"
