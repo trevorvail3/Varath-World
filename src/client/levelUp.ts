@@ -13,7 +13,9 @@ import { iconize } from "./glyph.ts";
 type Celebration =
   | { kind: "level"; skill: SkillId; level: number }
   | { kind: "champion"; species: string; weight: number; needsPrize: boolean }
-  | { kind: "catch"; species: string; weight: number; length: number };
+  | { kind: "catch"; species: string; weight: number; length: number }
+  | { kind: "quest"; name: string; blurb: string; rewards: string[] }
+  | { kind: "casket"; title: string; rewards: string[] };
 
 export class LevelUp {
   private el: HTMLElement;
@@ -47,6 +49,18 @@ export class LevelUp {
     if (!this.showing) this.next();
   }
 
+  /** Celebrate a finished quest — the name, a one-line recap, and what it paid out. */
+  quest(name: string, blurb: string, rewards: string[]): void {
+    this.queue.push({ kind: "quest", name, blurb, rewards });
+    if (!this.showing) this.next();
+  }
+
+  /** Reveal what a prised-open casket (or crate) held. */
+  casket(title: string, rewards: string[]): void {
+    this.queue.push({ kind: "casket", title, rewards });
+    if (!this.showing) this.next();
+  }
+
   private next(): void {
     const item = this.queue.shift();
     if (!item) { this.showing = false; return; }
@@ -74,6 +88,30 @@ export class LevelUp {
             <div class="levelup-level">${item.weight.toFixed(1)} kg &middot; ${Math.round(item.length)} cm</div>
           </div>
         </div>`;
+    } else if (item.kind === "quest") {
+      this.el.classList.remove("levelup-champion");
+      this.el.innerHTML = `
+        <div class="levelup-eyebrow">✦ Quest Complete ✦</div>
+        <div class="levelup-row">
+          <span class="levelup-icon">${iconize("📜")}</span>
+          <div>
+            <div class="levelup-skill">${esc(item.name)}</div>
+            ${item.blurb ? `<div class="levelup-level">${esc(item.blurb)}</div>` : ""}
+          </div>
+        </div>
+        ${this.rewardList(item.rewards)}`;
+    } else if (item.kind === "casket") {
+      this.el.classList.remove("levelup-champion");
+      this.el.innerHTML = `
+        <div class="levelup-eyebrow">✦ Casket ✦</div>
+        <div class="levelup-row">
+          <span class="levelup-icon">${iconize("🎁")}</span>
+          <div>
+            <div class="levelup-skill">${esc(item.title)}</div>
+            <div class="levelup-level">You prise it open…</div>
+          </div>
+        </div>
+        ${this.rewardList(item.rewards)}`;
     } else {
       this.el.classList.remove("levelup-champion");
       const meta = this.content.skills[item.skill];
@@ -95,7 +133,18 @@ export class LevelUp {
     void this.el.offsetWidth;
     this.el.classList.add("show");
     if (this.timer !== null) window.clearTimeout(this.timer);
-    this.timer = window.setTimeout(() => this.dismiss(), item.kind === "champion" ? 5200 : 3000);
+    const dwell =
+      item.kind === "champion" ? 5200
+      : item.kind === "quest" || item.kind === "casket" ? 4600
+      : 3000;
+    this.timer = window.setTimeout(() => this.dismiss(), dwell);
+  }
+
+  /** Render a bullet list of reward strings for quest / casket cards (or ""). */
+  private rewardList(rewards: string[]): string {
+    if (!rewards.length) return "";
+    const items = rewards.map((r) => `<li>${esc(r)}</li>`).join("");
+    return `<ul class="levelup-rewards">${items}</ul>`;
   }
 
   private dismiss(): void {

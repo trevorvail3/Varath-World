@@ -938,10 +938,12 @@ function openContainer(
   const table = held ? CONTAINER_TABLES[held.item] : undefined;
   if (!held || !table) return;
   removeItems(player, held.item, 1);
+  const container = held.item;
   const coins = randInt(ctx, table.coins[0], table.coins[1]);
   player.gold += coins;
   player.stats.goldEarned += coins;
   const got: string[] = [`${coins} gold`];
+  const loot: { item: ItemId; qty: number }[] = [];
   for (let r = 0; r < table.rolls; r++) {
     const total = table.lines.reduce((n, l) => n + l.w, 0);
     let roll = ctx.rng() * total;
@@ -951,8 +953,12 @@ function openContainer(
     if (canAddItem(player, pick.item)) addItem(player, pick.item, qty, events);
     else player.bank[pick.item] = (player.bank[pick.item] ?? 0) + qty;
     got.push(`${qty > 1 ? `${qty}× ` : ""}${content.items[pick.item]?.name ?? pick.item}`);
+    // Merge repeat rolls of the same item so the popup reads cleanly.
+    const ex = loot.find((l) => l.item === pick.item);
+    if (ex) ex.qty += qty; else loot.push({ item: pick.item, qty });
   }
   events.push({ type: "LOG", message: `You prise it open: ${got.join(", ")}.` });
+  events.push({ type: "CONTAINER_OPENED", container, coins, items: loot });
 }
 
 /** The Founder's Cache: the cosmetic-only items a supporter claims once. The

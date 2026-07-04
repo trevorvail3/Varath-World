@@ -904,16 +904,25 @@ export class Game {
           break;
         case "QUEST_COMPLETED": {
           audio.play("quest");
-          const p = this.bridge.state.player.pos;
-          this.floats.push({
-            x: p.x,
-            y: p.y - 0.6,
-            text: "Quest complete!",
-            color: "#f2cf6b",
-            born: now,
-            size: 17,
-            life: 1800, // lingers twice as long — it's a moment worth seeing
-          });
+          const def = this.bridge.content.quests.find((q) => q.id === ev.quest);
+          if (def) {
+            // A level-up-style card: quest name, a one-line recap, and the payout.
+            const blurb = def.outro?.[0] ?? "";
+            const rewards: string[] = [];
+            const r = def.reward;
+            if (r) {
+              for (const x of r.xp ?? []) {
+                const sk = this.bridge.content.skills[x.skill]?.name ?? x.skill;
+                rewards.push(`${x.amount.toLocaleString()} ${sk} XP`);
+              }
+              if (r.gold) rewards.push(`${r.gold.toLocaleString()} gold`);
+              for (const it of r.items ?? []) {
+                const nm = this.bridge.content.items[it.item]?.name ?? it.item;
+                rewards.push(it.qty > 1 ? `${nm} ×${it.qty}` : nm);
+              }
+            }
+            this.levelUp.quest(def.name, blurb, rewards);
+          }
           break;
         }
         case "QUEST_CHOICE":
@@ -922,6 +931,19 @@ export class Game {
         case "XP_LAMP":
           this.openXpLamp(ev.amount);
           break;
+        case "CONTAINER_OPENED": {
+          // A clue casket / supply crate — reveal the haul in a level-up-style card.
+          audio.play("achieve");
+          const title = this.bridge.content.items[ev.container]?.name ?? "Casket";
+          const rewards: string[] = [];
+          if (ev.coins) rewards.push(`${ev.coins.toLocaleString()} gold`);
+          for (const it of ev.items) {
+            const nm = this.bridge.content.items[it.item]?.name ?? it.item;
+            rewards.push(it.qty > 1 ? `${nm} ×${it.qty}` : nm);
+          }
+          this.levelUp.casket(title, rewards);
+          break;
+        }
         case "QUEST_STARTED":
         case "QUEST_ADVANCED":
           break;

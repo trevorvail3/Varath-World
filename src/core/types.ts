@@ -2240,6 +2240,9 @@ export type WorldEvent =
   /** A quest is asking the player to choose; the client shows the options. */
   | { type: "QUEST_CHOICE"; quest: string; prompt: string; options: string[] }
   | { type: "XP_LAMP"; amount: number; pending: number }
+  /** A container (clue casket, supply crate) was opened; the client shows a
+   *  reward-summary popup. */
+  | { type: "CONTAINER_OPENED"; container: ItemId; coins: number; items: { item: ItemId; qty: number }[] }
   | { type: "WORLD_BOSS_MOVED"; name: string; hint: string }
   /** A companion has joined you (a rare pet drop). */
   | { type: "COMPANION_FOUND"; item: ItemId }

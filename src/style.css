@@ -256,28 +256,32 @@ body {
   overflow: hidden;
   text-overflow: ellipsis;
   cursor: pointer;
-  /* Fixed width so the readout never resizes the vitals panel as it fills —
-     the box stays put and flashes when the special is ready. */
+  /* Fixed width so the readout never resizes the vitals panel while the bar
+     fills — the box stays put. When the special is READY it pulses (a scale
+     tween, which is purely visual and never reflows the panel around it). */
   width: 116px;
   box-sizing: border-box;
+  transform-origin: center;
 }
-.spec-chip.ready {
+/* `:not(.hidden)` raises specificity above the shared chip-in entry rule
+   (line ~1470), so the ready/armed pulse actually wins and plays. */
+.spec-chip.ready:not(.hidden) {
   color: #cfe0ff;
   border-color: rgba(150, 180, 240, 0.7);
-  animation: specReady 0.85s ease-in-out infinite;
+  animation: specReady 0.8s ease-in-out infinite;
 }
 @keyframes specReady {
-  0%, 100% { box-shadow: 0 0 5px rgba(120, 160, 240, 0.3); background: rgba(16, 18, 24, 0.72); }
-  50% { box-shadow: 0 0 15px rgba(140, 175, 255, 0.8); background: rgba(40, 54, 92, 0.85); }
+  0%, 100% { transform: scale(1); box-shadow: 0 0 5px rgba(120, 160, 240, 0.3); }
+  50% { transform: scale(1.08); box-shadow: 0 0 14px rgba(140, 175, 255, 0.75); }
 }
-.spec-chip.armed {
+.spec-chip.armed:not(.hidden) {
   color: #ffe9a8;
   border-color: rgba(240, 200, 100, 0.8);
   animation: specPulse 0.9s ease-in-out infinite;
 }
 @keyframes specPulse {
-  0%, 100% { box-shadow: 0 0 6px rgba(240, 200, 100, 0.3); }
-  50% { box-shadow: 0 0 14px rgba(240, 200, 100, 0.65); }
+  0%, 100% { transform: scale(1); box-shadow: 0 0 6px rgba(240, 200, 100, 0.3); }
+  50% { transform: scale(1.08); box-shadow: 0 0 14px rgba(240, 200, 100, 0.65); }
 }
 .spec-chip.hidden { display: none; }
 
@@ -3718,6 +3722,31 @@ button.inv-slot {
   color: var(--ink-dim);
 }
 .levelup-unlock b { color: var(--gold); font-weight: 600; }
+
+/* Quest / casket reward payout — a tidy gold-bulleted list under the card head. */
+.levelup-rewards {
+  list-style: none;
+  margin: 10px 0 0;
+  padding: 9px 0 0;
+  border-top: 1px solid var(--panel-edge);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.levelup-rewards li {
+  font-size: 12px;
+  color: var(--ink);
+  padding-left: 16px;
+  position: relative;
+}
+.levelup-rewards li::before {
+  content: "◆";
+  position: absolute;
+  left: 2px;
+  color: var(--gold);
+  font-size: 9px;
+  top: 1px;
+}
 
 /* The pier-record fanfare: a grander, gold-lit version of the level-up card. */
 .levelup-champion {
