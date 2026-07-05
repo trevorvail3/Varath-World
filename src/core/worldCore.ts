@@ -7022,6 +7022,8 @@ function monsterSwing(
         if (g.x === px && g.y === py) g.despawnAt = ctx.now + DEATH_SPILL_TTL;
       }
     }
+    // Record the spill for the death overlay's reassurance line (0 = kept all).
+    player.deathSpillStacks = droppedCount;
     const bits = [
       lost > 0 ? `You lose ${lost}g` : "",
       droppedCount > 0 ? `your pack spills where you fell (${droppedCount} stack${droppedCount === 1 ? "" : "s"} — run back within ${Math.round(DEATH_SPILL_TTL / 60000)} minutes!)` : "",

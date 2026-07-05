@@ -15,6 +15,7 @@ type Celebration =
   | { kind: "champion"; species: string; weight: number; needsPrize: boolean }
   | { kind: "catch"; species: string; weight: number; length: number }
   | { kind: "quest"; name: string; blurb: string; rewards: string[] }
+  | { kind: "questStart"; name: string; objective: string; recLevel: number | null }
   | { kind: "casket"; title: string; rewards: string[] };
 
 export class LevelUp {
@@ -52,6 +53,14 @@ export class LevelUp {
   /** Celebrate a finished quest — the name, a one-line recap, and what it paid out. */
   quest(name: string, blurb: string, rewards: string[]): void {
     this.queue.push({ kind: "quest", name, blurb, rewards });
+    if (!this.showing) this.next();
+  }
+
+  /** Mark a quest BEGINNING with the same card as its completion — so a newcomer
+   *  registers that a quest started, sees its first objective, and can gauge the
+   *  recommended combat level before wading in. */
+  questStart(name: string, objective: string, recLevel: number | null): void {
+    this.queue.push({ kind: "questStart", name, objective, recLevel });
     if (!this.showing) this.next();
   }
 
@@ -100,6 +109,21 @@ export class LevelUp {
           </div>
         </div>
         ${this.rewardList(item.rewards)}`;
+    } else if (item.kind === "questStart") {
+      this.el.classList.remove("levelup-champion");
+      const rec = item.recLevel
+        ? `<div class="levelup-unlock">Toughest foe: ${iconize("⚔️")} combat level <b>${item.recLevel}</b></div>`
+        : "";
+      this.el.innerHTML = `
+        <div class="levelup-eyebrow">✦ Quest Begun ✦</div>
+        <div class="levelup-row">
+          <span class="levelup-icon">${iconize("📜")}</span>
+          <div>
+            <div class="levelup-skill">${esc(item.name)}</div>
+            ${item.objective ? `<div class="levelup-level">${esc(item.objective)}</div>` : ""}
+          </div>
+        </div>
+        ${rec}`;
     } else if (item.kind === "casket") {
       this.el.classList.remove("levelup-champion");
       this.el.innerHTML = `
@@ -135,7 +159,7 @@ export class LevelUp {
     if (this.timer !== null) window.clearTimeout(this.timer);
     const dwell =
       item.kind === "champion" ? 5200
-      : item.kind === "quest" || item.kind === "casket" ? 4600
+      : item.kind === "quest" || item.kind === "casket" || item.kind === "questStart" ? 4600
       : 3000;
     this.timer = window.setTimeout(() => this.dismiss(), dwell);
   }

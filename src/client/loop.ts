@@ -946,7 +946,24 @@ export class Game {
           this.levelUp.casket(title, rewards);
           break;
         }
-        case "QUEST_STARTED":
+        case "QUEST_STARTED": {
+          // Give a starting quest the same celebratory card as a finished one, so
+          // a newcomer registers it began, sees the first objective, and can
+          // gauge the recommended combat level before wading in (T7·06).
+          audio.play("quest");
+          const def = this.bridge.content.quests.find((q) => q.id === ev.quest);
+          if (def) {
+            const first = def.steps[0] as { text?: string } | undefined;
+            let recLevel = 0;
+            for (const s of def.steps) {
+              if (s.type !== "kill") continue;
+              const m = this.bridge.content.monsters[s.monster];
+              if (m && m.level > recLevel) recLevel = m.level;
+            }
+            this.levelUp.questStart(def.name, first?.text ?? "", recLevel > 0 ? recLevel : null);
+          }
+          break;
+        }
         case "QUEST_ADVANCED":
           break;
         case "COMPANION_FOUND": {
@@ -1964,6 +1981,16 @@ export class Game {
     g.fillStyle = "#cdbfae";
     g.font = `${px(15)}px "EB Garamond", serif`;
     g.fillText(secs > 0 ? `Waking in ${secs}…` : "Waking…", w / 2, h / 2 + px(22));
+    // A reassurance line so a newcomer never mistakes a knockout for permadeath:
+    // you always respawn, keep your gear, and (for a light pack) lose nothing at
+    // all — worst case a few stacks spill where you fell, to run back for.
+    const spill = player.deathSpillStacks ?? 0;
+    const reassure = spill > 0
+      ? `Your gear's safe — ${spill} pack stack${spill === 1 ? "" : "s"} spilled where you fell. Run back for ${spill === 1 ? "it" : "them"}.`
+      : "You keep everything you carried — walk it off.";
+    g.fillStyle = "#9db98a";
+    g.font = `${px(13)}px "EB Garamond", serif`;
+    g.fillText(reassure, w / 2, h / 2 + px(46));
     g.restore();
   }
 

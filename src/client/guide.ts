@@ -70,11 +70,57 @@ function packHas(p: Player, pred: (id: string) => boolean): boolean {
   return p.inventory.some((s) => s !== null && pred(s.item));
 }
 
+/** The wearable equipment slots — used to spot "you're carrying gear you haven't
+ *  put on yet" so a newcomer learns items must be equipped, not just held. */
+const WEARABLE_SLOTS = new Set([
+  "helmet", "body", "legs", "boots", "cape", "gloves", "amulet", "ring",
+  "mainhand", "offhand", "ranged", "ammo",
+]);
+
+/** True if the player is within `r` tiles of any shop-keeper's stall. */
+function nearShop(state: WorldState, content: Content, r: number): boolean {
+  const p = state.player.pos;
+  for (const shop of content.shops) {
+    const npc = content.objects.find((o) => o.id === shop.npc);
+    if (!npc) continue;
+    if (Math.abs(npc.x - p.x) <= r && Math.abs(npc.y - p.y) <= r) return true;
+  }
+  return false;
+}
+
 /** The contextual tips, checked top to bottom; the first unseen match fires.
  *  Order rarely matters (each fires when its own condition first holds), but a
  *  more specific / rarer trigger is listed before a broader one just in case
  *  two come true on the same tick. */
 const TIPS: Tip[] = [
+  {
+    // T7·01 — teach quest-tracking the moment the coach hands off, so the gold
+    // arrow keeps pointing the way once the world opens up.
+    id: "track_quest",
+    test: (s) => Object.keys(s.player.quests).length >= 1,
+    text: "Your current goal shows top-left and a gold arrow points the way. To follow a different quest, open the 📋 Quests tab and tap any quest to track it.",
+  },
+  {
+    // T7·05 — equipping: a newcomer may carry gear without ever wearing it.
+    id: "equip_gear",
+    test: (s, c) => packHas(s.player, (id) => {
+      const slot = c.items[id as keyof typeof c.items]?.slot;
+      return !!slot && WEARABLE_SLOTS.has(slot);
+    }),
+    text: "Carrying gear isn't wearing it. Open the Gear tab and tap a weapon or armour piece to equip it — your stats only count what you've put ON.",
+  },
+  {
+    // T7·05 — shopping: fires the first time you stand by a keeper's stall.
+    id: "shop_nearby",
+    test: (s, c) => nearShop(s, c, 3),
+    text: "A shopkeeper's stall. Tap the keeper and choose Shop to buy — or drag your own goods onto the counter to sell them for coin.",
+  },
+  {
+    // T7·05 — first coins: what to do with money (spend / bank / the Exchange).
+    id: "first_coins",
+    test: (s) => (s.player.stats?.goldEarned ?? 0) > 0,
+    text: "Coins earned! Spend them at any shop, or post buy and sell orders at the Grand Exchange in Ironvale (the 🪙 booth) to trade with players across Varath.",
+  },
   {
     id: "faith_bones",
     test: (s) => packHas(s.player, (id) => id === "bones" || id === "big_bones"),
@@ -218,7 +264,11 @@ export class Guide {
     if (!tid || !p.quests[tid]) {
       const active = Object.keys(p.quests);
       if (active.length === 0) { if (tid) setTrackedQuest(null); return null; }
-      tid = active[active.length - 1]!; // the most recently accepted quest
+      // Prefer the MAIN-STORY spine so the arrow follows the through-line the
+      // whole way, not whichever side-quest was accepted last (T7·01); fall back
+      // to the most recently accepted quest when no main-story quest is active.
+      const mainId = active.find((id) => this.content.quests.find((q) => q.id === id)?.type === "main");
+      tid = mainId ?? active[active.length - 1]!;
       setTrackedQuest(tid);
     }
     const def = this.content.quests.find((q) => q.id === tid);

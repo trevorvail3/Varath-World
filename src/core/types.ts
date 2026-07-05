@@ -1581,6 +1581,10 @@ export interface Player {
   lastWaystone?: string;
   /** Wall-clock time the paid Wayfare recall is available again. Persisted. */
   wayfareReadyEpoch?: number;
+  /** How many pack stacks spilled on the player's LAST knockout (0 = kept
+   *  everything). Read by the death overlay to reassure a newcomer whether they
+   *  lost anything — it's never permadeath. Transient (recomputed each death). */
+  deathSpillStacks?: number;
   /**
    * Set when energy hits 0; forces walking until energy recovers a little, so
    * the player doesn't micro-stutter between sprint and walk on an empty bar.
