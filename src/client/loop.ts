@@ -267,6 +267,7 @@ const VERB: Record<ObjKind, string> = {
   record_board: "Read",
   trail_board: "Read",
   pier_gate: "Examine",
+  banner: "Examine",
 };
 
 const EXAMINE_OBJECT: Record<ObjKind, string> = {
@@ -317,6 +318,7 @@ const EXAMINE_OBJECT: Record<ObjKind, string> = {
   record_board: "A weathered board at the pier head, every great catch chalked up with its angler's name.",
   trail_board: "The Varathian Trail's standings board — your laps run and your progress toward the Trailblazer set.",
   pier_gate: "A rope strung across the planks. The pier-warden hasn't given you leave to pass.",
+  banner: "The town's own colours, flying over the square. Every settlement stitches its own.",
 };
 
 const EXAMINE_TILE: Record<TileType, string> = {

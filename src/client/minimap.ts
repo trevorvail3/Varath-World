@@ -125,6 +125,7 @@ const MM_OBJ: Record<ObjKind, string> = {
   record_board: "#c8a24a", // a board, like the bounty board
   trail_board: "#5fae7a", // runner's green for the trail standings board
   pier_gate: "", // the barrier itself isn't marked
+  banner: "", // a town's heraldry — dressing, not a minimap marker
 };
 
 /** Draw a resource marker with a shape that reads at a glance: a little tree

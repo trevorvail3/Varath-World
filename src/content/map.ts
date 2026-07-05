@@ -355,6 +355,11 @@ export interface Building {
   roof: RoofStyle;
   /** Door cell (on the building's front), for the rendered doorway. */
   door?: { x: number; y: number };
+  /** Regional architecture palette key (frostgate/emberhearth/…). Overrides the
+   *  building's masonry + roof colours so a whole settlement reads as one place.
+   *  Undefined = Ironvale's default dressed stone. The colours themselves live in
+   *  the renderer (SETTLEMENT_PALETTES); this is just the key it looks up. */
+  palette?: string;
 }
 
 // The city's buildings + the outlying hamlet cottages, authored in LEGACY coords
@@ -387,23 +392,24 @@ const BUILDINGS_LEGACY: Building[] = [
 
   // === OUTLYING SETTLEMENTS — small hamlets in the open country near the city.
   // --- Redmouth: a fisherfolk hamlet on the Redrun's east bank ---
-  { x0: 83, y0: 58, x1: 85, y1: 59, roof: "thatch", door: { x: 84, y: 59 } },  // a fisher's cottage
-  { x0: 87, y0: 58, x1: 89, y1: 59, roof: "thatch", door: { x: 88, y: 59 } },  // the net-loft
-  { x0: 83, y0: 61, x1: 85, y1: 62, roof: "thatch", door: { x: 84, y: 61 } },  // the smokehouse
+  { x0: 83, y0: 58, x1: 85, y1: 59, roof: "thatch", door: { x: 84, y: 59 }, palette: "redmouth" },  // a fisher's cottage
+  { x0: 87, y0: 58, x1: 89, y1: 59, roof: "thatch", door: { x: 88, y: 59 }, palette: "redmouth" },  // the net-loft
+  { x0: 83, y0: 61, x1: 85, y1: 62, roof: "thatch", door: { x: 84, y: 61 }, palette: "redmouth" },  // the smokehouse
   // --- The Drover's Rest: a waystation on the south road to the Ashfen ---
-  { x0: 65, y0: 73, x1: 68, y1: 74, roof: "tile", door: { x: 66, y: 74 } },    // the longhouse inn
-  { x0: 70, y0: 73, x1: 72, y1: 74, roof: "thatch", door: { x: 71, y: 74 } },  // a drover's cottage
-  { x0: 65, y0: 77, x1: 67, y1: 78, roof: "thatch", door: { x: 66, y: 77 } },  // the byre
+  { x0: 65, y0: 73, x1: 68, y1: 74, roof: "tile", door: { x: 66, y: 74 }, palette: "drover" },    // the longhouse inn
+  { x0: 70, y0: 73, x1: 72, y1: 74, roof: "thatch", door: { x: 71, y: 74 }, palette: "drover" },  // a drover's cottage
+  { x0: 65, y0: 77, x1: 67, y1: 78, roof: "thatch", door: { x: 66, y: 77 }, palette: "drover" },  // the byre
   // --- The Fold: an upland shepherds' croft in the Knuckle Hills, north ---
-  { x0: 60, y0: 14, x1: 62, y1: 15, roof: "thatch", door: { x: 61, y: 15 } },  // the croft house
-  { x0: 64, y0: 14, x1: 66, y1: 15, roof: "thatch", door: { x: 65, y: 15 } },  // the wool-shed (opens into the pen)
-  { x0: 60, y0: 17, x1: 62, y1: 18, roof: "thatch", door: { x: 61, y: 17 } },  // the lambing shed
+  { x0: 60, y0: 14, x1: 62, y1: 15, roof: "thatch", door: { x: 61, y: 15 }, palette: "fold" },  // the croft house
+  { x0: 64, y0: 14, x1: 66, y1: 15, roof: "thatch", door: { x: 65, y: 15 }, palette: "fold" },  // the wool-shed (opens into the pen)
+  { x0: 60, y0: 17, x1: 62, y1: 18, roof: "thatch", door: { x: 61, y: 17 }, palette: "fold" },  // the lambing shed
 ];
 const shiftDoor = (d?: { x: number; y: number }) => (d ? { x: d.x + CDX, y: d.y + CDY } : undefined);
 export const BUILDINGS: Building[] = BUILDINGS_LEGACY.map((b) => {
   const out: Building = { x0: b.x0 + CDX, y0: b.y0 + CDY, x1: b.x1 + CDX, y1: b.y1 + CDY, roof: b.roof };
   const d = shiftDoor(b.door);
   if (d) out.door = d;
+  if (b.palette) out.palette = b.palette; // carry the hamlet's architecture palette through the shift
   return out;
 });
 
@@ -413,7 +419,7 @@ export const BUILDINGS: Building[] = BUILDINGS_LEGACY.map((b) => {
 export const SETTLEMENT_CLEARINGS: { x0: number; y0: number; x1: number; y1: number; floor: TileType }[] = [
   { x0: 46, y0: 14, x1: 54, y1: 22, floor: "stone" },   // Spine — Frostgate (the pass camp)
   { x0: 121, y0: 21, x1: 129, y1: 29, floor: "cave" },  // Marrow — Deeplight (delvers' outpost)
-  { x0: 142, y0: 101, x1: 150, y1: 109, floor: "dirt" },// Redrun — Saltreach (fishing village, east bank)
+  { x0: 142, y0: 101, x1: 150, y1: 109, floor: "sand" },// Redrun — Saltreach (fishing village on the tide-line, east bank)
   { x0: 73, y0: 137, x1: 81, y1: 145, floor: "ash" },   // Ashfen — Emberhearth (warm-flats camp)
   { x0: 11, y0: 135, x1: 19, y1: 143, floor: "dirt" },  // Heartmoor — Mirehold (moor hamlet)
   { x0: 9, y0: 77, x1: 17, y1: 85, floor: "dirt" },     // Greyoak — Lodgehold (foresters' steading)
@@ -423,24 +429,24 @@ export const SETTLEMENT_CLEARINGS: { x0: number; y0: number; x1: number; y1: num
 // yard — so the settlement reads as folk living around a fire, not two sheds
 // dropped side by side in a field.
 const REGION_BUILDINGS: Building[] = [
-  // Frostgate (Spine)
-  { x0: 47, y0: 15, x1: 49, y1: 16, roof: "slate", door: { x: 48, y: 16 } },
-  { x0: 51, y0: 18, x1: 53, y1: 19, roof: "slate", door: { x: 51, y: 18 } },
-  // Deeplight (Marrow)
-  { x0: 122, y0: 22, x1: 124, y1: 23, roof: "slate", door: { x: 123, y: 23 } },
-  { x0: 126, y0: 25, x1: 128, y1: 26, roof: "slate", door: { x: 126, y: 25 } },
-  // Saltreach (Redrun)
-  { x0: 143, y0: 102, x1: 145, y1: 103, roof: "thatch", door: { x: 144, y: 103 } },
-  { x0: 146, y0: 105, x1: 148, y1: 106, roof: "thatch", door: { x: 146, y: 105 } },
-  // Emberhearth (Ashfen)
-  { x0: 74, y0: 138, x1: 76, y1: 139, roof: "tile", door: { x: 75, y: 139 } },
-  { x0: 78, y0: 141, x1: 80, y1: 142, roof: "tile", door: { x: 78, y: 141 } },
-  // Mirehold (Heartmoor)
-  { x0: 12, y0: 136, x1: 14, y1: 137, roof: "thatch", door: { x: 13, y: 137 } },
-  { x0: 16, y0: 139, x1: 18, y1: 140, roof: "thatch", door: { x: 16, y: 139 } },
-  // Lodgehold (Greyoak)
-  { x0: 10, y0: 78, x1: 12, y1: 79, roof: "thatch", door: { x: 11, y: 79 } },
-  { x0: 14, y0: 81, x1: 16, y1: 82, roof: "tile", door: { x: 14, y: 81 } },
+  // Frostgate (Spine) — a snowbound border keep of cold blue-grey stone.
+  { x0: 47, y0: 15, x1: 49, y1: 16, roof: "slate", door: { x: 48, y: 16 }, palette: "frostgate" },
+  { x0: 51, y0: 18, x1: 53, y1: 19, roof: "slate", door: { x: 51, y: 18 }, palette: "frostgate" },
+  // Deeplight (Marrow) — a dark cavern-mouth mining outpost, timber over black stone.
+  { x0: 122, y0: 22, x1: 124, y1: 23, roof: "slate", door: { x: 123, y: 23 }, palette: "deeplight" },
+  { x0: 126, y0: 25, x1: 128, y1: 26, roof: "slate", door: { x: 126, y: 25 }, palette: "deeplight" },
+  // Saltreach (Redrun) — a salt-bleached driftwood fishing port.
+  { x0: 143, y0: 102, x1: 145, y1: 103, roof: "thatch", door: { x: 144, y: 103 }, palette: "saltreach" },
+  { x0: 146, y0: 105, x1: 148, y1: 106, roof: "thatch", door: { x: 146, y: 105 }, palette: "saltreach" },
+  // Emberhearth (Ashfen) — an ash-dark forge camp under ember-red roofs.
+  { x0: 74, y0: 138, x1: 76, y1: 139, roof: "tile", door: { x: 75, y: 139 }, palette: "emberhearth" },
+  { x0: 78, y0: 141, x1: 80, y1: 142, roof: "tile", door: { x: 78, y: 141 }, palette: "emberhearth" },
+  // Mirehold (Heartmoor) — a peat-timber bog hamlet under mossy roofs.
+  { x0: 12, y0: 136, x1: 14, y1: 137, roof: "thatch", door: { x: 13, y: 137 }, palette: "mirehold" },
+  { x0: 16, y0: 139, x1: 18, y1: 140, roof: "thatch", door: { x: 16, y: 139 }, palette: "mirehold" },
+  // Lodgehold (Greyoak) — a warm greyoak-timber foresters' hall.
+  { x0: 10, y0: 78, x1: 12, y1: 79, roof: "thatch", door: { x: 11, y: 79 }, palette: "lodgehold" },
+  { x0: 14, y0: 81, x1: 16, y1: 82, roof: "tile", door: { x: 14, y: 81 }, palette: "lodgehold" },
 ];
 (BUILDINGS as Building[]).push(...REGION_BUILDINGS);
 
@@ -479,12 +485,21 @@ export function enterableAt(x: number, y: number): EnterableBuilding | null {
 /** Roof style at a tile (so the renderer knows which walls are buildings). */
 const roofCells = new Map<string, RoofStyle>();
 const doorCells = new Set<string>();
+// Regional architecture: which settlement palette (if any) a building tile belongs
+// to, so the renderer can colour a whole town's masonry + roofs as one place.
+const paletteCells = new Map<string, string>();
 for (const b of BUILDINGS) {
-  for (let y = b.y0; y <= b.y1; y++) for (let x = b.x0; x <= b.x1; x++) roofCells.set(`${x},${y}`, b.roof);
+  for (let y = b.y0; y <= b.y1; y++) for (let x = b.x0; x <= b.x1; x++) {
+    roofCells.set(`${x},${y}`, b.roof);
+    if (b.palette) paletteCells.set(`${x},${y}`, b.palette);
+  }
   if (b.door) doorCells.add(`${b.door.x},${b.door.y}`);
 }
 export function cityRoof(x: number, y: number): RoofStyle | undefined { return roofCells.get(`${x},${y}`); }
 export function cityDoor(x: number, y: number): boolean { return doorCells.has(`${x},${y}`); }
+/** The regional architecture-palette key for a building tile, or undefined for
+ *  Ironvale's default dressed stone. Read by the renderer's drawWall / drawRoof. */
+export function cityPalette(x: number, y: number): string | undefined { return paletteCells.get(`${x},${y}`); }
 
 function decode(): WorldMap {
   const tiles: TileType[] = new Array(WIDTH * HEIGHT).fill("grass");

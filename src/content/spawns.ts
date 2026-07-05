@@ -553,8 +553,12 @@ const rawObjects: WorldObjectDef[] = [
   // in their own zones: Rook in the Knuckle Hills, Serath at the Spine, Mourne
   // at Redmouth (see their NPC entries below, tagged with `bountyGuide`).
 
-  // --- The town square: a fountain at the crossroads ---
+  // --- The town square: a fountain at the crossroads, flanked by the capital's
+  //     own royal-indigo standards. Ironvale flies the kingdom's colours; every
+  //     lesser hold's banner answers to these. ---
   { id: "fountain_1", kind: "fountain", x: 60, y: 52, name: "The Ironvale Fountain", lines: ["Bright water over green-stained stone. Children dare each other to drink from it; nobody knows where the spring beneath it rises."] },
+  { id: "banner_ironvale_w", kind: "banner", x: 56, y: 52, tint: "#3f4a94", name: "Ironvale Colours", lines: ["Royal indigo shot with a silver charge — the colours of Ironvale and, by old right, of all Varath. The dye alone costs more than a hamlet's whole banner. The capital does not let you forget it."] },
+  { id: "banner_ironvale_e", kind: "banner", x: 64, y: 52, tint: "#3f4a94", name: "Ironvale Colours", lines: ["Royal indigo shot with a silver charge — the colours of Ironvale and, by old right, of all Varath. The dye alone costs more than a hamlet's whole banner. The capital does not let you forget it."] },
 
   // --- The Grand Exchange: a clerk's booth in the heart of the market. Trade
   //     on the world order book here (no longer a menu in the World tab). ---
@@ -1418,12 +1422,12 @@ const rawObjects: WorldObjectDef[] = [
   // cleared in order (0 → 7); the last completes a LAP, paying a huge XP dump and
   // a purse of Agility Marks redeemable with the Trailkeeper for the Trailblazer
   // outfit. Authored in final map coordinates (the "trail_" prefix skips remap).
-  { id: "trail_cp0", kind: "agility_obstacle", x: 57, y: 10, name: "Varathian Trail: Spine Ridge Log", course: "course_varath_trail", order: 0, exit: { x: 58, y: 10 }, xp: 250, levelReq: 50, obstacle: "log" },
-  { id: "trail_cp1", kind: "agility_obstacle", x: 127, y: 15, name: "Varathian Trail: Marrow Climb", course: "course_varath_trail", order: 1, exit: { x: 126, y: 15 }, xp: 250, levelReq: 50, obstacle: "net" },
+  { id: "trail_cp0", kind: "agility_obstacle", x: 57, y: 10, name: "Varathian Trail: Spine Ice-Ledge", course: "course_varath_trail", order: 0, exit: { x: 58, y: 10 }, xp: 250, levelReq: 50, obstacle: "iceledge" },
+  { id: "trail_cp1", kind: "agility_obstacle", x: 127, y: 15, name: "Varathian Trail: Marrow Chasm-Swing", course: "course_varath_trail", order: 1, exit: { x: 126, y: 15 }, xp: 250, levelReq: 50, obstacle: "chasmswing" },
   { id: "trail_cp2", kind: "agility_obstacle", x: 144, y: 86, name: "Varathian Trail: Redrun Beam", course: "course_varath_trail", order: 2, exit: { x: 145, y: 86 }, xp: 250, levelReq: 50, obstacle: "beam" },
   { id: "trail_cp3", kind: "agility_obstacle", x: 140, y: 118, name: "Varathian Trail: Estuary Rope", course: "course_varath_trail", order: 3, exit: { x: 141, y: 118 }, xp: 250, levelReq: 50, obstacle: "rope" },
-  { id: "trail_cp4", kind: "agility_obstacle", x: 78, y: 150, name: "Varathian Trail: Ashfen Stones", course: "course_varath_trail", order: 4, exit: { x: 77, y: 150 }, xp: 250, levelReq: 50, obstacle: "stones" },
-  { id: "trail_cp5", kind: "agility_obstacle", x: 14, y: 146, name: "Varathian Trail: Moor Wall", course: "course_varath_trail", order: 5, exit: { x: 15, y: 146 }, xp: 250, levelReq: 50, obstacle: "wall" },
+  { id: "trail_cp4", kind: "agility_obstacle", x: 78, y: 150, name: "Varathian Trail: Ashfen Cinder-Leap", course: "course_varath_trail", order: 4, exit: { x: 77, y: 150 }, xp: 250, levelReq: 50, obstacle: "cinderleap" },
+  { id: "trail_cp5", kind: "agility_obstacle", x: 14, y: 146, name: "Varathian Trail: Moor Bog-Hop", course: "course_varath_trail", order: 5, exit: { x: 15, y: 146 }, xp: 250, levelReq: 50, obstacle: "boghop" },
   { id: "trail_cp6", kind: "agility_obstacle", x: 12, y: 80, name: "Varathian Trail: Greyoak Log", course: "course_varath_trail", order: 6, exit: { x: 13, y: 80 }, xp: 250, levelReq: 50, obstacle: "log" },
   { id: "trail_cp7", kind: "agility_obstacle", x: 24, y: 40, name: "Varathian Trail: Northreach Net", course: "course_varath_trail", order: 7, exit: { x: 25, y: 40 }, xp: 250, levelReq: 50, obstacle: "net" },
   { id: "trail_board", kind: "trail_board", x: 54, y: 11, name: "Trail Standings", lines: ["A weathered board at the head of the Varathian Trail, tallying every runner's laps."] },
@@ -1548,6 +1552,7 @@ const rawObjects: WorldObjectDef[] = [
   { id: "lamp_redmouth_1", kind: "lamppost", x: 82, y: 57, name: "Bank Lamp" },
   { id: "lamp_redmouth_2", kind: "lamppost", x: 90, y: 58, name: "Bank Lamp" },
   { id: "sign_redmouth", kind: "signpost", x: 84, y: 57, name: "Fingerpost", lines: ["REDMOUTH — the fisherfolk of the Redrun. Smoked fish, and a board for those who'd hunt the deep."] },
+  { id: "banner_redmouth", kind: "banner", x: 83, y: 56, tint: "#8a3550", name: "Redmouth Colours", lines: ["A dusky river-maroon, the colour the Redrun's silt stains everything here in the end — nets, hands, and the daub of the walls alike."] },
   // The waterfront: the fishers' track runs east from the yard to a plank jetty
   // over the Redrun (carved in map.ts) — drying rails along it, Warin's coble
   // moored at the end, and the hamlet's own fishing water off the planks.
@@ -1578,6 +1583,7 @@ const rawObjects: WorldObjectDef[] = [
   { id: "lamp_drover_1", kind: "lamppost", x: 64, y: 74, name: "Gate Lamp" },
   { id: "lamp_drover_2", kind: "lamppost", x: 74, y: 77, name: "Yard Lamp" },
   { id: "sign_drover", kind: "signpost", x: 63, y: 73, name: "Fingerpost", lines: ["THE DROVER'S REST — bed, board and a barred gate. ▲ IRONVALE. ▼ THE ASHFEN FLATS."] },
+  { id: "banner_drover", kind: "banner", x: 62, y: 74, tint: "#9c7038", name: "Drover's Rest Colours", lines: ["Road-ochre, the tan of dust and dried mud that never fully leaves a drove-road waystation. Faded, patched, and re-hung after every herd that knocks it."] },
   // The stock paddock: where the droves overnight — rails, the mired wagon and
   // the beasts themselves, gated toward the inn.
   ...makePen("fence_drover", 69, 76, 73, 79, [[71, 76]], "The Rest's stock paddock. The rail is rubbed smooth by a hundred herds."),
@@ -1605,6 +1611,7 @@ const rawObjects: WorldObjectDef[] = [
   { id: "lamp_fold_1", kind: "lamppost", x: 59, y: 14, name: "Croft Lamp" },
   { id: "lamp_fold_2", kind: "lamppost", x: 66, y: 18, name: "Fold Lamp" },
   { id: "sign_fold", kind: "signpost", x: 58, y: 19, name: "Fingerpost", lines: ["THE FOLD — an upland croft. Mind the flock, and mind what minds the flock."] },
+  { id: "banner_fold", kind: "banner", x: 59, y: 19, tint: "#8f97a4", name: "The Fold's Colours", lines: ["Undyed wool-grey, the plain colour of the flock it flies for. The shepherds see no sense dyeing good fleece to say what everyone up here already knows."] },
   // The pen: post-and-rail off the wool-shed, its gate under the shed door, the
   // flock inside with Wyn — a working croft, not scattered set-dressing.
   ...makePen("fence_fold", 63, 16, 67, 19, [[65, 16]], "The Fold's sheep pen. Three lambs short, if you believe Brannog's count."),
@@ -1667,6 +1674,11 @@ const newPois: WorldObjectDef[] = [
   { id: "npc_frostgate_folk", kind: "npc", x: 48, y: 20, name: "A Shivering Porter", lines: ["Twelve trips up the pass today. My back's a map of every one."] },
   { id: "fire_frostgate", kind: "fire", x: 52, y: 20, name: "Pass Fire" },
   { id: "cart_frostgate", kind: "cart", x: 47, y: 18, name: "Rope & Tackle Sledge", lines: ["Coiled rope, iron pitons and a torn coat nobody has claimed. Pass gear, stacked for the next fool going up."] },
+  // Frostgate flies cold Spine-blue over the pass; pass-lanterns and a frozen
+  // snag mark the last shelter before the white.
+  { id: "banner_frostgate", kind: "banner", x: 51, y: 22, tint: "#3f78b4", name: "Frostgate Colours", lines: ["The pass-wardens' cold blue, stitched thick against a wind that would tear thinner cloth. It has flown here longer than the road below it has been walked."] },
+  { id: "lamp_frostgate", kind: "lamppost", x: 49, y: 21, name: "Pass Lantern" },
+  { id: "snag_frostgate", kind: "deadfall", x: 53, y: 22, species: "snag", name: "Frozen Snag", lines: ["A dead coldpine, its sap frozen to glass in the cracks. Nothing rots this high — it only stands and greys."] },
   // --- Deeplight (Marrow): a delvers' outpost in the cavern mouth ---
   { id: "sign_deeplight", kind: "signpost", x: 125, y: 28, name: "Deeplight", lines: ["DEEPLIGHT — keep a light burning and keep it close. The deep doesn't forgive the dark."] },
   { id: "npc_deeplight_trader", kind: "npc", x: 125, y: 26, name: "Mott, a Deep-Delver", lines: ["Down here we trade in light and in nerve. I've a stock of the one, at least.", "Gems come out of these walls if you've the pick and the patience. I'll buy what you bring up."] },
@@ -1674,6 +1686,11 @@ const newPois: WorldObjectDef[] = [
   { id: "fire_deeplight", kind: "fire", x: 123, y: 27, name: "Delvers' Brazier" },
   { id: "lamp_deeplight", kind: "lamppost", x: 125, y: 24, name: "Deeplight Lantern" },
   { id: "cart_deeplight", kind: "cart", x: 122, y: 25, name: "Ore Crates", lines: ["Crates of ashiron and raw gemstone, chalk-marked for the Ironvale road. The deep pays, when it doesn't collect."] },
+  // Deeplight hangs a lantern-gold standard so the outpost can be found in the
+  // dark; a second lamp and a rough gem-seam mark the cavern mouth.
+  { id: "banner_deeplight", kind: "banner", x: 126, y: 28, tint: "#c8912e", name: "Deeplight Colours", lines: ["Lantern-gold on black — a colour picked so a lost delver can find home by it in the one lamp's throw of light the deep allows."] },
+  { id: "lamp_deeplight2", kind: "lamppost", x: 127, y: 24, name: "Deeplight Lantern" },
+  { id: "gem_deeplight", kind: "rock", x: 129, y: 27, name: "Gem Seam", resource: "mine_gemvein" },
   // --- Saltreach (Redrun): a fishing village on the river's east bank ---
   { id: "sign_saltreach", kind: "signpost", x: 146, y: 109, name: "Saltreach", lines: ["SALTREACH — where the Redrun meets the Eyeless Sea. Fresh catch daily, weather and serpents allowing."] },
   { id: "npc_saltreach_trader", kind: "npc", x: 145, y: 106, name: "Brine, a Fishwife", lines: ["Off the boats this morning — couldn't be fresher unless you caught it yourself. Which I'll sell you the gear to do.", "The deep water's good fishing and bad luck both. Mind the serpents past the bar."] },
@@ -1682,6 +1699,11 @@ const newPois: WorldObjectDef[] = [
   { id: "boat_saltreach", kind: "boat", x: 149, y: 108, name: "A Beached Coble", lines: ["Hauled out on rollers for the season's tarring. The Eyeless Sea is patient; the hull can't afford to be."] },
   { id: "fence_saltreach_net1", kind: "fence", x: 143, y: 104, name: "Net-Drying Rail", species: "h", lines: ["Nets on the rail, drying between tides. The mesh is torn where something big went through."] },
   { id: "fence_saltreach_net2", kind: "fence", x: 144, y: 104, name: "Net-Drying Rail", species: "h", lines: ["Nets on the rail, drying between tides. The mesh is torn where something big went through."] },
+  // Saltreach flies sea-teal, salt-faded to the colour of the shallows; cattails
+  // at the bank and a second beached boat mark the river-mouth landing.
+  { id: "banner_saltreach", kind: "banner", x: 147, y: 109, tint: "#2f8f8a", name: "Saltreach Colours", lines: ["Sea-teal gone pale as the water over the bar, the salt in every fibre. They re-dye it each spring and the sea bleaches it back by autumn."] },
+  { id: "reeds_saltreach", kind: "reeds", x: 148, y: 105, name: "Bank Cattails" },
+  { id: "boat_saltreach2", kind: "boat", x: 143, y: 106, name: "A Moored Skiff", lines: ["A one-man skiff, bailer still aboard, tied short against the morning tide. Somebody means to be out on the water before the fishwife's even lit her fire."] },
   // --- Emberhearth (Ashfen): a warm-flats camp of cult miners ---
   { id: "sign_emberhearth", kind: "signpost", x: 77, y: 145, name: "Emberhearth", lines: ["EMBERHEARTH — the warm ground keeps the fires lit and the faithful close. Witness the heat, or move along."] },
   { id: "npc_emberhearth_trader", kind: "npc", x: 77, y: 142, name: "Sefa, a Flux-Trader", lines: ["Embercite for your flux, charcoal for your forge, a flask for whatever you brew. The warm ground gives plenty.", "We don't sell the faith. Only the goods. The faith you feel through your boots, free of charge."] },
@@ -1692,6 +1714,11 @@ const newPois: WorldObjectDef[] = [
     ] },
   { id: "fire_emberhearth", kind: "fire", x: 75, y: 143, name: "Ember Pit" },
   { id: "cart_emberhearth", kind: "cart", x: 74, y: 141, name: "Charcoal Heap", lines: ["Charcoal sacked and stacked, still warm from the burn. The ground under it is warmer."] },
+  // Emberhearth flies ember-red over the warm ground; a second ember pit and a
+  // charred snag mark the cult's flats.
+  { id: "banner_emberhearth", kind: "banner", x: 78, y: 145, tint: "#c33f28", name: "Emberhearth Colours", lines: ["The colour of the coal's heart, flown for the warmth in the ground rather than any lord. The faithful say it never needs re-dyeing — the flats keep it bright."] },
+  { id: "fire_emberhearth2", kind: "fire", x: 79, y: 145, name: "Ember Pit" },
+  { id: "snag_emberhearth", kind: "deadfall", x: 76, y: 146, species: "snag", name: "Charred Snag", lines: ["A dead tree cooked black where it stood, from the ground up. Nothing struck it. The warmth simply rose one bad summer and took it."] },
   // --- Mirehold (Heartmoor): a moor hamlet of cutters & trappers ---
   { id: "sign_mirehold", kind: "signpost", x: 15, y: 143, name: "Mirehold", lines: ["MIREHOLD — a few roofs on firm ground in a sea of bog. Keep to the boards and the moor keeps its temper."] },
   { id: "npc_mirehold_trader", kind: "npc", x: 15, y: 140, name: "Tam, a Peat-Cutter", lines: ["Eel, peat, snare-line and good moor boots — all a body needs out here. I'll trade you fair.", "The bog keeps things. Best not ask too closely what, or it keeps you too."] },
@@ -1702,12 +1729,22 @@ const newPois: WorldObjectDef[] = [
     ] },
   { id: "fire_mirehold", kind: "fire", x: 17, y: 141, name: "Peat Fire" },
   { id: "cart_mirehold", kind: "cart", x: 14, y: 138, name: "Peat Barrow", lines: ["A barrow of cut peat bricks, drying under sacking. Moor fuel — slow, smoky and dependable, like the folk who cut it."] },
+  // Mirehold flies moor-heather purple; cattails and a mossy fallen log mark the
+  // firm ground in the sea of bog.
+  { id: "banner_mirehold", kind: "banner", x: 16, y: 143, tint: "#6a4f7a", name: "Mirehold Colours", lines: ["Heather-purple, the one bright thing the moor grows of its own accord. They dye the cloth with the bloom itself, so the banner smells faintly of the bog on a wet day."] },
+  { id: "reeds_mirehold", kind: "reeds", x: 18, y: 142, name: "Moor Cattails" },
+  { id: "log_mirehold", kind: "deadfall", x: 13, y: 143, species: "log", name: "Mossy Log", lines: ["A fallen bog-oak, black and heavy with the water it's drunk. Moss has it now, and something small lives under the far end."] },
   // --- Lodgehold (Greyoak): a foresters' steading at the wood's heart ---
   { id: "sign_lodgehold", kind: "signpost", x: 13, y: 85, name: "Lodgehold", lines: ["LODGEHOLD — the Warden's steading in the old wood. Bring an axe worth the name, and leave the deep growth its peace."] },
   { id: "npc_lodgehold_trader", kind: "npc", x: 13, y: 82, name: "Bryn, a Bowyer", lines: ["Hatchets, bowstaves, good arrows fletched true — the wood gives, if you've the tools to ask. I'll sell you those.", "Greyoak's the finest timber in Varath. Cut honest and it'll never blunt you for spite."] },
   { id: "npc_lodgehold_folk", kind: "npc", x: 15, y: 83, name: "A Lodge Fletcher", lines: ["Straight shaft, true feather, a head that flies where you look. Anything less is a stick with ambitions."] },
   { id: "fire_lodgehold", kind: "fire", x: 11, y: 83, name: "Steading Hearth" },
   { id: "cart_lodgehold", kind: "cart", x: 12, y: 80, name: "Log Pile", lines: ["Greyoak trunks bucked to length and stacked to season. Every ring in them is older than you."] },
+  // Lodgehold flies hunter-green over the steading; a hide-drying rail and a
+  // seasoning greyoak mark the foresters' hold at the wood's heart.
+  { id: "banner_lodgehold", kind: "banner", x: 14, y: 85, tint: "#4e7a3a", name: "Lodgehold Colours", lines: ["The green of deep greyoak in summer leaf. The Warden's own colours — sewn, they say, from the first cloak of the first forester to hold the wood."] },
+  { id: "fence_lodgehold_hide", kind: "fence", x: 15, y: 84, name: "Hide-Drying Rail", species: "h", lines: ["Deer and boar hides pegged out on the rail, fleshed and salted, curing to leather. The bowyer takes the best for quivers."] },
+  { id: "tree_lodgehold", kind: "tree", x: 16, y: 85, name: "Greyoak Tree", resource: "fell_greyoak", species: "greyoak" },
 
   // === WILD ANIMALS. Deer roam the open country between places — huntable for
   // the generic Raw Meat + Raw Hide. The bounty species live in their named

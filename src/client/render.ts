@@ -23,7 +23,7 @@ import type {
   WorldState,
 } from "../core/types.ts";
 import { objectPos, objectHidden } from "../core/worldCore.ts";
-import { type RoofStyle, type EnterableBuilding, INTERIOR_TOP, DUNGEON_TOP, homeLayout, HOMES, cityDoor, cityRoof, ENTERABLE, instanceRectAt, tileAt, REGIONS, CITY } from "../content/map.ts";
+import { type RoofStyle, type EnterableBuilding, INTERIOR_TOP, DUNGEON_TOP, homeLayout, HOMES, cityDoor, cityRoof, cityPalette, ENTERABLE, instanceRectAt, tileAt, REGIONS, CITY } from "../content/map.ts";
 import { type AvatarAnim, actionArmAngle, drawAvatar, drawTool, withDefaults } from "./avatar.ts";
 import type { Ghost } from "./presence.ts";
 import { type GearLook, resolveGear } from "./gearLook.ts";
@@ -1018,9 +1018,45 @@ function paintHomeSurface(
 }
 
 /**
+ * Regional architecture palettes. Each settlement recolours its whole masonry
+ * shell and roofs so a town reads as one distinct PLACE — Frostgate's cold
+ * blue granite, Emberhearth's ash walls under ember-red tile, Saltreach's
+ * salt-bleached driftwood, and so on — rather than the same grey block
+ * everywhere. `wall` is [body, brick, merlon]; `roof` is [base, ridge, line]
+ * and OVERRIDES the RoofStyle colour while the style's SHAPE/texture (thatch
+ * vs slate courses) still comes from the roof style itself. Keyed by the
+ * `palette` string stamped on each Building in content/map.ts; a tile with no
+ * palette falls back to Ironvale's default dressed stone.
+ */
+interface SettlementPalette { wall: [string, string, string]; roof: [string, string, string]; }
+const WALL_DEFAULT: [string, string, string] = ["#5d544b", "#776c5e", "#857a6c"];
+const SETTLEMENT_PALETTES: Record<string, SettlementPalette> = {
+  // Frostgate — northern gate-town of cold blue granite under slate.
+  frostgate: { wall: ["#4a5560", "#5e6b78", "#71808e"], roof: ["#3b4a5a", "#54677c", "#2b3743"] },
+  // Deeplight — pit-town of dark stone banded with timber, black-slate roofs.
+  deeplight: { wall: ["#463d34", "#5a4f43", "#6b5d4d"], roof: ["#3a3128", "#52463a", "#26201a"] },
+  // Saltreach — coastal hamlet of salt-bleached grey driftwood and pale thatch.
+  saltreach: { wall: ["#7d7a6e", "#928e80", "#a49f8f"], roof: ["#9a8f6a", "#b4a982", "#786e4e"] },
+  // Emberhearth — ashfall town, dark cinder walls under ember-red tile.
+  emberhearth: { wall: ["#3e3833", "#4e463f", "#5c524a"], roof: ["#7a2f22", "#a84a30", "#4e1a12"] },
+  // Mirehold — peat-timber stilt village, roofs gone to moss and reed.
+  mirehold: { wall: ["#443f34", "#544d3e", "#63593f"], roof: ["#5a5f38", "#75794a", "#3c4126"] },
+  // Lodgehold — hunters' timber lodges in warm weathered grey-oak and hide.
+  lodgehold: { wall: ["#5a4f42", "#6e6150", "#7e7060"], roof: ["#6a5238", "#856a48", "#472e1f"] },
+  // Redmouth — river-mouth fishing hamlet of red silt daub and dark thatch.
+  redmouth: { wall: ["#5e4238", "#714f42", "#82604c"], roof: ["#846540", "#9c8250", "#6a5232"] },
+  // Drover's Rest — a dusty tan drove-road stop, sun-baked earth and straw.
+  drover: { wall: ["#6a5c48", "#7e6f56", "#8e7d62"], roof: ["#8a7642", "#a08a52", "#6e5d33"] },
+  // The Fold — high sheep-fold croft in pale wool-grey stone and hay thatch.
+  fold: { wall: ["#5c5a4e", "#6e6c5c", "#7e7c6a"], roof: ["#7e7a4e", "#97925e", "#605d38"] },
+};
+
+/**
  * Dressed-stone city wall: warm masonry in a brick bond, with battlement teeth
  * (merlons) along any edge that faces open ground, and a cast shadow where it
  * drops to the ground below. Reads as a real rampart, not a grey block.
+ * When the tile belongs to a regional settlement, its masonry is recoloured
+ * from that town's SETTLEMENT_PALETTE.
  */
 function drawWall(
   g: CanvasRenderingContext2D,
@@ -1034,8 +1070,13 @@ function drawWall(
   const openN = !isWall(0, -1), openS = !isWall(0, 1);
   const openW = !isWall(-1, 0), openE = !isWall(1, 0);
 
+  // Regional architecture: recolour this town's masonry, or fall back to
+  // Ironvale's default dressed stone.
+  const pal = cityPalette(x, y);
+  const [body, brick, merlon] = (pal && SETTLEMENT_PALETTES[pal]?.wall) || WALL_DEFAULT;
+
   // Masonry body: brick bond with mortar lines.
-  g.fillStyle = "#5d544b";
+  g.fillStyle = body;
   g.fillRect(px, py, TILE, TILE);
   const rows = 3;
   const rh = TILE / rows;
@@ -1045,7 +1086,7 @@ function drawWall(
     for (let b = -1; b < 3; b++) {
       const bx = px + off + b * (TILE / 2);
       // lit top-left, shaded bottom-right per brick
-      g.fillStyle = "#776c5e";
+      g.fillStyle = brick;
       g.fillRect(bx + 1.5, ry + 1.5, TILE / 2 - 3, rh - 3);
       g.fillStyle = "rgba(0,0,0,0.18)";
       g.fillRect(bx + 1.5, ry + rh - 3, TILE / 2 - 3, 1.5);
@@ -1055,11 +1096,11 @@ function drawWall(
   }
 
   // Battlement merlons along edges that face open ground (the rampart top).
-  g.fillStyle = "#857a6c";
+  g.fillStyle = merlon;
   const tooth = TILE / 4;
   if (openN) {
     for (let i = 0; i < 4; i += 2) g.fillRect(px + i * tooth, py, tooth, 5);
-    g.fillStyle = "rgba(255,245,220,0.18)"; g.fillRect(px, py, TILE, 2); g.fillStyle = "#857a6c";
+    g.fillStyle = "rgba(255,245,220,0.18)"; g.fillRect(px, py, TILE, 2); g.fillStyle = merlon;
   }
   if (openS) {
     for (let i = 1; i < 4; i += 2) g.fillRect(px + i * tooth, py + TILE - 5, tooth, 5);
@@ -1101,7 +1142,13 @@ function drawRoof(
   // come from the footprint instead of the wall-tile roof map.
   override?: { belongs: (x: number, y: number) => boolean; door: (x: number, y: number) => boolean },
 ): void {
-  const [base, ridge, line] = ROOF_COLORS[style];
+  // Regional architecture: a settlement's palette overrides the roof COLOUR
+  // (the RoofStyle still drives the shingle/thatch SHAPE + texture below), and
+  // recolours the masonry course that shows under its eaves.
+  const pal = cityPalette(x, y);
+  const palWall = pal ? SETTLEMENT_PALETTES[pal]?.wall : undefined;
+  const [base, ridge, line] = (pal && SETTLEMENT_PALETTES[pal]?.roof) || ROOF_COLORS[style];
+  const courseColor = palWall ? palWall[0] : "#5d544b";
   const belongs = override ? override.belongs : (xx: number, yy: number) => cityRoof(xx, yy) === style;
   const isDoor = override ? override.door : cityDoor;
   const sameRoof = (dx: number, dy: number) => belongs(x + dx, y + dy);
@@ -1112,7 +1159,7 @@ function drawRoof(
 
   // A thin masonry course shows under the eaves at the very bottom of a building.
   if (botEdge) {
-    g.fillStyle = "#5d544b";
+    g.fillStyle = courseColor;
     g.fillRect(px, py, TILE, TILE);
   }
   const roofBottom = botEdge ? py + TILE - 7 : py + TILE;
@@ -2904,6 +2951,9 @@ function drawObject(
       else if (def.id === "duel_wins_board") drawWinsBoard(g, cx, cy);
       else scaled(g, cx, cy, 1.4, () => drawSignpost(g, 0, 0));
       break;
+    case "banner":
+      drawBanner(g, cx, cy, def.tint ?? "#8a3b3b", now, (def.x * 5 + def.y * 11) % 6.28);
+      break;
     case "waystone":
       drawWaystone(g, cx, cy, now);
       break;
@@ -4358,6 +4408,47 @@ function drawObstacle(
       g.strokeStyle = rope; g.lineWidth = 2; g.beginPath(); g.moveTo(cx - 9, cy - 6); g.lineTo(cx + 9, cy - 6); g.stroke();
       break;
     }
+    case "iceledge": { // SPINE — an icy shelf traverse with a frozen handline
+      g.fillStyle = "#b7cfe0"; g.beginPath(); // the ledge, pale blue ice
+      g.moveTo(cx - 12, cy + 6); g.lineTo(cx - 9, cy - 2); g.lineTo(cx + 10, cy - 3); g.lineTo(cx + 12, cy + 5); g.closePath(); g.fill();
+      g.fillStyle = "#e6f1fa"; g.fillRect(cx - 11, cy - 2, 21, 2); // lit top edge
+      g.strokeStyle = "#7fa8c8"; g.lineWidth = 1; // fracture lines
+      g.beginPath(); g.moveTo(cx - 4, cy - 2); g.lineTo(cx - 6, cy + 5); g.moveTo(cx + 4, cy - 2); g.lineTo(cx + 5, cy + 5); g.stroke();
+      g.strokeStyle = "#8a97a2"; g.lineWidth = 1.4; // a rope handline pinned above
+      g.beginPath(); g.moveTo(cx - 11, cy - 8); g.lineTo(cx + 11, cy - 9); g.stroke();
+      g.fillStyle = "#d8ecfb"; for (const dx of [-8, -1, 6]) { g.beginPath(); g.moveTo(cx + dx, cy + 5); g.lineTo(cx + dx - 1.4, cy + 10); g.lineTo(cx + dx + 1.4, cy + 5); g.closePath(); g.fill(); } // icicles
+      break;
+    }
+    case "chasmswing": { // MARROW — a rope swing over a black chasm
+      g.fillStyle = "#0b0a10"; g.beginPath(); g.ellipse(cx, cy + 4, 13, 6, 0, 0, Math.PI * 2); g.fill(); // the void
+      g.fillStyle = "rgba(120,90,160,0.18)"; g.beginPath(); g.ellipse(cx, cy + 4, 9, 4, 0, 0, Math.PI * 2); g.fill(); // faint gloom-glow
+      g.fillStyle = "#4a4038"; g.fillRect(cx - 13, cy - 1, 4, 8); g.fillRect(cx + 9, cy - 1, 4, 8); // the two rock lips
+      g.strokeStyle = "#3a2c1c"; g.lineWidth = 3; g.beginPath(); g.moveTo(cx - 11, cy - 12); g.lineTo(cx + 11, cy - 12); g.stroke(); // anchor beam
+      g.strokeStyle = rope; g.lineWidth = 1.6; g.beginPath(); g.moveTo(cx + 1, cy - 12); g.lineTo(cx - 3, cy + 5); g.stroke(); // the swing rope
+      g.fillStyle = wood; g.fillRect(cx - 6, cy + 4, 7, 2.4); // the seat, mid-swing
+      break;
+    }
+    case "cinderleap": { // ASHFEN — a leap across a glowing crack in the ash
+      const gl = 0.5 + 0.5 * Math.abs(Math.sin((cx + cy) * 0.7));
+      g.fillStyle = "#2e2622"; g.beginPath(); // the dark ash mound either side
+      g.moveTo(cx - 12, cy + 6); g.lineTo(cx - 10, cy - 3); g.lineTo(cx - 3, cy - 2); g.lineTo(cx - 4, cy + 6); g.closePath();
+      g.moveTo(cx + 12, cy + 6); g.lineTo(cx + 10, cy - 3); g.lineTo(cx + 3, cy - 2); g.lineTo(cx + 4, cy + 6); g.closePath(); g.fill();
+      g.fillStyle = `rgba(230,120,40,${(0.5 + 0.4 * gl).toFixed(2)})`; // the ember crack between
+      g.beginPath(); g.moveTo(cx - 3, cy + 5); g.lineTo(cx - 1, cy - 3); g.lineTo(cx + 3, cy + 5); g.lineTo(cx + 1, cy - 3); g.closePath(); g.fill();
+      g.fillStyle = `rgba(255,210,120,${(0.4 + 0.5 * gl).toFixed(2)})`; g.fillRect(cx - 0.8, cy - 3, 1.6, 8); // white-hot core
+      break;
+    }
+    case "boghop": { // HEARTMOOR — tussock hops across dark bog pools
+      g.fillStyle = "#1e2a20"; g.fillRect(cx - 12, cy - 5, 24, 14); // the peat water
+      g.fillStyle = "rgba(90,120,80,0.15)"; g.fillRect(cx - 12, cy - 5, 24, 3); // scummed surface
+      for (const [dx, dy] of [[-8, 4], [-2, -1], [5, 3], [9, -3]] as const) { // the tussocks
+        g.fillStyle = "#3f4a2a"; g.beginPath(); g.ellipse(cx + dx, cy + dy + 1, 3.6, 2.4, 0, 0, Math.PI * 2); g.fill();
+        g.fillStyle = "#5f7a3a"; g.beginPath(); g.ellipse(cx + dx, cy + dy - 0.5, 3.2, 1.8, 0, 0, Math.PI * 2); g.fill();
+        g.strokeStyle = "#7a9448"; g.lineWidth = 0.7; // reed tufts
+        for (const s of [-1.5, 0, 1.5]) { g.beginPath(); g.moveTo(cx + dx + s, cy + dy - 1); g.lineTo(cx + dx + s, cy + dy - 4); g.stroke(); }
+      }
+      break;
+    }
     default: { // "log" — a balance log over a dip
       g.fillStyle = wood; g.strokeStyle = woodDk; g.lineWidth = 1;
       g.fillRect(cx - 12, cy - 2, 24, 5); g.strokeRect(cx - 12, cy - 2, 24, 5);
@@ -4413,6 +4504,77 @@ function drawSignpost(g: CanvasRenderingContext2D, cx: number, cy: number): void
   };
   board(cy - 6, -1, "#a07a44"); // upper board, pointing left
   board(cy + 4, 1, "#8f6c3c");  // lower board, pointing right
+}
+
+/**
+ * A settlement's heraldic banner: a tall timber standard flying a long
+ * gonfalon in the town's own colours (`tint`), rippling gently in the wind
+ * with a stitched border, a pale heraldic charge, and a swallow-tailed hem —
+ * so each town reads as its own hold, the way a Skyrim city flies its jarl's
+ * colours. The wave uses a per-banner phase so neighbouring flags don't ripple
+ * in lockstep.
+ */
+function drawBanner(
+  g: CanvasRenderingContext2D,
+  cx: number,
+  cy: number,
+  tint: string,
+  now: number,
+  phase: number,
+): void {
+  const field = tint;
+  const dark = shade(tint, 0.62);
+  const light = shade(tint, 1.28);
+  shadow(g, cx, cy + 16, 7, 3);
+
+  // The pole: a tall stripped-timber staff with an iron finial.
+  g.strokeStyle = "#3a2c1c"; g.lineWidth = 3;
+  g.beginPath(); g.moveTo(cx - 9, cy + 16); g.lineTo(cx - 9, cy - 22); g.stroke();
+  g.fillStyle = "#6b5636"; g.fillRect(cx - 11, cy + 14, 4, 4); // foot block
+  g.fillStyle = "#d8c48a";
+  g.beginPath(); g.arc(cx - 9, cy - 24, 2.6, 0, Math.PI * 2); g.fill(); // finial knob
+  // The cross-arm the banner hangs from.
+  g.strokeStyle = "#3a2c1c"; g.lineWidth = 2.5;
+  g.beginPath(); g.moveTo(cx - 9, cy - 21); g.lineTo(cx + 11, cy - 21); g.stroke();
+
+  // The hanging gonfalon: a column of horizontal slats, each nudged by a
+  // travelling sine so the whole cloth reads as one rippling sheet.
+  const top = cy - 20, left = cx - 8, w = 18, h = 30;
+  const slats = 10;
+  for (let i = 0; i < slats; i++) {
+    const t = i / (slats - 1);
+    const yy = top + t * h;
+    const sway = Math.sin(now / 420 + phase + t * 2.4) * (2 + t * 3);
+    const x0 = left + sway;
+    // Swallow-tail notch at the very bottom two slats.
+    const inset = t > 0.82 ? (t - 0.82) * (w * 2.6) : 0;
+    // Body shaded left→right, lit edge where the cloth catches the light.
+    const grad = g.createLinearGradient(x0, 0, x0 + w, 0);
+    grad.addColorStop(0, dark);
+    grad.addColorStop(0.4, field);
+    grad.addColorStop(1, shade(tint, 0.9));
+    g.fillStyle = grad;
+    g.fillRect(x0 + inset / 2, yy, w - inset, h / slats + 0.8);
+  }
+  // Stitched border down both long edges + a charge in the centre.
+  g.save();
+  g.beginPath();
+  for (let i = 0; i < slats; i++) {
+    const t = i / (slats - 1);
+    const yy = top + t * h;
+    const sway = Math.sin(now / 420 + phase + t * 2.4) * (2 + t * 3);
+    if (i === 0) g.moveTo(left + sway + 1, yy); else g.lineTo(left + sway + 1, yy);
+  }
+  g.strokeStyle = light; g.lineWidth = 1.4; g.stroke();
+  g.restore();
+  // A pale heraldic charge (a simple lozenge) mid-field.
+  const midT = 0.42;
+  const midSway = Math.sin(now / 420 + phase + midT * 2.4) * (2 + midT * 3);
+  const chx = left + midSway + w / 2, chy = top + midT * h + 4;
+  g.fillStyle = "rgba(240,236,220,0.9)";
+  g.beginPath();
+  g.moveTo(chx, chy - 5); g.lineTo(chx + 4, chy); g.lineTo(chx, chy + 5); g.lineTo(chx - 4, chy);
+  g.closePath(); g.fill();
 }
 
 /** A Courier waystone: a tall carved standing stone crowned with a bright,

@@ -1023,7 +1023,10 @@ export type ObjKind =
   | "pier_gate"
   /** The Varathian Trail's billboard at the trail head: examine to read your
    *  lap tally and progress toward the Trailblazer set. */
-  | "trail_board";
+  | "trail_board"
+  /** A settlement's heraldic banner — a tall standard flying the town's own
+   *  colours (WorldObjectDef.tint) over its square. Decorative; examine-only. */
+  | "banner";
 
 /**
  * One entry of reactive NPC chatter. When an NPC is talked to and has no quest
@@ -1133,6 +1136,10 @@ export interface WorldObjectDef {
    *  the gate with the key in your pack consumes it and sets `key_<id>` (the
    *  gate's hiddenByFlag), swinging it open for good. */
   keyItem?: ItemId;
+  /** banner only: the settlement's heraldic field colour (a hex string). The
+   *  renderer hangs a tinted pennant/standard in this colour so each town flies
+   *  its own colours over the square. Purely cosmetic. */
+  tint?: string;
 }
 
 /** One possible drop from a monster: an item with an independent roll chance. */
