@@ -678,7 +678,11 @@ export const monsters: Record<string, MonsterStats> = {
     "desc": "The thing that was left to watch the vault. It is still watching.",
     "mechanics": [
       { "type": "lifedrain", "frac": 0.4, "tell": "The Keeper draws the marrow from your bones." },
-      { "type": "slam", "every": 5, "mult": 2.5, "radius": 1, "windupMs": 2200, "tell": "The Keeper heaves its fists high — the ground beneath you cracks. MOVE!" }
+      { "type": "slam", "every": 5, "mult": 2.5, "radius": 1, "windupMs": 2200, "tell": "The Keeper heaves its fists high — the ground beneath you cracks. MOVE!" },
+      // The full turning ward, for the endgame trial: its watch shifts through
+      // the whole triangle as it falls (blade, then Grace, then arrows), so one
+      // loadout can't solve the fight — rotate style to keep exploiting it (T1·07).
+      { "type": "wardshift", "styles": ["slash", "magic", "ranged"], "tell": "The Keeper's watch turns to you anew." }
     ],
     "drops": [
       { item: "big_bones", chance: 1, tier: "always" },
@@ -1047,7 +1051,11 @@ export const monsters: Record<string, MonsterStats> = {
     "desc": "An armoured revenant. It carries a weapon from before smithing had names.",
     "mechanics": [
       { "type": "slam", "every": 4, "mult": 2, "radius": 1, "windupMs": 2400, "tell": "The Hollow Warden raises its ancient blade over the ground you stand on — Grave Slam. MOVE!" },
-      { "type": "enrage", "below": 0.3, "mult": 1.5, "tell": "The Warden's hollow eyes blaze with old fury." }
+      { "type": "enrage", "below": 0.3, "mult": 1.5, "tell": "The Warden's hollow eyes blaze with old fury." },
+      // A first taste of a turning ward: its dead armour re-sets as it falls, so
+      // the crush that opened the fight glances by the end — bring a stab weapon
+      // to swap to. Teaches the mechanic within a melee-only kit (T1·07).
+      { "type": "wardshift", "styles": ["crush", "stab"], "tell": "The Warden's plates grind and re-seat — its guard has turned." }
     ],
     "drops": [
       { item: "big_bones", chance: 1, tier: "always" },

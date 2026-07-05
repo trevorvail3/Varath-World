@@ -395,6 +395,41 @@ const STYLE_MODS: Record<CombatStyle, { acc: number; dmg: number; def: number }>
   ward: { acc: 0.9, dmg: 0.82, def: 1.25 },
 };
 
+/** Human names for attack styles, for combat-log lines. */
+const STYLE_LABEL: Record<string, string> = {
+  slash: "slashing", stab: "stabbing", crush: "crushing", ranged: "ranged", magic: "magic",
+};
+
+/** Which weakness phase a wardshift boss is in right now (0 = full HP). */
+function wardPhaseOf(stats: MonsterStats, obj: WorldObjectState): { styles: string[]; idx: number } | null {
+  const ws = stats.mechanics?.find((m) => m.type === "wardshift");
+  if (!ws || ws.type !== "wardshift" || ws.styles.length === 0 || obj.hp === undefined || stats.hp <= 0) return null;
+  const frac = Math.max(0, Math.min(1, obj.hp / stats.hp));
+  const idx = Math.min(ws.styles.length - 1, Math.floor((1 - frac) * ws.styles.length));
+  return { styles: ws.styles, idx };
+}
+
+/** The boss's LIVE weakness this instant: a turning ward cycles by HP phase;
+ *  everything else uses its fixed list (T1·07). */
+function activeWeakness(stats: MonsterStats, obj: WorldObjectState): string[] {
+  const ph = wardPhaseOf(stats, obj);
+  return ph ? [ph.styles[ph.idx]!] : (stats.weakness ?? []);
+}
+
+/** Announce a wardshift turn — only when the ward crosses INTO a deeper phase,
+ *  so combat start (phase 0) and any heal-back stay quiet. */
+function announceWardshift(stats: MonsterStats, obj: WorldObjectState, events: WorldEvent[]): void {
+  const ph = wardPhaseOf(stats, obj);
+  if (!ph) return;
+  const ws = stats.mechanics!.find((m) => m.type === "wardshift")!;
+  const last = obj.wardPhase ?? 0;
+  if (ph.idx > last) {
+    const style = ph.styles[ph.idx]!;
+    events.push({ type: "LOG", message: `${ws.type === "wardshift" ? ws.tell : ""} It is now weak to ${STYLE_LABEL[style] ?? style} attacks.` });
+  }
+  obj.wardPhase = ph.idx;
+}
+
 /** Base max HP before the Vitality level is added. */
 const BASE_MAX_HP = 10;
 
@@ -4549,6 +4584,7 @@ export function tick(
         obj.swings = 0;
         obj.enraged = false;
         obj.healed = false;
+        obj.wardPhase = 0;
       }
       events.push({ type: "OBJECT_RESPAWNED", objId: def.id });
     }
@@ -6444,7 +6480,7 @@ function playerSwing(
   // "magic", the ratings come off Faith + the staff, and the XP trains Faith.
   const magic = isMagic(player, content);
   const wStyle = ranged ? "ranged" : magic ? "magic" : weaponStyle(player, content);
-  const exploits = wStyle !== undefined && (stats.weakness ?? []).includes(wStyle);
+  const exploits = wStyle !== undefined && activeWeakness(stats, obj).includes(wStyle);
   const baseAcc = ranged ? rangedAccuracy(player, content)
     : magic ? magicAccuracy(player, content) : playerAccuracy(player, content);
   const acc = exploits ? Math.round(baseAcc * COMBAT.weaknessAcc) : baseAcc;
@@ -6538,6 +6574,9 @@ function playerSwing(
     } else player.spec = Math.min(SPEC_MAX, player.spec + SPEC_GAIN_PER_HIT);
     obj.hp -= dmg;
     events.push({ type: "DAMAGE", targetId: obj.id, amount: dmg, weak: exploits });
+    // A turning ward announces itself when this blow pushes the boss into a
+    // deeper weakness phase (still alive) — telling you which style to swap to.
+    if (obj.hp > 0) announceWardshift(stats, obj, events);
     // OSRS-style combat XP, earned per point of damage dealt (not on the kill):
     // 1.5 xp to the attack skill (Draw for ranged, the chosen melee style else),
     // and 0.5 xp to Vitality. Trimmed again (from 3 + 1) after the armed-combat

@@ -1248,7 +1248,13 @@ export type BossMechanic =
   | { type: "scaleguard"; reduce: number; tell?: string }
   /** Searing hide: each landed MELEE hit burns the attacker for `frac` of the
    *  damage dealt back at them. Ranged attackers avoid it. */
-  | { type: "recoil"; frac: number; tell: string };
+  | { type: "recoil"; frac: number; tell: string }
+  /** A ward that TURNS: as the boss's HP falls through even thresholds, its
+   *  live weakness cycles through `styles` in order (top slice → styles[0],
+   *  bottom slice → last). One loadout no longer solves the whole fight — you
+   *  rotate attack style to keep exploiting it. Overrides the static `weakness`
+   *  while present. Each turn is announced with the new style named. */
+  | { type: "wardshift"; styles: string[]; tell: string };
 
 /** The mutable runtime state for a single world object. */
 export interface WorldObjectState {
@@ -1298,6 +1304,9 @@ export interface WorldObjectState {
   /** Boss combat: whether the one-shot enrage / self-heal have fired. */
   enraged?: boolean;
   healed?: boolean;
+  /** Boss combat (wardshift): the weakness-phase index last announced, so a
+   *  turning ward tells the player only when it actually changes. Transient. */
+  wardPhase?: number;
   /** Faith curse (Marrow Grip): the target's defence is dropped until this time.
    *  Transient combat state — never persisted. */
   defCurse?: { amount: number; until: number };

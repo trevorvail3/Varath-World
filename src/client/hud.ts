@@ -2146,7 +2146,10 @@ export class Hud {
       const slain = kills > 0;
       const key = `boss:${m.id}`;
       const open = this.openSecs.has(key);
-      const weak = m.weakness?.length ? `<div class="boss-detail-weak">Weak to ${escapeHtml(m.weakness.join(", "))}.</div>` : "";
+      const ward = m.mechanics?.find((mc) => mc.type === "wardshift");
+      const weak = ward && ward.type === "wardshift" && ward.styles.length
+        ? `<div class="boss-detail-weak">Turning ward — weak to ${escapeHtml(ward.styles.join(" → "))} as it falls. Rotate your style.</div>`
+        : m.weakness?.length ? `<div class="boss-detail-weak">Weak to ${escapeHtml(m.weakness.join(", "))}.</div>` : "";
       const lore = m.desc ? `<div class="boss-detail-lore">${escapeHtml(m.desc)}</div>` : "";
       const hintLine = m.bossHint ? `<div class="boss-detail-hint">${escapeHtml(m.bossHint)}</div>` : "";
       // Milestone ladder: claimed (✓), reached & unclaimed (a Claim button), or

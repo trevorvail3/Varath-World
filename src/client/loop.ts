@@ -2738,8 +2738,15 @@ export class Game {
   /** A plain-English line telling the player what a monster is weak to. */
   private weaknessNote(stats: MonsterStats): string {
     const labels: Record<string, string> = {
-      slash: "slashing", stab: "stabbing", crush: "crushing", ranged: "ranged",
+      slash: "slashing", stab: "stabbing", crush: "crushing", ranged: "ranged", magic: "magic",
     };
+    // A turning ward (wardshift) cycles its weakness as it falls — say so, and
+    // in order, so the player knows to rotate style mid-fight.
+    const ward = stats.mechanics?.find((m) => m.type === "wardshift");
+    if (ward && ward.type === "wardshift" && ward.styles.length > 0) {
+      const seq = ward.styles.map((s) => labels[s] ?? s).join(", then ");
+      return `Its ward turns as it weakens — weak to ${seq}. Rotate your attack style to keep exploiting it.`;
+    }
     const w = (stats.weakness ?? []).map((s) => labels[s] ?? s);
     if (w.length === 0) return "It has no obvious weakness.";
     const list = w.length === 1 ? w[0] : `${w.slice(0, -1).join(", ")} and ${w[w.length - 1]}`;
