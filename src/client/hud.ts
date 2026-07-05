@@ -388,9 +388,21 @@ export class Hud {
     // (which shifts with DPI, short screens and a device notch) and so let the
     // minimap clip the box's top. Re-measured on resize and whenever the minimap
     // itself changes size.
+    //
+    // NOTE: the minimap panel is appended to a DIFFERENT container (#app) than
+    // this HUD root (#hud), so we must query the WHOLE document, not `root`.
+    // And because the two panels live in different offset parents, we position
+    // the box in viewport space (getBoundingClientRect) and convert back into
+    // the vitals box's own offset frame — a plain offsetTop+offsetHeight would
+    // be measured in the wrong coordinate system and silently miss.
     const placeVitals = (): void => {
-      const mm = root.querySelector(".hud-minimap") as HTMLElement | null;
-      if (mm) vitals.style.top = `${mm.offsetTop + mm.offsetHeight + 6}px`;
+      const mm = document.querySelector(".hud-minimap") as HTMLElement | null;
+      if (!mm) return;
+      const rect = mm.getBoundingClientRect();
+      if (rect.height === 0) return; // not laid out yet
+      const parent = vitals.offsetParent as HTMLElement | null;
+      const parentTop = parent ? parent.getBoundingClientRect().top : 0;
+      vitals.style.top = `${Math.round(rect.bottom - parentTop + 6)}px`;
     };
     placeVitals();
     requestAnimationFrame(placeVitals);
@@ -400,7 +412,7 @@ export class Hud {
       // The minimap is created elsewhere and may not exist yet — attach the
       // observer as soon as it appears, then keep the box glued beneath it.
       const hookMinimap = (): void => {
-        const mm = root.querySelector(".hud-minimap");
+        const mm = document.querySelector(".hud-minimap");
         if (mm) { ro.observe(mm); placeVitals(); }
         else requestAnimationFrame(hookMinimap);
       };
