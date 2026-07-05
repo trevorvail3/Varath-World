@@ -1254,7 +1254,12 @@ export type BossMechanic =
    *  bottom slice → last). One loadout no longer solves the whole fight — you
    *  rotate attack style to keep exploiting it. Overrides the static `weakness`
    *  while present. Each turn is announced with the new style named. */
-  | { type: "wardshift"; styles: string[]; tell: string };
+  | { type: "wardshift"; styles: string[]; tell: string }
+  /** Adds: below `below` HP fraction, the boss calls its kin ONCE — the spawns
+   *  gated behind `flag` (pre-placed near the boss) stand up and join the fight,
+   *  turning a single-target fight into a multi-target one. Cleared when the
+   *  boss dies or respawns. Reuses the delve wave-spawn plumbing. */
+  | { type: "summon"; below: number; flag: string; tell: string };
 
 /** The mutable runtime state for a single world object. */
 export interface WorldObjectState {
@@ -1307,6 +1312,9 @@ export interface WorldObjectState {
   /** Boss combat (wardshift): the weakness-phase index last announced, so a
    *  turning ward tells the player only when it actually changes. Transient. */
   wardPhase?: number;
+  /** Boss combat (summon): whether this boss has already called its adds, so
+   *  the one-shot summon fires exactly once per fight. Transient. */
+  summoned?: boolean;
   /** Faith curse (Marrow Grip): the target's defence is dropped until this time.
    *  Transient combat state — never persisted. */
   defCurse?: { amount: number; until: number };

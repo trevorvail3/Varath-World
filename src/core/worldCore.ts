@@ -4585,6 +4585,13 @@ export function tick(
         obj.enraged = false;
         obj.healed = false;
         obj.wardPhase = 0;
+        // A summoning boss comes back with its adds un-called and sent home.
+        const rstats = monsterFor(content, def);
+        const summon = rstats?.mechanics?.find((m) => m.type === "summon");
+        if (summon && summon.type === "summon") {
+          despawnFlaggedSpawns(state, content, summon.flag);
+          obj.summoned = false;
+        }
       }
       events.push({ type: "OBJECT_RESPAWNED", objId: def.id });
     }
@@ -6656,6 +6663,13 @@ function checkKill(
     player.hp = Math.min(player.maxHp, player.hp + heal);
     events.push({ type: "LOG", message: `The Barrow-King's Signet warms — your wounds knit (+${heal}).` });
   }
+  // A summoning boss falls: send any adds home and re-arm the summon for next
+  // time, so the fight resets to single-target (T1·07).
+  const summon = stats.mechanics?.find((m) => m.type === "summon");
+  if (summon && summon.type === "summon") {
+    despawnFlaggedSpawns(state, content, summon.flag);
+    obj.summoned = false;
+  }
   events.push({ type: "MONSTER_KILLED", objId: obj.id });
   // "the The Boneman" reads badly — names that carry their own article skip ours.
   events.push({ type: "LOG", message: `You defeat ${/^The /.test(def.name) ? def.name : `the ${def.name}`}.` });
@@ -6969,6 +6983,12 @@ function monsterSwing(
         obj.hp = Math.min(stats.hp, obj.hp + m.amount);
         events.push({ type: "LOG", message: m.tell });
       }
+      // Adds: the boss calls its kin once, turning the duel into a melee.
+      if (m.type === "summon" && !obj.summoned && frac < m.below) {
+        obj.summoned = true;
+        const n = standUpFlaggedSpawns(state, content, m.flag, ctx);
+        if (n > 0) events.push({ type: "LOG", message: m.tell });
+      }
     }
   }
 
@@ -7173,6 +7193,44 @@ function armDelveWave(state: WorldState, content: Content, w: number, ctx: Ctx):
     obj.nextWanderAt = ctx.now + 1500;
   }
   return defs.length;
+}
+
+/** Stand up the pre-placed spawns gated behind `flag` (boss adds, T1·07) — the
+ *  generic form of armDelveWave: set the flag so they clear their requiresFlag
+ *  gate, then activate each one fresh. Returns how many stood up. */
+function standUpFlaggedSpawns(state: WorldState, content: Content, flag: string, ctx: Ctx): number {
+  const { player } = state;
+  if (!player.flags.includes(flag)) player.flags.push(flag);
+  let n = 0;
+  for (const d of content.objects) {
+    if (d.requiresFlag !== flag || d.kind !== "monster") continue;
+    const obj = state.objects[d.id];
+    if (!obj) continue;
+    obj.available = true;
+    obj.respawnAt = 0;
+    obj.hp = monsterFor(content, d)?.hp ?? 1;
+    obj.pos = { x: d.x, y: d.y };
+    obj.wanderTarget = null;
+    obj.nextAttackAt = 0;
+    obj.swings = 0;
+    obj.nextWanderAt = ctx.now + 800;
+    n++;
+  }
+  return n;
+}
+
+/** Send the adds home: drop the summon flag (which hides their spawns again) and
+ *  park them, so the fight resets to single-target once the boss falls. */
+function despawnFlaggedSpawns(state: WorldState, content: Content, flag: string): void {
+  const i = state.player.flags.indexOf(flag);
+  if (i >= 0) state.player.flags.splice(i, 1);
+  for (const d of content.objects) {
+    if (d.requiresFlag !== flag) continue;
+    const obj = state.objects[d.id];
+    // Park them far in the future so the respawn loop can't revive a hidden add;
+    // a fresh summon (standUpFlaggedSpawns) resets respawnAt when the boss calls again.
+    if (obj) { obj.available = false; obj.respawnAt = Number.MAX_SAFE_INTEGER; }
+  }
 }
 
 /** Tear the run down (finished, died, or restarting): clear every wave flag. */

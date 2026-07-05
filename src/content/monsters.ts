@@ -1133,7 +1133,11 @@ export const monsters: Record<string, MonsterStats> = {
     "desc": "An orc warlord who refused to die. The Spine took him in instead.",
     "mechanics": [
       { "type": "slam", "every": 4, "mult": 2.2, "radius": 1, "windupMs": 2000, "tell": "The Warlord bellows and leaps — the ground you stand on darkens. MOVE!" },
-      { "type": "enrage", "below": 0.25, "mult": 1.6, "tell": "The Spine Warlord refuses to fall." }
+      { "type": "enrage", "below": 0.25, "mult": 1.6, "tell": "The Spine Warlord refuses to fall." },
+      // Half-blooded, the warlord calls his pack — two ridge wolves join the
+      // fight, turning a duel into a scrap you have to survive on more than one
+      // front (T1·07). They are sent home when he falls.
+      { "type": "summon", "below": 0.5, "flag": "warlord_pack", "tell": "The Warlord throws back his head and HOWLS — the ridge answers. Wolves close from the dark." }
     ],
     "drops": [
       { item: "big_bones", chance: 1, tier: "always" },

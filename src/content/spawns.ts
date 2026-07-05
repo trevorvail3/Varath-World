@@ -1330,6 +1330,11 @@ const rawObjects: WorldObjectDef[] = [
   // shelf of the pass — a grindable overworld boss now (its old portal leads to
   // the rebuilt Spine Vault crawl; see buildDungeonSites).
   { id: "boss_spine", kind: "monster", monster: "spine_warlord", x: 44, y: 16, name: "The Spine Warlord" },
+  // The Warlord's pack (T1·07): pre-placed but hidden behind the summon flag —
+  // they stand up only when he calls them at half health, and are sent home when
+  // he falls. Flag lifecycle lives in worldCore (summon mechanic).
+  { id: "warlord_wolf_1", kind: "monster", monster: "ridge_wolf", x: 42, y: 17, name: "Ridge Wolf", requiresFlag: "warlord_pack" },
+  { id: "warlord_wolf_2", kind: "monster", monster: "ridge_wolf", x: 46, y: 15, name: "Ridge Wolf", requiresFlag: "warlord_pack" },
   { id: "spine_add1", kind: "monster", monster: "stone_crawler", x: 37, y: 117, name: "Vault Crawler" },
   { id: "spine_add2", kind: "monster", monster: "mountain_troll", x: 43, y: 117, name: "Guard Troll" },
   { id: "ret_marrow", kind: "portal", x: 56, y: 119, name: "Vault Exit", target: { x: 91, y: 14 }, lines: ["The door closes behind you."] },
