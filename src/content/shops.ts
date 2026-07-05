@@ -304,7 +304,7 @@ export const shops: ShopDef[] = [
     id: "shop_lodgehold",
     npc: "npc_lodgehold_trader",
     name: "Lodgehold Bowyer",
-    greeting: "Bryn's bench — hatchets for honest timber, bows and true-fletched arrows for the deep wood.",
+    greeting: "Bryn's bench — hatchets for honest timber, bows and true-fletched arrows for the deep wood, and ranger leathers cut for every rank of hunter.",
     stock: [
       { item: "hatchet_3", price: 320, qty: 1 },
       { item: "hatchet_4", price: 950, qty: 1 },
@@ -312,6 +312,21 @@ export const shops: ShopDef[] = [
       { item: "longbow", price: 780, qty: 1 },
       { item: "arrow_knucklestone", price: 2, qty: 50 },
       { item: "arrow_ashiron", price: 6, qty: 50 },
+      // T1·05 — the ranger's boots (never sold before) and the two tiers above
+      // the old Master cap, so an archer's armour climbs alongside plate. High
+      // tiers priced as a gold sink; the mid drops still fall in the wild.
+      { item: "rng_boots_1", price: 70, qty: 1 },
+      { item: "rng_boots_2", price: 230, qty: 1 },
+      { item: "rng_boots_3", price: 720, qty: 1 },
+      { item: "rng_boots_4", price: 2100, qty: 1 },
+      { item: "rng_hood_5", price: 4600, qty: 1 },
+      { item: "rng_body_5", price: 9200, qty: 1 },
+      { item: "rng_legs_5", price: 6000, qty: 1 },
+      { item: "rng_boots_5", price: 3900, qty: 1 },
+      { item: "rng_hood_6", price: 7400, qty: 1 },
+      { item: "rng_body_6", price: 14800, qty: 1 },
+      { item: "rng_legs_6", price: 9900, qty: 1 },
+      { item: "rng_boots_6", price: 6300, qty: 1 },
     ],
   },
   {
@@ -373,7 +388,7 @@ export const shops: ShopDef[] = [
     id: "shop_devotion",
     npc: "devotion_keeper",
     name: "The Shrinekeeper's Table",
-    greeting: "Orun's light for the newly faithful — a first staff, plain robes, and a draught of Grace for the road. The potion I can only spare one at a time; the shrine gives it back slowly.",
+    greeting: "Orun's light for the faithful of every rank — a first staff and plain robes for the newly devout, and the higher vestments for those the shrine has long known. The Grace draught I can only spare one at a time; the shrine gives it back slowly.",
     // A starter kit for the Devotion skill: the lowest staff + Acolyte robes, so a
     // new caster can leave Ironvale equipped. The Devotion Potion is rationed —
     // one on the table, one back every 15 minutes — so it never replaces bonemeal
@@ -384,6 +399,21 @@ export const shops: ShopDef[] = [
       { item: "mag_hood_1", price: 90, qty: 1 },          // sell 40
       { item: "mag_robe_1", price: 180, qty: 1 },         // sell 80
       { item: "mag_skirt_1", price: 120, qty: 1 },        // sell 55
+      // T1·05 — the caster's boots (never had a slot before) and the two ranks
+      // above the old Archon cap, so Devotion armour climbs alongside plate.
+      // Higher vestments priced as a gold sink; mid robes still drop in the wild.
+      { item: "mag_boots_1", price: 70, qty: 1 },
+      { item: "mag_boots_2", price: 230, qty: 1 },
+      { item: "mag_boots_3", price: 720, qty: 1 },
+      { item: "mag_boots_4", price: 2100, qty: 1 },
+      { item: "mag_hood_5", price: 4600, qty: 1 },
+      { item: "mag_robe_5", price: 9200, qty: 1 },
+      { item: "mag_skirt_5", price: 6000, qty: 1 },
+      { item: "mag_boots_5", price: 3900, qty: 1 },
+      { item: "mag_hood_6", price: 7400, qty: 1 },
+      { item: "mag_robe_6", price: 14800, qty: 1 },
+      { item: "mag_skirt_6", price: 9900, qty: 1 },
+      { item: "mag_boots_6", price: 6300, qty: 1 },
       { item: "bonemeal", price: 15, qty: 5 },            // sell 6 — the potion's base
       // Rationed: one Devotion Potion on the table, one back every 15 minutes.
       { item: "potion_grace", price: 260, qty: 1, max: 1, restockMs: 900000 },

@@ -5447,6 +5447,42 @@ export const items: Record<ItemId, ItemDef> = {
   "mag_robe_4": { "id": "mag_robe_4", "name": "Archon Robe", "icon": "🥋", "cat": "Magic Robes", "slot": "armor", "equipSkill": "faith", "equipLevel": 50, "magAcc": 15, "magDmg": 6, "def": 9, "sell": 2400, "description": "Archon robes — the finest vessel for a caster's will." },
   "mag_skirt_4": { "id": "mag_skirt_4", "name": "Archon Skirt", "icon": "🩲", "cat": "Magic Robes", "slot": "legs", "equipSkill": "faith", "equipLevel": 50, "magAcc": 12, "def": 6, "sell": 1600, "description": "Archon lower robes, woven for the highest devotion." },
 
+  // --- T1·05: ranged & magic armour, brought up to the melee slot/tier grid ---
+  // Both lines gain the missing BOOTS slot at every tier, and climb two tiers
+  // past the old level-50 cap (Sentinel ≈62, Peerless/Luminary ≈78) so a bow or
+  // staff build doesn't plateau while plate keeps going. Ranged leans accuracy
+  // (rngAcc), magic leans spell power (magAcc/magDmg) — the stat identities.
+  // Ranged boots, tiers 1–4 (the slot that never existed for archers):
+  "rng_boots_1": { "id": "rng_boots_1", "name": "Tanned Ranger Boots", "icon": "🥾", "cat": "Ranged Armour", "slot": "boots", "equipSkill": "draw", "equipLevel": 1, "rngAcc": 1, "def": 2, "sell": 40, "description": "Soft leather boots that fall quiet on the approach." },
+  "rng_boots_2": { "id": "rng_boots_2", "name": "Studded Ranger Boots", "icon": "🥾", "cat": "Ranged Armour", "slot": "boots", "equipSkill": "draw", "equipLevel": 20, "rngAcc": 2, "def": 4, "sell": 130, "description": "Iron-studded boots for the long hunt." },
+  "rng_boots_3": { "id": "rng_boots_3", "name": "Hardened Ranger Boots", "icon": "🥾", "cat": "Ranged Armour", "slot": "boots", "equipSkill": "draw", "equipLevel": 40, "rngAcc": 4, "def": 7, "sell": 400, "description": "Boiled-leather boots, light and sure-footed." },
+  "rng_boots_4": { "id": "rng_boots_4", "name": "Master Ranger Boots", "icon": "🥾", "cat": "Ranged Armour", "slot": "boots", "equipSkill": "draw", "equipLevel": 50, "rngAcc": 6, "def": 10, "sell": 1200, "description": "Master boots — never a snapped twig, never a missed step." },
+  // Ranged tier 5 — Sentinel (≈62):
+  "rng_hood_5": { "id": "rng_hood_5", "name": "Sentinel Hood", "icon": "🪖", "cat": "Ranged Armour", "slot": "helmet", "equipSkill": "draw", "equipLevel": 62, "rngAcc": 14, "def": 15, "sell": 2600, "description": "A frontier sentinel's hood, cut for the deep-country watch." },
+  "rng_body_5": { "id": "rng_body_5", "name": "Sentinel Body", "icon": "🥋", "cat": "Ranged Armour", "slot": "armor", "equipSkill": "draw", "equipLevel": 62, "rngAcc": 20, "rngDmg": 8, "def": 22, "sell": 5200, "description": "Layered, oiled hide that turns a blade and never fights the draw." },
+  "rng_legs_5": { "id": "rng_legs_5", "name": "Sentinel Chaps", "icon": "🩲", "cat": "Ranged Armour", "slot": "legs", "equipSkill": "draw", "equipLevel": 62, "rngAcc": 15, "def": 16, "sell": 3400, "description": "Sentinel chaps for the long patrols beyond the last village." },
+  "rng_boots_5": { "id": "rng_boots_5", "name": "Sentinel Boots", "icon": "🥾", "cat": "Ranged Armour", "slot": "boots", "equipSkill": "draw", "equipLevel": 62, "rngAcc": 7, "def": 13, "sell": 2200, "description": "Sentinel boots, silent over stone and root alike." },
+  // Ranged tier 6 — Peerless (≈78):
+  "rng_hood_6": { "id": "rng_hood_6", "name": "Peerless Hood", "icon": "🪖", "cat": "Ranged Armour", "slot": "helmet", "equipSkill": "draw", "equipLevel": 78, "rngAcc": 18, "def": 19, "sell": 4200, "description": "The hood of a marksman without equal in Varath." },
+  "rng_body_6": { "id": "rng_body_6", "name": "Peerless Body", "icon": "🥋", "cat": "Ranged Armour", "slot": "armor", "equipSkill": "draw", "equipLevel": 78, "rngAcc": 26, "rngDmg": 10, "def": 28, "sell": 8400, "description": "The finest hide a bowyer can wear — every seam serves the shot." },
+  "rng_legs_6": { "id": "rng_legs_6", "name": "Peerless Chaps", "icon": "🩲", "cat": "Ranged Armour", "slot": "legs", "equipSkill": "draw", "equipLevel": 78, "rngAcc": 19, "def": 20, "sell": 5600, "description": "Peerless chaps, worn only by those who never miss." },
+  "rng_boots_6": { "id": "rng_boots_6", "name": "Peerless Boots", "icon": "🥾", "cat": "Ranged Armour", "slot": "boots", "equipSkill": "draw", "equipLevel": 78, "rngAcc": 9, "def": 16, "sell": 3600, "description": "Peerless boots — the last quiet step before the loosed string." },
+  // Magic boots, tiers 1–4 (the slot Devotion casters never had):
+  "mag_boots_1": { "id": "mag_boots_1", "name": "Acolyte Slippers", "icon": "🥾", "cat": "Magic Robes", "slot": "boots", "equipSkill": "faith", "equipLevel": 1, "magAcc": 1, "def": 1, "sell": 40, "description": "Soft slippers for the shrine floor." },
+  "mag_boots_2": { "id": "mag_boots_2", "name": "Adept Slippers", "icon": "🥾", "cat": "Magic Robes", "slot": "boots", "equipSkill": "faith", "equipLevel": 20, "magAcc": 2, "def": 2, "sell": 130, "description": "Hex-threaded slippers that steady a cast." },
+  "mag_boots_3": { "id": "mag_boots_3", "name": "Warden Slippers", "icon": "🥾", "cat": "Magic Robes", "slot": "boots", "equipSkill": "faith", "equipLevel": 40, "magAcc": 4, "def": 4, "sell": 400, "description": "Warden slippers, heavy with woven Grace." },
+  "mag_boots_4": { "id": "mag_boots_4", "name": "Archon Slippers", "icon": "🥾", "cat": "Magic Robes", "slot": "boots", "equipSkill": "faith", "equipLevel": 50, "magAcc": 6, "def": 6, "sell": 1200, "description": "Archon slippers, woven for the highest devotion." },
+  // Magic tier 5 — Hierophant (≈62):
+  "mag_hood_5": { "id": "mag_hood_5", "name": "Hierophant Hood", "icon": "🎓", "cat": "Magic Robes", "slot": "helmet", "equipSkill": "faith", "equipLevel": 62, "magAcc": 14, "def": 8, "sell": 2600, "description": "The hood of a hierophant, thick with Orun's light." },
+  "mag_robe_5": { "id": "mag_robe_5", "name": "Hierophant Robe", "icon": "🥋", "cat": "Magic Robes", "slot": "armor", "equipSkill": "faith", "equipLevel": 62, "magAcc": 20, "magDmg": 8, "def": 12, "sell": 5200, "description": "Hierophant robes that pour the whole shrine's warmth into a cast." },
+  "mag_skirt_5": { "id": "mag_skirt_5", "name": "Hierophant Skirt", "icon": "🩲", "cat": "Magic Robes", "slot": "legs", "equipSkill": "faith", "equipLevel": 62, "magAcc": 15, "def": 8, "sell": 3400, "description": "Hierophant lower robes, hex-woven to the hem." },
+  "mag_boots_5": { "id": "mag_boots_5", "name": "Hierophant Slippers", "icon": "🥾", "cat": "Magic Robes", "slot": "boots", "equipSkill": "faith", "equipLevel": 62, "magAcc": 7, "def": 8, "sell": 2200, "description": "Hierophant slippers, blessed sole to seam." },
+  // Magic tier 6 — Luminary (≈78):
+  "mag_hood_6": { "id": "mag_hood_6", "name": "Luminary Hood", "icon": "🎓", "cat": "Magic Robes", "slot": "helmet", "equipSkill": "faith", "equipLevel": 78, "magAcc": 18, "def": 10, "sell": 4200, "description": "The crowning hood of a luminary of Orun." },
+  "mag_robe_6": { "id": "mag_robe_6", "name": "Luminary Robe", "icon": "🥋", "cat": "Magic Robes", "slot": "armor", "equipSkill": "faith", "equipLevel": 78, "magAcc": 26, "magDmg": 10, "def": 15, "sell": 8400, "description": "Luminary robes — the finest vessel a caster's will has ever filled." },
+  "mag_skirt_6": { "id": "mag_skirt_6", "name": "Luminary Skirt", "icon": "🩲", "cat": "Magic Robes", "slot": "legs", "equipSkill": "faith", "equipLevel": 78, "magAcc": 19, "def": 10, "sell": 5600, "description": "Luminary lower robes, woven for the brightest devotion in Varath." },
+  "mag_boots_6": { "id": "mag_boots_6", "name": "Luminary Slippers", "icon": "🥾", "cat": "Magic Robes", "slot": "boots", "equipSkill": "faith", "equipLevel": 78, "magAcc": 9, "def": 10, "sell": 3600, "description": "Luminary slippers, the last light step before the word is spoken." },
+
   "seed_ashweed": {
     "id": "seed_ashweed",
     "name": "Ashweed Seed",
