@@ -1492,6 +1492,7 @@ export const quests: QuestDef[] = [
     ],
     outro: [
       "The wood gives a little more each year, and we mark it, and we keep the road behind us safe. That's the work. You've a tracker's patience — the Lodge could use you.",
+      "(What pulls the treeline back — and what Maret already suspects and won't yet name — is a thread left deliberately open for a later reckoning.)",
     ],
     reward: {
       xp: [{ skill: "forestry", amount: 2000 }, { skill: "woodcraft", amount: 1200 }],
@@ -1815,10 +1816,31 @@ export const quests: QuestDef[] = [
       { type: "visit", x: 125, y: 28, text: "Descend to the Black Water in the far cut" },
       { type: "kill", monster: "stone_crawler", count: 4, text: "Clear the crawlers from the deep cut (0/4)" },
       { type: "gather", item: "rough_gem", count: 2, text: "Win 2 rough gems from the deep seams" },
+      // A re-askable deduction (T3·06 riddle port): the answer is in what the
+      // player watched happen. A lamp that dies all at once — not guttering — in
+      // the lowest ground is starved of air, not blown out; the "breath of the
+      // dark" is choke-damp pooling heavy in the deep cut. Draft and superstition
+      // are rebuffed with the tell that rules them out. Only the air answer
+      // advances, and it teaches the delvers to read a flame as a warning.
+      {
+        type: "choice",
+        npc: "npc_deeplight_trader",
+        text: "Tell the trader what snuffs the lamps",
+        prompt: "You watched it yourself, down at the bottom of the cut: a good lamp doesn't gutter or flicker there — it just DIES, whole and sudden, the moment you set it low. Lift it back up a man's height and it catches again. The trader waits. 'Well? What's blowing out my lamps in the deep?'",
+        options: [
+          {
+            label: "Bad air — it pools heavy in the low cut and starves the flame.",
+            flags: ["deeplight_blackwater_done", "deeplight_named_air"],
+            reply: "'Bad air.' The trader lets it settle. 'Heavy stuff, sitting in the low ground where a flame can't breathe — that's why it dies clean and comes back when you lift it.' He nods slow. 'I'll have them carry a lamp low ahead of them and watch it. When it dips, they climb. You may have just kept a man alive down there.'",
+          },
+          { label: "The dark itself — it takes a breath and blows them out.", flags: [], wrong: "'The dark doesn't MOVE air, and a flame only dies for want of air or a wind to steal it — you said there was no wind. Think on WHERE it died: low, always low, and living again when you raised it.'" },
+          { label: "A draft off the Black Water, stealing the flame.", flags: [], wrong: "'A draft makes a lamp gutter and lean and fight — you'd SEE it struggle. This died whole and sudden with no wind on it, and only at the bottom. That's not a draft. What sits heaviest in the lowest ground?'" },
+        ],
+      },
     ],
     outro: [
-      "Two clean stones and the crawlers thinned — and you'll notice you came back up with your lamp still lit. So it's just bad air and worse rumour after all. Mostly. Probably.",
-      "Here's your pay, and a flask on top. My delvers will work the far cut again knowing someone walked it and came out. That's worth more than the gems.",
+      "Bad air, pooling in the deep where no wind reaches it — that's the whole of the haunting. You came back up with your lamp still lit because you knew to keep it high. So it's just choke-damp and worse rumour after all.",
+      "Here's your pay, and a flask on top. My delvers will work the far cut again knowing someone walked it and came out — and knowing to watch the flame. That's worth more than the gems.",
     ],
     reward: {
       xp: [{ skill: "mining", amount: 3840 }, { skill: "crafting", amount: 1760 }],
@@ -1861,6 +1883,7 @@ export const quests: QuestDef[] = [
     ],
     outro: [
       "The line runs clean and the cutters will work it again. The moor gives up peat, and swords, and older things — and you took the measure of all three today without flinching. That's rare out here.",
+      "(What the bog keeps whole, and why it gives such things back rustless and waiting, is a motif left deliberately unpaid — a reveal held for the moor's own quest to come.)",
     ],
     reward: {
       xp: [{ skill: "vitality", amount: 4160 }, { skill: "survivalist", amount: 2400 }],
