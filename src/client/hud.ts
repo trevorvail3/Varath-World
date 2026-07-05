@@ -85,6 +85,36 @@ function setReduceMotion(on: boolean): void {
   document.documentElement.classList.toggle("reduce-motion", on);
 }
 
+/** High-contrast accessibility toggle: a root class the stylesheet reacts to
+ *  (opaque panels, stronger borders, brighter text), persisted + re-applied on boot. */
+const HIGH_CONTRAST_KEY = "varath-high-contrast";
+function getHighContrast(): boolean {
+  try { return localStorage.getItem(HIGH_CONTRAST_KEY) === "1"; } catch { return false; }
+}
+function setHighContrast(on: boolean): void {
+  try { localStorage.setItem(HIGH_CONTRAST_KEY, on ? "1" : "0"); } catch { /* ignore */ }
+  document.documentElement.classList.toggle("high-contrast", on);
+}
+
+/** Colour-blind accessibility toggle: a root class that shifts the colour-only
+ *  status cues (danger red, faction green) to a deuteranopia-safe orange/blue
+ *  pair. Persisted + re-applied on boot. */
+const COLORBLIND_KEY = "varath-colorblind";
+function getColorblind(): boolean {
+  try { return localStorage.getItem(COLORBLIND_KEY) === "1"; } catch { return false; }
+}
+function setColorblind(on: boolean): void {
+  try { localStorage.setItem(COLORBLIND_KEY, on ? "1" : "0"); } catch { /* ignore */ }
+  document.documentElement.classList.toggle("colorblind", on);
+}
+
+/** Re-apply every persisted accessibility class on boot (called once at startup). */
+export function applyAccessibilityPrefs(): void {
+  document.documentElement.classList.toggle("reduce-motion", getReduceMotion());
+  document.documentElement.classList.toggle("high-contrast", getHighContrast());
+  document.documentElement.classList.toggle("colorblind", getColorblind());
+}
+
 const TABS: { id: TabId; icon: string; title: string }[] = [
   { id: "inventory", icon: "🎒", title: "Pack" },
   { id: "skills", icon: "📜", title: "Skills" },
@@ -236,7 +266,7 @@ export class Hud {
     this.rootEl = root;
     this.applyUiScale(getUiScale()); // restore the saved interface size
     setBrightness(getBrightnessSetting()); // restore the saved scene brightness
-    setReduceMotion(getReduceMotion()); // re-apply the reduce-motion preference on boot
+    applyAccessibilityPrefs(); // re-apply reduce-motion / high-contrast / colour-blind on boot
     this.skillDetail = new SkillDetailModal(root, content);
     this.hiscores = new HiscoresUI(root, content);
     this.exchange = new ExchangeUI(root, content, dispatch, () => this.lastState);
@@ -784,261 +814,168 @@ export class Hud {
           p.appendChild(d);
           return d;
         };
+        // A setting = one clean row (label/control) plus a small ⓘ button that
+        // toggles a one-line explanation, so the page reads uncluttered and the
+        // help is there only when you want it.
+        const item = (control: HTMLElement, info: string): HTMLElement => {
+          const wrap = document.createElement("div");
+          wrap.className = "settings-item";
+          const row = document.createElement("div");
+          row.className = "settings-item-row";
+          row.appendChild(control);
+          if (info) {
+            const btn = document.createElement("button");
+            btn.type = "button";
+            btn.className = "settings-info-btn";
+            btn.textContent = "i";
+            btn.title = "What does this do?";
+            btn.setAttribute("aria-label", "About this setting");
+            const desc = document.createElement("div");
+            desc.className = "settings-info hidden";
+            desc.textContent = info;
+            btn.addEventListener("click", (e) => {
+              e.preventDefault(); e.stopPropagation();
+              desc.classList.toggle("hidden");
+            });
+            row.appendChild(btn);
+            wrap.append(row, desc);
+          } else {
+            wrap.appendChild(row);
+          }
+          return wrap;
+        };
+        const sliderRow = (
+          labelText: string, min: number, max: number, step: number, value: number,
+          fmt: (v: number) => string, onInput: (v: number) => void,
+        ): { row: HTMLElement; slider: HTMLInputElement; readout: HTMLSpanElement } => {
+          const row = document.createElement("div");
+          row.className = "settings-zoom";
+          const label = document.createElement("div");
+          label.className = "settings-label";
+          const readout = document.createElement("span");
+          readout.className = "settings-zoom-value";
+          label.append(labelText + " ", readout);
+          const slider = document.createElement("input");
+          slider.type = "range";
+          slider.className = "settings-slider";
+          slider.min = String(min); slider.max = String(max); slider.step = String(step);
+          slider.value = String(value);
+          const sync = (): void => { readout.textContent = fmt(Number(slider.value)); };
+          sync();
+          slider.addEventListener("input", () => { onInput(Number(slider.value)); sync(); });
+          row.append(label, slider);
+          return { row, slider, readout };
+        };
+        const toggleRow = (labelText: string, checked: boolean, onChange: (v: boolean) => void): HTMLElement => {
+          const row = document.createElement("label");
+          row.className = "settings-toggle";
+          const box = document.createElement("input");
+          box.type = "checkbox";
+          box.checked = checked;
+          box.addEventListener("change", () => onChange(box.checked));
+          const text = document.createElement("span");
+          text.textContent = labelText;
+          row.append(box, text);
+          return row;
+        };
+
         const gameplay = section("Gameplay");
+        const access = section("Accessibility");
         const audioSec = section("Audio");
-        // --- Recall: the free escape teleport. No reagents, no requirements,
-        //     30-minute cooldown — if you're ever stuck (a furnished-over
-        //     doorway, a pinned corner), this gets you back to Ironvale. ---
-        const recallRow = document.createElement("div");
-        recallRow.className = "settings-zoom";
+
+        // --- Gameplay ---------------------------------------------------------
+        // Recall: the free escape teleport (30-min cooldown) if you're ever stuck.
         const recallBtn = document.createElement("button");
         recallBtn.className = "hud-btn";
         const syncRecall = (): void => {
           const ready = this.lastState?.player.recallReadyEpoch ?? 0;
           const left = ready - Date.now();
-          if (left > 0) {
-            recallBtn.textContent = `Recall to Ironvale (${Math.ceil(left / 60_000)}m)`;
-            recallBtn.disabled = true;
-          } else {
-            recallBtn.textContent = "Recall to Ironvale";
-            recallBtn.disabled = false;
-          }
+          recallBtn.textContent = left > 0 ? `Recall to Ironvale (${Math.ceil(left / 60_000)}m)` : "Recall to Ironvale";
+          recallBtn.disabled = left > 0;
         };
         syncRecall();
         recallBtn.addEventListener("click", () => {
           this.dispatch({ type: "RECALL" });
-          this.setTab("inventory"); // back to the world view
+          this.setTab("inventory");
         });
-        recallRow.appendChild(recallBtn);
-        gameplay.appendChild(recallRow);
-        gameplay.appendChild(note("A free teleport home — no runes, no wand. If you're ever stuck, this is the way out. 30 minute cooldown."));
+        gameplay.appendChild(item(recallBtn, "A free teleport home — no runes, no wand. If you're ever stuck, this is the way out. 30-minute cooldown."));
 
-        // --- Wayfare: the paid traveller's recall back to your LAST waystone,
-        //     from anywhere, so re-visiting a far region isn't a fresh commute.
-        //     Charges a Courier's tithe you must afford; 5-minute cooldown. ---
-        const wayfareRow = document.createElement("div");
-        wayfareRow.className = "settings-zoom";
+        // Wayfare: the paid recall back to your LAST waystone, from anywhere.
         const wayfareBtn = document.createElement("button");
         wayfareBtn.className = "hud-btn";
         const syncWayfare = (): void => {
-          const p = this.lastState?.player;
-          const ready = p?.wayfareReadyEpoch ?? 0;
+          const p2 = this.lastState?.player;
+          const ready = p2?.wayfareReadyEpoch ?? 0;
           const left = ready - Date.now();
-          const ws = p?.lastWaystone
-            ? this.content.objects.find((o) => o.id === p.lastWaystone)
-            : undefined;
-          if (!ws) {
-            wayfareBtn.textContent = "Wayfare (no waystone yet)";
-            wayfareBtn.disabled = true;
-          } else if (left > 0) {
-            wayfareBtn.textContent = `Wayfare to ${ws.name} (${Math.ceil(left / 60_000)}m)`;
-            wayfareBtn.disabled = true;
-          } else {
-            wayfareBtn.textContent = `Wayfare to ${ws.name}`;
-            wayfareBtn.disabled = false;
-          }
+          const ws = p2?.lastWaystone ? this.content.objects.find((o) => o.id === p2.lastWaystone) : undefined;
+          if (!ws) { wayfareBtn.textContent = "Wayfare (no waystone yet)"; wayfareBtn.disabled = true; }
+          else if (left > 0) { wayfareBtn.textContent = `Wayfare to ${ws.name} (${Math.ceil(left / 60_000)}m)`; wayfareBtn.disabled = true; }
+          else { wayfareBtn.textContent = `Wayfare to ${ws.name}`; wayfareBtn.disabled = false; }
         };
         syncWayfare();
         wayfareBtn.addEventListener("click", () => {
           this.dispatch({ type: "WAYSTONE_RECALL" });
           this.setTab("inventory");
         });
-        wayfareRow.appendChild(wayfareBtn);
-        gameplay.appendChild(wayfareRow);
-        gameplay.appendChild(note("A paid ride back to the last Courier waystone you travelled to — from anywhere, so a far region isn't a fresh cross-map walk each visit. Costs a tithe you must afford; 5 minute cooldown."));
+        gameplay.appendChild(item(wayfareBtn, "A paid ride back to the last Courier waystone you travelled to — from anywhere, so a far region isn't a fresh cross-map walk each visit. Costs a tithe; 5-minute cooldown."));
 
-        // --- Zoom: drag the slider, scroll the wheel, or pinch on a touchscreen. ---
-        const zoomRow = document.createElement("div");
-        zoomRow.className = "settings-zoom";
-        const zoomLabel = document.createElement("div");
-        zoomLabel.className = "settings-label";
-        const zoomReadout = document.createElement("span");
-        zoomReadout.className = "settings-zoom-value";
-        zoomLabel.append("Zoom ", zoomReadout);
-        const zoomSlider = document.createElement("input");
-        zoomSlider.type = "range";
-        zoomSlider.className = "settings-slider";
-        zoomSlider.min = "0.6";
-        zoomSlider.max = "2.4";
-        zoomSlider.step = "0.05";
-        zoomSlider.value = String(this.zoom.get());
-        const syncReadout = (): void => {
-          zoomReadout.textContent = `${Math.round(Number(zoomSlider.value) * 100)}%`;
-        };
-        syncReadout();
-        zoomSlider.addEventListener("input", () => {
-          this.zoom.set(Number(zoomSlider.value));
-          syncReadout();
-        });
-        zoomRow.append(zoomLabel, zoomSlider);
-        gameplay.appendChild(zoomRow);
-        this.zoomSlider = zoomSlider;
-        this.zoomReadout = zoomReadout;
-        gameplay.appendChild(note("Or scroll the mouse wheel — or pinch on a touchscreen — to zoom the world."));
+        const zoom = sliderRow("Zoom", 0.6, 2.4, 0.05, this.zoom.get(),
+          (v) => `${Math.round(v * 100)}%`, (v) => this.zoom.set(v));
+        this.zoomSlider = zoom.slider; this.zoomReadout = zoom.readout;
+        gameplay.appendChild(item(zoom.row, "How close the camera sits. You can also scroll the mouse wheel, or pinch on a touchscreen, to zoom the world."));
 
-        // --- Draw distance: how far out the world is painted (a circle around
-        //     you, OSRS-style). Lower it if a wide screen runs slow. ---
-        const DD_MIN = 8, DD_MAX = 40; // tiles; DD_MAX = "Max" (unlimited)
-        const ddRow = document.createElement("div");
-        ddRow.className = "settings-zoom";
-        const ddLabel = document.createElement("div");
-        ddLabel.className = "settings-label";
-        const ddReadout = document.createElement("span");
-        ddReadout.className = "settings-zoom-value";
-        ddLabel.append("Draw distance ", ddReadout);
-        const ddSlider = document.createElement("input");
-        ddSlider.type = "range";
-        ddSlider.className = "settings-slider";
-        ddSlider.min = String(DD_MIN);
-        ddSlider.max = String(DD_MAX);
-        ddSlider.step = "1";
-        ddSlider.value = String(this.drawDist.get());
-        const syncDd = (): void => {
-          const v = Number(ddSlider.value);
-          ddReadout.textContent = v >= DD_MAX ? "Max" : `${v} tiles`;
-        };
-        syncDd();
-        ddSlider.addEventListener("input", () => {
-          this.drawDist.set(Number(ddSlider.value));
-          syncDd();
-        });
-        ddRow.append(ddLabel, ddSlider);
-        gameplay.appendChild(ddRow);
+        const DD_MAX = 40; // tiles; DD_MAX = "Max" (unlimited)
+        const dd = sliderRow("Draw distance", 8, DD_MAX, 1, this.drawDist.get(),
+          (v) => v >= DD_MAX ? "Max" : `${v} tiles`, (v) => this.drawDist.set(v));
+        this.ddSlider = dd.slider; this.ddReadout = dd.readout;
+        gameplay.appendChild(item(dd.row, "How far out the world is painted. Lower it to render less of the map at once — a quick fix if the game feels laggy on a wide screen."));
 
-        // --- Brightness: thins the night veil, indoor gloom and vignette so
-        //     names and levels stay readable after dark. Stored on this device. ---
-        const brRow = document.createElement("div");
-        brRow.className = "settings-zoom";
-        const brLabel = document.createElement("div");
-        brLabel.className = "settings-label";
-        const brReadout = document.createElement("span");
-        brReadout.className = "settings-zoom-value";
-        brLabel.append("Brightness ", brReadout);
-        const brSlider = document.createElement("input");
-        brSlider.type = "range";
-        brSlider.className = "settings-slider";
-        brSlider.min = "0.6"; brSlider.max = "2"; brSlider.step = "0.05";
-        brSlider.value = String(getBrightnessSetting());
-        const syncBr = (): void => { brReadout.textContent = `${Math.round(Number(brSlider.value) * 100)}%`; };
-        syncBr();
-        brSlider.addEventListener("input", () => {
-          const v = Number(brSlider.value);
-          setBrightness(v);
-          localStorage.setItem(BRIGHT_KEY, String(v));
-          syncBr();
-        });
-        brRow.append(brLabel, brSlider);
-        gameplay.appendChild(brRow);
-        gameplay.appendChild(note("Lightens dark scenes — night, interiors, storms — so nameplates stay legible."));
+        gameplay.appendChild(item(
+          toggleRow("Show loot & fishing-spot names", this.lootLabels.get(), (v) => this.lootLabels.set(v)),
+          "Labels each dropped item and fishing spot with its name, so you can tell piles apart at a glance."));
 
-        // --- Text size: scales every panel's type (accessibility). Stored on
-        //     this device and applied on boot via a root font-size. ---
-        const tsRow = document.createElement("div");
-        tsRow.className = "settings-zoom";
-        const tsLabel = document.createElement("div");
-        tsLabel.className = "settings-label";
-        const tsReadout = document.createElement("span");
-        tsReadout.className = "settings-zoom-value";
-        tsLabel.append("Interface size ", tsReadout);
-        const tsSlider = document.createElement("input");
-        tsSlider.type = "range";
-        tsSlider.className = "settings-slider";
-        tsSlider.min = "0.85";
-        tsSlider.max = "2";
-        tsSlider.step = "0.05";
-        tsSlider.value = String(getUiScale());
-        const syncTs = (): void => {
-          tsReadout.textContent = `${Math.round(Number(tsSlider.value) * 100)}%`;
-        };
-        syncTs();
-        tsSlider.addEventListener("input", () => {
-          this.applyUiScale(Number(tsSlider.value));
-          syncTs();
-        });
-        tsRow.append(tsLabel, tsSlider);
-        gameplay.appendChild(tsRow);
-        gameplay.appendChild(note("Larger or smaller panels and lettering — the world itself is unaffected."));
-        this.ddSlider = ddSlider;
-        this.ddReadout = ddReadout;
-        gameplay.appendChild(note("Lower the draw distance to render less of the map at once — a quick fix if the game feels laggy on a wide screen."));
-
-        // --- Floor-loot labels: show each dropped item's name above its pile. ---
-        const llRow = document.createElement("label");
-        llRow.className = "settings-toggle";
-        const llBox = document.createElement("input");
-        llBox.type = "checkbox";
-        llBox.checked = this.lootLabels.get();
-        llBox.addEventListener("change", () => this.lootLabels.set(llBox.checked));
-        const llText = document.createElement("span");
-        llText.textContent = "Show loot & fishing-spot names";
-        llRow.append(llBox, llText);
-        gameplay.appendChild(llRow);
-
-        // --- Performance mode: fewer effects + lower render resolution for
-        //     smoother play on slower machines. Applied at startup too. ---
         const perfOn = localStorage.getItem("varath-perf") === "1";
         setPerfMode(perfOn);
-        const perfRow = document.createElement("label");
-        perfRow.className = "settings-toggle";
-        const perfBox = document.createElement("input");
-        perfBox.type = "checkbox";
-        perfBox.checked = perfOn;
-        perfBox.addEventListener("change", () => {
-          try { localStorage.setItem("varath-perf", perfBox.checked ? "1" : "0"); } catch { /* ignore */ }
-          setPerfMode(perfBox.checked);
-          // Re-run the loop's resize so the render resolution changes at once.
-          window.dispatchEvent(new Event("resize"));
-        });
-        const perfText = document.createElement("span");
-        perfText.textContent = "Performance mode (less lag)";
-        perfRow.append(perfBox, perfText);
-        gameplay.appendChild(perfRow);
+        gameplay.appendChild(item(
+          toggleRow("Performance mode", perfOn, (v) => {
+            try { localStorage.setItem("varath-perf", v ? "1" : "0"); } catch { /* ignore */ }
+            setPerfMode(v);
+            window.dispatchEvent(new Event("resize"));
+          }),
+          "Fewer effects and a lower render resolution for smoother play on slower machines."));
 
-        // --- Reduce motion: stills the UI's slides, pulses and fades for players
-        //     who find animation distracting or nauseating (accessibility). Sets
-        //     a root class the stylesheet reacts to; applied on boot too. ---
-        const rmRow = document.createElement("label");
-        rmRow.className = "settings-toggle";
-        const rmBox = document.createElement("input");
-        rmBox.type = "checkbox";
-        rmBox.checked = getReduceMotion();
-        rmBox.addEventListener("change", () => setReduceMotion(rmBox.checked));
-        const rmText = document.createElement("span");
-        rmText.textContent = "Reduce motion (fewer UI animations)";
-        rmRow.append(rmBox, rmText);
-        gameplay.appendChild(rmRow);
+        // --- Accessibility ----------------------------------------------------
+        const br = sliderRow("Brightness", 0.6, 2, 0.05, getBrightnessSetting(),
+          (v) => `${Math.round(v * 100)}%`,
+          (v) => { setBrightness(v); try { localStorage.setItem(BRIGHT_KEY, String(v)); } catch { /* ignore */ } });
+        access.appendChild(item(br.row, "Lightens dark scenes — night, interiors, storms — so nameplates and levels stay legible."));
 
-        // --- Audio: master volume + mute for the procedural dark-ambient score. ---
-        const volRow = document.createElement("div");
-        volRow.className = "settings-zoom";
-        const volLabel = document.createElement("div");
-        volLabel.className = "settings-label";
-        const volReadout = document.createElement("span");
-        volReadout.className = "settings-zoom-value";
-        volLabel.append("Sound ", volReadout);
-        const volSlider = document.createElement("input");
-        volSlider.type = "range"; volSlider.className = "settings-slider";
-        volSlider.min = "0"; volSlider.max = "100"; volSlider.step = "1";
-        volSlider.value = String(Math.round(audio.getVolume() * 100));
-        const syncVol = (): void => { volReadout.textContent = audio.getMuted() ? "Muted" : `${volSlider.value}%`; };
-        syncVol();
-        volSlider.addEventListener("input", () => {
-          audio.setVolume(Number(volSlider.value) / 100);
-          if (audio.getMuted() && Number(volSlider.value) > 0) audio.setMuted(false);
-          syncVol();
-        });
-        volRow.append(volLabel, volSlider);
-        audioSec.appendChild(volRow);
-        const muteRow = document.createElement("label");
-        muteRow.className = "settings-toggle";
-        const muteBox = document.createElement("input");
-        muteBox.type = "checkbox";
-        muteBox.checked = audio.getMuted();
-        muteBox.addEventListener("change", () => { audio.setMuted(muteBox.checked); syncVol(); });
-        const muteText = document.createElement("span");
-        muteText.textContent = "Mute all sound";
-        muteRow.append(muteBox, muteText);
-        audioSec.appendChild(muteRow);
+        const ts = sliderRow("Interface size", 0.85, 2, 0.05, getUiScale(),
+          (v) => `${Math.round(v * 100)}%`, (v) => this.applyUiScale(v));
+        access.appendChild(item(ts.row, "Scales every panel and letter up or down — the game world itself is unaffected."));
+
+        access.appendChild(item(
+          toggleRow("Reduce motion", getReduceMotion(), setReduceMotion),
+          "Stills the interface's slides, pulses and fades for anyone who finds motion distracting."));
+
+        access.appendChild(item(
+          toggleRow("High contrast", getHighContrast(), setHighContrast),
+          "Solid panels, stronger borders and brighter text — easier to read in bright rooms or with low vision."));
+
+        access.appendChild(item(
+          toggleRow("Colour-blind friendly", getColorblind(), setColorblind),
+          "Shifts colour-only cues (danger red, faction green) toward a blue/orange pair that reads apart for red–green colour-blindness."));
+
+        // --- Audio ------------------------------------------------------------
+        const vol = sliderRow("Sound", 0, 100, 1, Math.round(audio.getVolume() * 100),
+          (v) => audio.getMuted() ? "Muted" : `${v}%`,
+          (v) => { audio.setVolume(v / 100); if (audio.getMuted() && v > 0) audio.setMuted(false); });
+        audioSec.appendChild(item(vol.row, "Master volume for the procedural score, ambience and effects."));
+        audioSec.appendChild(item(
+          toggleRow("Mute all sound", audio.getMuted(), (v) => {
+            audio.setMuted(v);
+            vol.readout.textContent = v ? "Muted" : `${vol.slider.value}%`;
+          }), ""));
 
         const help = document.createElement("button");
         help.type = "button";
