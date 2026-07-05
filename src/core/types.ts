@@ -1575,6 +1575,12 @@ export interface Player {
   /** Wall-clock (Date.now) time the free Recall becomes available again.
    *  Epoch-based so the cooldown survives reloads. Persisted. */
   recallReadyEpoch?: number;
+  /** The last Courier waystone the player rode TO (an objId). The Wayfare
+   *  recall returns them here from anywhere, so re-visiting a far region isn't
+   *  a fresh cross-map commute every time. Persisted. */
+  lastWaystone?: string;
+  /** Wall-clock time the paid Wayfare recall is available again. Persisted. */
+  wayfareReadyEpoch?: number;
   /**
    * Set when energy hits 0; forces walking until energy recovers a little, so
    * the player doesn't micro-stutter between sprint and walk on an empty bar.
@@ -2080,6 +2086,14 @@ export interface RecallIntent {
   type: "RECALL";
 }
 
+/** "Wayfare me back to my last waystone" — the paid traveller's recall. Unlike
+ *  the free Ironvale escape, this returns you to the last Courier stone you rode
+ *  to (so a far region isn't a fresh commute each visit), charges a tithe you
+ *  must actually afford (a recurring coin sink), and runs its own cooldown. */
+export interface WaystoneRecallIntent {
+  type: "WAYSTONE_RECALL";
+}
+
 /** Sound a Hunter's Horn (a Hunt-Marks consumable in the given pack slot): be
  *  carried straight to your active bounty task's hunting ground. Consumed on
  *  use; refused (and kept) when no task is live. */
@@ -2209,6 +2223,7 @@ export type Intent =
   | UpgradeFurnitureIntent
   | SetSurfaceIntent
   | RecallIntent
+  | WaystoneRecallIntent
   | SoundHornIntent
   | FertilizeIntent
   | OpenContainerIntent

@@ -422,6 +422,13 @@ const SALE_TAX = 0.02;
 // still rescue a stuck, broke player).
 const RECALL_TITHE_BASE = 150;
 const RECALL_TITHE_PER_LVL = 12;
+// The Wayfare recall: a PAID return to your last waystone from anywhere (so a
+// far region isn't a fresh commute each visit). Cheaper than the escape recall
+// but NEVER waived — you must afford the tithe, which keeps it a recurring coin
+// sink (T4·04) rather than free omni-teleport, and it runs a short cooldown.
+const WAYFARE_TITHE_BASE = 100;
+const WAYFARE_TITHE_PER_LVL = 8;
+const WAYFARE_COOLDOWN_MS = 5 * 60_000;
 
 const INVENTORY_SIZE = 28;
 
@@ -2384,6 +2391,37 @@ export function applyIntent(
       });
       break;
     }
+    case "WAYSTONE_RECALL": {
+      // The paid traveller's recall: return to the LAST waystone you rode to,
+      // from anywhere, so re-visiting a far region isn't a fresh cross-map
+      // commute. Unlike the free Ironvale escape, you must actually afford the
+      // tithe (a recurring coin sink, T4·04) and it runs its own cooldown.
+      const epoch = ctx.epoch ?? 0;
+      const ready = player.wayfareReadyEpoch ?? 0;
+      if (epoch < ready) {
+        const mins = Math.ceil((ready - epoch) / 60_000);
+        events.push({ type: "LOG", message: `The Wayfare stone is still cooling — ready in about ${mins} minute${mins === 1 ? "" : "s"}.` });
+        break;
+      }
+      const ws = player.lastWaystone ? findObjectDef(content, player.lastWaystone) : undefined;
+      if (!ws || ws.kind !== "waystone" || !ws.target) {
+        events.push({ type: "LOG", message: "You've not ridden the Courier's stones yet — reach a waystone and travel from it once, and the Wayfare will bring you back to it." });
+        break;
+      }
+      const tithe = Math.round(WAYFARE_TITHE_BASE + combatLevel(player) * WAYFARE_TITHE_PER_LVL);
+      if (player.gold < tithe) {
+        events.push({ type: "LOG", message: `The Wayfare to ${ws.name} asks ${tithe}g in Courier's tithe — you can't cover it. (Recall to Ironvale is free if you're stuck.)` });
+        break;
+      }
+      player.gold -= tithe;
+      player.pos = { x: ws.target.x, y: ws.target.y };
+      player.path = [];
+      player.pendingInteractId = null;
+      clearActivity(player);
+      player.wayfareReadyEpoch = epoch + WAYFARE_COOLDOWN_MS;
+      events.push({ type: "LOG", message: `The Wayfare folds the road, and ${ws.name}'s waystone rises around you. (${tithe}g Courier's tithe)` });
+      break;
+    }
     case "SOUND_HORN": {
       // A Hunter's Horn (Hunt-Marks ware): carries you straight to your active
       // task's hunting ground — the guides' answer to a long walk back. It's a
@@ -4154,6 +4192,8 @@ function travelTo(
   player.path = [];
   player.pendingInteractId = null;
   clearActivity(player);
+  // Remember this stone as the Wayfare anchor — the paid recall returns here.
+  player.lastWaystone = toObjId;
   events.push({ type: "LOG", message: `You pay the Courier ${fare}g and ride to ${def.name}.` });
 }
 

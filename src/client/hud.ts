@@ -778,6 +778,40 @@ export class Hud {
         gameplay.appendChild(recallRow);
         gameplay.appendChild(note("A free teleport home — no runes, no wand. If you're ever stuck, this is the way out. 30 minute cooldown."));
 
+        // --- Wayfare: the paid traveller's recall back to your LAST waystone,
+        //     from anywhere, so re-visiting a far region isn't a fresh commute.
+        //     Charges a Courier's tithe you must afford; 5-minute cooldown. ---
+        const wayfareRow = document.createElement("div");
+        wayfareRow.className = "settings-zoom";
+        const wayfareBtn = document.createElement("button");
+        wayfareBtn.className = "hud-btn";
+        const syncWayfare = (): void => {
+          const p = this.lastState?.player;
+          const ready = p?.wayfareReadyEpoch ?? 0;
+          const left = ready - Date.now();
+          const ws = p?.lastWaystone
+            ? this.content.objects.find((o) => o.id === p.lastWaystone)
+            : undefined;
+          if (!ws) {
+            wayfareBtn.textContent = "Wayfare (no waystone yet)";
+            wayfareBtn.disabled = true;
+          } else if (left > 0) {
+            wayfareBtn.textContent = `Wayfare to ${ws.name} (${Math.ceil(left / 60_000)}m)`;
+            wayfareBtn.disabled = true;
+          } else {
+            wayfareBtn.textContent = `Wayfare to ${ws.name}`;
+            wayfareBtn.disabled = false;
+          }
+        };
+        syncWayfare();
+        wayfareBtn.addEventListener("click", () => {
+          this.dispatch({ type: "WAYSTONE_RECALL" });
+          this.setTab("inventory");
+        });
+        wayfareRow.appendChild(wayfareBtn);
+        gameplay.appendChild(wayfareRow);
+        gameplay.appendChild(note("A paid ride back to the last Courier waystone you travelled to — from anywhere, so a far region isn't a fresh cross-map walk each visit. Costs a tithe you must afford; 5 minute cooldown."));
+
         // --- Zoom: drag the slider, scroll the wheel, or pinch on a touchscreen. ---
         const zoomRow = document.createElement("div");
         zoomRow.className = "settings-zoom";

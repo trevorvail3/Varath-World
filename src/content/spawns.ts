@@ -1842,8 +1842,8 @@ const newPois: WorldObjectDef[] = [
   { id: "fz_forage_sw", kind: "forage_spot", x: 30, y: 126, name: "Moor-Edge Roots", resource: "surv_forage_fiber" },
   { id: "fz_wolf_sw", kind: "monster", monster: "hill_wolf", x: 6, y: 126, name: "Hill Wolf" },
   // -- Far frontiers (the map's wild edges) --
-  { id: "fz_shrine_w", kind: "shrine", x: 6, y: 66, name: "The Last Fencepost", lines: ["A single fencepost at the edge of the known country, the wire long gone. Past it the maps just say: the wood, and then nothing anyone came back from."] },
-  { id: "fz_shrine_far_s", kind: "shrine", x: 54, y: 150, name: "The Ashen Reach", lines: ["Where the warm ground gives out to cold ash and the wind never quite settles. Footprints lead south. None lead back."] },
+  { id: "fz_shrine_w", kind: "shrine", x: 6, y: 66, name: "The Last Fencepost", find: { flag: "searched_last_fence", found: "Wired to the fencepost's base against the weather, a wayfarer's tin: a few coins and a scrawled note. 'Turned back here. Good ground behind, only wood ahead. No shame in it.' Somebody made the edge and chose home.", gold: 400 }, lines: ["The last fencepost of the settled country, the wire long gone. This is a boundary, not a doorway — folk farm right up to here and no further, and sleep sound for it. Past it is only wood."] },
+  { id: "fz_shrine_far_s", kind: "shrine", x: 54, y: 150, name: "The Ashen Reach", find: { flag: "searched_ashen_reach", found: "At the marker where the warm ground gives out, the cult keeps a cairn — and tucked in it, an offering-bowl of embercite left for whoever comes this far. You take it and turn back, as the cult means you to.", item: "embercite_ore", qty: 3, gold: 200 }, lines: ["Where the warm ground gives out to cold ash. The cult keeps a marker here — the edge of their reach, and anyone's. South is only ash and wind; this is the turning-place, not the way on."] },
   { id: "fz_bear_far", kind: "monster", monster: "forest_bear", x: 150, y: 138, name: "Forest Bear" },
   { id: "fz_deer_far1", kind: "monster", monster: "red_deer", x: 42, y: 150, name: "Red Deer" },
   { id: "fz_deer_far2", kind: "monster", monster: "red_deer", x: 66, y: 150, name: "Red Deer" },
@@ -1876,6 +1876,13 @@ const newPois: WorldObjectDef[] = [
   { id: "fz2_tree_9", kind: "tree", x: 114, y: 150, name: "Ashwood Tree", resource: "fell_ashwood", species: "ashwood" },
   { id: "fz2_rock_8", kind: "rock", x: 126, y: 150, name: "Embercite Seam", resource: "mine_embercite" },
   { id: "fz2_bear_1", kind: "monster", monster: "forest_bear", x: 138, y: 150, name: "Forest Bear" },
+
+  // -- Named minor sites (T6·06): a couple of the empty lattice gaps get a small
+  //    DESTINATION — a searchable ruin among the scattered nodes — so open country
+  //    rewards discovery, not just presence. Each pays a one-off finder's cache
+  //    (reuses the relic/find reward loop). `fz`-prefixed so they snap to land. --
+  { id: "fz_site_steading", kind: "shrine", x: 16, y: 46, name: "The Ruined Steading", find: { flag: "searched_steading", found: "You clear bramble from a collapsed croft — a family's whole holding, roof fallen in, hearth cold a generation. Under the flags where the hearth-stone sat, their strongbox: what they couldn't carry the year the frontier drove them back.", gold: 900, item: "worn_coin", qty: 2 }, lines: ["A steading gone back to the moor — walls to the knee, an orchard run wild. You've already turned the hearth-stone; what they left is yours."] },
+  { id: "fz_site_poacher", kind: "shrine", x: 60, y: 54, name: "The Poacher's Cache", find: { flag: "found_poacher_cache", found: "A rotted snare-line strung between two ashwoods leads you to it: a poacher's cache dug in under a deadfall — cured hides, spare sinew, and the coin they'd not yet spent. Long abandoned. The forest kept it for you.", gold: 650, item: "sinew", qty: 4 }, lines: ["A poacher's old cache under a deadfall, its snare-lines rotted to threads. You've already taken what it held."] },
 
   // -- The western wood: dense trees down the whole west, so the forest reads as
   //    forest (gatherable Forestry; ids are fz* so they jitter + snap to land). --
