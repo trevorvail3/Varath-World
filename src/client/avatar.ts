@@ -137,12 +137,24 @@ export function drawAvatar(
   g.save();
   g.shadowColor = "rgba(8,8,12,0.55)";
   g.shadowBlur = Math.max(1.5, s * 0.9);
+  // Body silhouette: scale the whole figure horizontally about its centre so a
+  // lean or broad build reads distinctly while gear + animation stay aligned.
+  const bx = look.build === "broad" ? 1.13 : look.build === "lean" ? 0.9 : 1;
+  if (bx !== 1) { g.translate(cx, 0); g.scale(bx, 1); g.translate(-cx, 0); }
   try {
     drawAvatarInner(g, cx, cy, s, look, anim, gear);
   } finally {
     g.restore();
   }
 }
+
+/** Body-silhouette options for the character creator (id maps to Appearance.build;
+ *  "average" is the default undefined). */
+export const BUILD_STYLES: { id: string; label: string }[] = [
+  { id: "lean", label: "Lean" },
+  { id: "average", label: "Average" },
+  { id: "broad", label: "Broad" },
+];
 
 function drawAvatarInner(
   g: Ctx,

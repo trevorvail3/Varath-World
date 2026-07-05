@@ -11,7 +11,7 @@
 
 import type { Appearance } from "../core/types.ts";
 import {
-  CLOTH, DEFAULT_APPEARANCE, drawAvatar,
+  BUILD_STYLES, CLOTH, DEFAULT_APPEARANCE, drawAvatar,
   FACIAL_STYLES, HAIR_STYLES, HAIRS, LEG_STYLES, SHOE_STYLES, SKINS, TOP_STYLES,
 } from "./avatar.ts";
 
@@ -25,6 +25,7 @@ export class CharacterCreator {
   private backdrop: HTMLElement;
   private draft: Appearance = { ...DEFAULT_APPEARANCE, name: "" };
   private preview!: HTMLCanvasElement;
+  private rowsEl!: HTMLElement;
   private taken: Set<string>;
   private t0 = performance.now();
   private raf = 0;
@@ -101,13 +102,17 @@ export class CharacterCreator {
     });
 
     const rows = this.backdrop.querySelector(".creator-rows") as HTMLElement;
-    // Each part: a style cycler (where it has styles) and its colour swatches.
-    this.partRow(rows, "Skin", null, null, "skin", SKINS);
-    this.partRow(rows, "Hair", "hairStyle", HAIR_STYLES, "hair", HAIRS);
-    this.partRow(rows, "Beard", "facial", FACIAL_STYLES, null, null);
-    this.partRow(rows, "Top", "top", TOP_STYLES, "tunic", CLOTH);
-    this.partRow(rows, "Legs", "legs", LEG_STYLES, "legColor", CLOTH);
-    this.partRow(rows, "Shoes", "shoes", SHOE_STYLES, "shoeColor", CLOTH);
+    this.rowsEl = rows;
+    this.buildRows();
+
+    // "Surprise me" — a random pick per row + build, for players who'd rather
+    // roll a look than dial one in (T7·07). Rebuilds every control + the preview.
+    const randBtn = document.createElement("button");
+    randBtn.type = "button";
+    randBtn.className = "creator-random";
+    randBtn.textContent = "🎲 Surprise me";
+    randBtn.addEventListener("pointerdown", (e) => { e.stopPropagation(); this.randomize(); });
+    rows.parentElement?.insertBefore(randBtn, rows);
 
     const backBtn = this.backdrop.querySelector(".creator-back") as HTMLElement;
     if (this.opts.onBack) {
@@ -144,11 +149,46 @@ export class CharacterCreator {
     setTimeout(() => nameEl.focus(), 50);
   }
 
+  /** (Re)build every appearance row from the current draft. Called on open and
+   *  after "Surprise me" so the controls reflect a freshly-rolled look. */
+  private buildRows(): void {
+    const rows = this.rowsEl;
+    rows.innerHTML = "";
+    this.partRow(rows, "Build", "build", BUILD_STYLES, null, null);
+    this.partRow(rows, "Skin", null, null, "skin", SKINS);
+    this.partRow(rows, "Hair", "hairStyle", HAIR_STYLES, "hair", HAIRS);
+    this.partRow(rows, "Beard", "facial", FACIAL_STYLES, null, null);
+    this.partRow(rows, "Top", "top", TOP_STYLES, "tunic", CLOTH);
+    this.partRow(rows, "Legs", "legs", LEG_STYLES, "legColor", CLOTH);
+    this.partRow(rows, "Shoes", "shoes", SHOE_STYLES, "shoeColor", CLOTH);
+  }
+
+  /** "Surprise me" — roll a random value for every style + colour + build, then
+   *  rebuild the controls and preview so the figure updates in one go (T7·07). */
+  private randomize(): void {
+    const pick = <T>(list: T[]): T => list[Math.floor(Math.random() * list.length)]!;
+    this.draft.hairStyle = pick(HAIR_STYLES).id;
+    this.draft.facial = pick(FACIAL_STYLES).id;
+    this.draft.top = pick(TOP_STYLES).id;
+    this.draft.legs = pick(LEG_STYLES).id;
+    this.draft.shoes = pick(SHOE_STYLES).id;
+    this.draft.skin = pick(SKINS);
+    this.draft.hair = pick(HAIRS);
+    this.draft.tunic = pick(CLOTH);
+    this.draft.legColor = pick(CLOTH);
+    this.draft.shoeColor = pick(CLOTH);
+    const build = pick(BUILD_STYLES).id;
+    if (build === "average") delete this.draft.build;
+    else this.draft.build = build as "lean" | "broad";
+    this.buildRows();
+    this.renderPreview();
+  }
+
   /** A labelled row: optional style cycler + optional colour swatches. */
   private partRow(
     parent: HTMLElement,
     label: string,
-    styleKey: StyleKey | null,
+    styleKey: StyleKey | "build" | null,
     styles: { id: string; label: string }[] | null,
     colorKey: ColorKey | null,
     colors: string[] | null,
@@ -164,8 +204,9 @@ export class CharacterCreator {
     parent.appendChild(row);
   }
 
-  /** A ◀ name ▶ control cycling a style list. */
-  private cycler(key: StyleKey, list: { id: string; label: string }[]): HTMLElement {
+  /** A ◀ name ▶ control cycling a style list. `build` is special-cased: its
+   *  "average" id maps to an absent Appearance.build (exactOptionalPropertyTypes). */
+  private cycler(key: StyleKey | "build", list: { id: string; label: string }[]): HTMLElement {
     const wrap = document.createElement("div");
     wrap.className = "creator-cycler";
     const prev = document.createElement("button");
@@ -174,14 +215,24 @@ export class CharacterCreator {
     name.className = "creator-cyc-name";
     const next = document.createElement("button");
     next.type = "button"; next.className = "creator-cyc-btn"; next.textContent = "▶";
+    const current = (): string =>
+      key === "build" ? (this.draft.build ?? "average") : this.draft[key];
+    const apply = (id: string): void => {
+      if (key === "build") {
+        if (id === "average") delete this.draft.build;
+        else this.draft.build = id as "lean" | "broad";
+      } else {
+        this.draft[key] = id;
+      }
+    };
     const sync = () => {
-      const i = Math.max(0, list.findIndex((o) => o.id === this.draft[key]));
+      const i = Math.max(0, list.findIndex((o) => o.id === current()));
       name.textContent = list[i]?.label ?? list[0]!.label;
     };
     const step = (d: number) => {
-      let i = Math.max(0, list.findIndex((o) => o.id === this.draft[key]));
+      let i = Math.max(0, list.findIndex((o) => o.id === current()));
       i = (i + d + list.length) % list.length;
-      this.draft[key] = list[i]!.id;
+      apply(list[i]!.id);
       sync(); this.renderPreview();
     };
     prev.addEventListener("pointerdown", (e) => { e.stopPropagation(); step(-1); });

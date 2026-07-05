@@ -3585,6 +3585,21 @@ button.inv-slot {
 }
 .creator-swatch.on { border-color: var(--gold); transform: scale(1.12); }
 
+/* "Surprise me" — rolls a random look. Sits above the part rows. */
+.creator-random {
+  align-self: stretch;
+  margin-bottom: 4px;
+  font-family: "EB Garamond", serif;
+  font-size: 13px;
+  color: var(--gold);
+  background: rgba(210, 116, 44, 0.12);
+  border: 1px solid var(--panel-edge);
+  border-radius: 6px;
+  padding: 6px 10px;
+  cursor: pointer;
+}
+.creator-random:hover { border-color: var(--ember); background: rgba(210, 116, 44, 0.24); }
+
 /* --- Per-part rows: a style cycler + its colour swatches --- */
 .creator-rows { display: flex; flex-direction: column; gap: 4px; }
 .creator-part {

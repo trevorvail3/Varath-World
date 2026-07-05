@@ -1334,6 +1334,10 @@ export interface Appearance {
   legs: string;
   /** Footwear design id (e.g. "boots", "sandals", "clogs"). */
   shoes: string;
+  /** Body silhouette: a lean or broad frame vs the default average build. The
+   *  avatar renders it as a horizontal scale about the figure's centre, so gear
+   *  and animation stay aligned. Optional — old saves read as "average". */
+  build?: "lean" | "broad";
 }
 
 /** What the player is currently busy doing, if anything. */
