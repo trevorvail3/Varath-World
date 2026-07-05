@@ -1841,20 +1841,28 @@ export function drawWorld(
     const bobj = state.objects[bdef.id];
     const slam = bobj?.slam;
     if (!slam) continue;
-    for (let dy = -slam.radius; dy <= slam.radius; dy++) {
-      for (let dx = -slam.radius; dx <= slam.radius; dx++) {
-        const tx = slam.x + dx, ty = slam.y + dy;
-        if (!inRegion(tx, ty) || outside(tx, ty)) continue;
-        const px = tx * TILE - cam.x;
-        const py = ty * TILE - cam.y;
-        if (px < -TILE || py < -TILE || px > w + TILE || py > h + TILE) continue;
-        const pulse = 0.30 + 0.22 * Math.sin(now / 90);
-        g.fillStyle = `rgba(220, 50, 30, ${pulse.toFixed(3)})`;
-        g.fillRect(px + 1, py + 1, TILE - 2, TILE - 2);
-        g.strokeStyle = `rgba(255, 120, 60, ${(pulse + 0.25).toFixed(3)})`;
-        g.lineWidth = 2;
-        g.strokeRect(px + 2, py + 2, TILE - 4, TILE - 4);
+    // A cleave marks an explicit swath (slam.tiles); a slam marks an (x,y)-radius
+    // box. Both pulse an urgent warning — cleave in a hotter orange to read as a
+    // sweeping arc you dodge sideways, slam in red as ground to step off.
+    const tiles = slam.tiles ?? (() => {
+      const box: { x: number; y: number }[] = [];
+      for (let dy = -slam.radius; dy <= slam.radius; dy++) {
+        for (let dx = -slam.radius; dx <= slam.radius; dx++) box.push({ x: slam.x + dx, y: slam.y + dy });
       }
+      return box;
+    })();
+    const cleave = !!slam.tiles;
+    for (const t of tiles) {
+      if (!inRegion(t.x, t.y) || outside(t.x, t.y)) continue;
+      const px = t.x * TILE - cam.x;
+      const py = t.y * TILE - cam.y;
+      if (px < -TILE || py < -TILE || px > w + TILE || py > h + TILE) continue;
+      const pulse = 0.30 + 0.22 * Math.sin(now / 90);
+      g.fillStyle = cleave ? `rgba(230, 110, 30, ${pulse.toFixed(3)})` : `rgba(220, 50, 30, ${pulse.toFixed(3)})`;
+      g.fillRect(px + 1, py + 1, TILE - 2, TILE - 2);
+      g.strokeStyle = cleave ? `rgba(255, 170, 70, ${(pulse + 0.25).toFixed(3)})` : `rgba(255, 120, 60, ${(pulse + 0.25).toFixed(3)})`;
+      g.lineWidth = 2;
+      g.strokeRect(px + 2, py + 2, TILE - 4, TILE - 4);
     }
   }
 

@@ -7016,6 +7016,25 @@ function monsterSwing(
       events.push({ type: "LOG", message: m.tell });
       return; // the slam IS this attack — no regular swing on top
     }
+    // A directional CLEAVE: mark a length-deep, 3-wide swath in front of the
+    // boss, aimed at where the player stands. Dodge by stepping to its FLANK.
+    if (m.type === "cleave" && obj.swings % m.every === 0 && !obj.slam) {
+      const bp = objectPos(def, obj);
+      const bx = Math.round(bp.x), by = Math.round(bp.y);
+      const px = Math.round(player.pos.x), py = Math.round(player.pos.y);
+      const ax = px - bx, ay = py - by;
+      const horiz = Math.abs(ax) >= Math.abs(ay);
+      const dir = horiz ? Math.sign(ax) || 1 : Math.sign(ay) || 1;
+      const tiles: { x: number; y: number }[] = [];
+      for (let i = 1; i <= m.length; i++) {
+        for (let j = -1; j <= 1; j++) {
+          tiles.push(horiz ? { x: bx + dir * i, y: by + j } : { x: bx + j, y: by + dir * i });
+        }
+      }
+      obj.slam = { x: bx, y: by, radius: 0, at: ctx.now + m.windupMs, mult: m.mult, tiles };
+      events.push({ type: "LOG", message: m.tell });
+      return; // the cleave IS this attack
+    }
   }
   // Endless Delve DEPTH: every floor past the cache presses harder (+12%/floor).
   // Self-limiting — you descend until it kills you; the depth reached is the score.
@@ -7339,12 +7358,15 @@ function resolveSlams(
     obj.slam = null;
     const stats = monsterFor(content, def);
     if (!stats || !obj.available || !player.alive) continue;
-    const dist = Math.max(
-      Math.abs(Math.round(player.pos.x) - slam.x),
-      Math.abs(Math.round(player.pos.y) - slam.y),
-    );
-    if (dist > slam.radius) {
-      events.push({ type: "LOG", message: `${def.name}'s slam shatters empty ground — you stepped clear!` });
+    const ppx = Math.round(player.pos.x), ppy = Math.round(player.pos.y);
+    // A cleave marks an explicit swath (slam.tiles); a slam marks an (x,y)-radius
+    // box. Either way the player is hit only if still standing in the marked ground.
+    const caught = slam.tiles
+      ? slam.tiles.some((t) => t.x === ppx && t.y === ppy)
+      : Math.max(Math.abs(ppx - slam.x), Math.abs(ppy - slam.y)) <= slam.radius;
+    if (!caught) {
+      const kind = slam.tiles ? "cleave whistles past" : "slam shatters empty ground";
+      events.push({ type: "LOG", message: `${def.name}'s ${kind} — you stepped clear!` });
       continue;
     }
     let dmg = Math.max(1, Math.round(stats.maxHit * slam.mult));
@@ -7357,7 +7379,7 @@ function resolveSlams(
     if (player.equipment.boots === "pale_greaves") dmg = Math.max(1, Math.round(dmg * 0.9));
     player.hp -= dmg;
     events.push({ type: "DAMAGE", targetId: "player", amount: dmg });
-    events.push({ type: "LOG", message: `${def.name}'s slam catches you square — ${dmg} damage!` });
+    events.push({ type: "LOG", message: `${def.name}'s ${slam.tiles ? "cleave catches" : "slam catches"} you square — ${dmg} damage!` });
     if (player.hp <= 0) {
       // Same stakes as any killing blow (coin + pack spill live in monsterSwing's
       // death block; a slam death keeps it simple: coin only, pack intact).

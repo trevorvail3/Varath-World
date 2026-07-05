@@ -1259,7 +1259,13 @@ export type BossMechanic =
    *  gated behind `flag` (pre-placed near the boss) stand up and join the fight,
    *  turning a single-target fight into a multi-target one. Cleared when the
    *  boss dies or respawns. Reuses the delve wave-spawn plumbing. */
-  | { type: "summon"; below: number; flag: string; tell: string };
+  | { type: "summon"; below: number; flag: string; tell: string }
+  /** Directional CLEAVE: every `every`-th attack, a `length`-deep, 3-wide swath
+   *  in front of the boss (toward where you stand) is marked for `windupMs`,
+   *  then everything still in it takes ×`mult` damage. Unlike the slam (dodge by
+   *  stepping off your own tile), you dodge a cleave by stepping to the boss's
+   *  FLANK — out of the arc. Reuses the slam marked-tile primitive. */
+  | { type: "cleave"; every: number; mult: number; length: number; windupMs: number; tell: string };
 
 /** The mutable runtime state for a single world object. */
 export interface WorldObjectState {
@@ -1319,8 +1325,10 @@ export interface WorldObjectState {
    *  Transient combat state — never persisted. */
   defCurse?: { amount: number; until: number };
   /** An armed ground slam: marked tiles centred on (x,y) that detonate at
-   *  `at` for ×`mult` of the boss's max hit. Transient — never persisted. */
-  slam?: { x: number; y: number; radius: number; at: number; mult: number } | null;
+   *  `at` for ×`mult` of the boss's max hit. A directional CLEAVE fills `tiles`
+   *  with an explicit swath instead of the (x,y)-radius box; when present, both
+   *  the detonation and the render use `tiles`. Transient — never persisted. */
+  slam?: { x: number; y: number; radius: number; at: number; mult: number; tiles?: Vec2[] } | null;
   /** housing_plot only: set once the player has claimed this homestead. */
   owned?: boolean;
   /** build_hotspot only: the FurnitureDef id currently built here (else empty). */

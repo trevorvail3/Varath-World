@@ -1210,7 +1210,11 @@ export const monsters: Record<string, MonsterStats> = {
     "desc": "Something that was buried in the mire with purpose. It has been here longer than the settlement that forgot it.",
     "mechanics": [
       { "type": "lifedrain", "frac": 0.5, "tell": "The Bog Warden drinks deep of your strength." },
-      { "type": "selfheal", "below": 0.4, "amount": 50, "tell": "The mire surges up and knits the Bog Warden whole." }
+      { "type": "selfheal", "below": 0.4, "amount": 50, "tell": "The mire surges up and knits the Bog Warden whole." },
+      // A wide reaping arc it sweeps toward you — its one positional threat, so
+      // an attrition fight also asks you to read the ground (T1·07). Dodge by
+      // stepping to its flank, not straight back.
+      { "type": "cleave", "every": 4, "mult": 2.4, "length": 3, "windupMs": 2300, "tell": "The Bog Warden winds up a wide, dripping sweep — get to its FLANK!" }
     ],
     "drops": [
       { item: "big_bones", chance: 1, tier: "always" },
