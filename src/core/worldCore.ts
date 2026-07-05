@@ -1047,6 +1047,11 @@ function rollClueDrop(
   if (!spots || spots.length === 0 || !canAddItem(player, t.item)) return;
   const pick = spots[Math.floor(ctx.rng() * spots.length)]!;
   player.clues[t.tier] = pick.target;
+  // Hard trails run in legs: stash the whole chain (current leg first) so each
+  // solve advances to the next riddle and only the last landmark pays out.
+  if (t.tier === "hard") {
+    player.clueSteps = [{ target: pick.target, riddle: pick.riddle }, ...(pick.then ?? [])];
+  }
   addItem(player, t.item, 1, events);
   events.push({ type: "LOG", message: `Tucked in the remains: a sealed ${content.items[t.item].name}. Tap it to read the trail.` });
 }
@@ -1061,8 +1066,19 @@ function tryClueSolve(
   const { player } = state;
   for (const t of CLUE_TIERS) {
     if (player.clues[t.tier] !== def.id || !hasItem(player, t.item)) continue;
+    // A multi-leg hard trail with more legs to walk: solve THIS one, then point
+    // the same scroll at the next landmark instead of paying out.
+    if (t.tier === "hard" && player.clueSteps && player.clueSteps.length > 1) {
+      player.clueSteps.shift();
+      const next = player.clueSteps[0]!;
+      player.clues.hard = next.target;
+      events.push({ type: "LOG", message: `Not the casket — a fresh mark scratched in the stone, and the trail runs on. Read the scroll for the next riddle.` });
+      return true;
+    }
+    // Final leg (or an easy/medium/legacy single-step trail): the scroll pays.
     removeItems(player, t.item, 1);
     delete player.clues[t.tier];
+    if (t.tier === "hard") delete player.clueSteps;
     if (canAddItem(player, t.casket)) addItem(player, t.casket, 1, events);
     else player.bank[t.casket] = (player.bank[t.casket] ?? 0) + 1;
     if (!player.flags.includes("clue_solved")) player.flags.push("clue_solved");
@@ -1077,8 +1093,11 @@ function tryClueSolve(
 interface CrateLine { item: ItemId; w: number; min?: number; max?: number }
 
 /** What each openable container holds — a weighted pick per opening (plus a
- *  guaranteed coin purse). Caskets (clue trails) pay better with tier. */
-const CONTAINER_TABLES: Record<string, { rolls: number; coins: [number, number]; lines: CrateLine[] }> = {
+ *  guaranteed coin purse). Caskets (clue trails) pay better with tier. `rare`
+ *  lines roll INDEPENDENTLY after the weighted haul: each is a flat 1-in-`one`
+ *  chance, the mechanism behind the hard casket's clue-exclusive cosmetics —
+ *  common enough to chase, rare enough to mean something (the "3rd age" hook). */
+const CONTAINER_TABLES: Record<string, { rolls: number; coins: [number, number]; lines: CrateLine[]; rare?: { item: ItemId; one: number }[] }> = {
   bounty_crate: {
     rolls: 2, coins: [20, 80],
     lines: [
@@ -1124,7 +1143,15 @@ const CONTAINER_TABLES: Record<string, { rolls: number; coins: [number, number];
       { item: "gold_bar", w: 14, min: 2, max: 4 },
       { item: "arrow_hearthite", w: 12, min: 15, max: 30 },
       { item: "seed_deeproot", w: 8 },
-      { item: "pale_mask", w: 5 },
+    ],
+    // The Pale Regalia (clue-exclusive cosmetic set) rolls independently and
+    // rarely; the Underking's Mantle is the ultra-rare apex of the whole trail.
+    rare: [
+      { item: "pale_mask", one: 48 },
+      { item: "pale_cuirass", one: 48 },
+      { item: "pale_legwraps", one: 52 },
+      { item: "pale_treads", one: 52 },
+      { item: "mantle_underking", one: 400 },
     ],
   },
 };
@@ -1172,6 +1199,18 @@ function openContainer(
     // Merge repeat rolls of the same item so the popup reads cleanly.
     const ex = loot.find((l) => l.item === pick.item);
     if (ex) ex.qty += qty; else loot.push({ item: pick.item, qty });
+  }
+  // Independent rare rolls (the hard casket's clue-exclusive cosmetics). Each is
+  // its own flat chance on top of the weighted haul; a cosmetic must never be
+  // lost to a full pack, so it banks if it won't fit.
+  for (const r of table.rare ?? []) {
+    if (ctx.rng() >= 1 / r.one) continue;
+    if (canAddItem(player, r.item)) addItem(player, r.item, 1, events);
+    else player.bank[r.item] = (player.bank[r.item] ?? 0) + 1;
+    got.push(content.items[r.item]?.name ?? r.item);
+    const ex = loot.find((l) => l.item === r.item);
+    if (ex) ex.qty += 1; else loot.push({ item: r.item, qty: 1 });
+    events.push({ type: "LOG", message: `Something pale and old, folded at the very bottom: ${content.items[r.item]?.name ?? r.item}!` });
   }
   events.push({ type: "LOG", message: `You prise it open: ${got.join(", ")}.` });
   events.push({ type: "CONTAINER_OPENED", container, coins, items: loot });

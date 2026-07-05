@@ -526,6 +526,13 @@ export type ItemId =
   | "casket_hard"
   | "wayfarers_hat"
   | "pale_mask"
+  // The Pale Regalia — a clue-exclusive cosmetic set found only in hard caskets
+  // (the Underloft dead-kings' raiment; pale_mask is its head), plus the
+  // Underking's Mantle, the ultra-rare apex of the whole trail chase.
+  | "pale_cuirass"
+  | "pale_legwraps"
+  | "pale_treads"
+  | "mantle_underking"
   | "bounty_crate"
   | "pet_bloodhound"
   | "pet_trail_wren"
@@ -1556,6 +1563,12 @@ export interface Player {
   specArmed: boolean;
   /** Active trail clues: tier -> the world object id its riddle points at. */
   clues: Partial<Record<"easy" | "medium" | "hard", string>>;
+  /** The remaining legs of an active multi-step HARD trail, current step first
+   *  (each carries its own riddle so the client never has to guess which chain a
+   *  shared landmark belongs to). `clues.hard` always mirrors `clueSteps[0].target`.
+   *  Empty/absent means the hard clue (if any) is a legacy single-step one that
+   *  pays its casket on the first solve. Easy/medium trails never use this. */
+  clueSteps?: { target: string; riddle: string }[];
   /** The melee combat style trained on the next kill. */
   combatStyle: CombatStyle;
   /** Run toggle: when on (and energy remains), the player moves at sprint speed. */
@@ -2836,7 +2849,7 @@ export interface Content {
   /** Discoverable lore fragments, revealed by reading relics in the world. */
   lore: LoreDef[];
   /** Trail-clue riddle spots per tier (see src/content/clues.ts). */
-  clueSpots: Record<"easy" | "medium" | "hard", { target: string; riddle: string }[]>;
+  clueSpots: Record<"easy" | "medium" | "hard", { target: string; riddle: string; then?: { target: string; riddle: string }[] }[]>;
   /** Shopkeeper wares (data). */
   shops: ShopDef[];
   /** The factions and their display metadata (data). */

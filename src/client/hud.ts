@@ -1422,7 +1422,14 @@ export class Hud {
    *  active clue targets against the content's riddle table. */
   private clueRiddle(item: ItemId): string {
     const tier = item === "clue_easy" ? "easy" : item === "clue_medium" ? "medium" : "hard";
-    const target = this.lastState?.player.clues?.[tier];
+    const player = this.lastState?.player;
+    // A hard trail runs in legs: its live riddle is the current leg's, carried on
+    // the player so a landmark shared between chains never shows the wrong one.
+    if (tier === "hard" && player?.clueSteps && player.clueSteps.length > 0) {
+      const leg = player.clueSteps.length > 1 ? ` (${player.clueSteps.length} legs to go)` : " (last leg)";
+      return player.clueSteps[0]!.riddle + leg;
+    }
+    const target = player?.clues?.[tier];
     const spot = this.content.clueSpots[tier].find((s) => s.target === target);
     return spot?.riddle ?? "The ink has faded past reading. (Solve or drop it and hunt up another.)";
   }

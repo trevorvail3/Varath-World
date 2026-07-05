@@ -44,6 +44,8 @@ export interface SavedProgress {
   spec?: number;
   /** Active trail clues: tier -> the landmark object id the riddle points at. */
   clues?: Record<string, string>;
+  /** Remaining legs of an active multi-step hard trail (current leg first). */
+  clueSteps?: { target: string; riddle: string }[];
   /** Run/walk toggle + current run energy. */
   running: boolean;
   energy: number;
@@ -161,6 +163,7 @@ export function serializePlayer(state: WorldState): SavedProgress {
     quiver: player.quiver,
     spec: player.spec,
     clues: { ...player.clues } as Record<string, string>,
+    ...(player.clueSteps ? { clueSteps: player.clueSteps.map((s) => ({ target: s.target, riddle: s.riddle })) } : {}),
     running: player.running,
     energy: player.energy,
     grace: player.grace,
@@ -338,6 +341,18 @@ export function hydratePlayer(
         player.clues[tier] = target;
       }
     }
+  }
+  // Multi-step hard-trail progress: keep only legs whose landmark still exists.
+  // A malformed or empty result simply degrades to a single-step trail (the
+  // next solve pays the casket), so an old save is never soft-locked.
+  const savedSteps = raw["clueSteps"];
+  if (Array.isArray(savedSteps)) {
+    const steps = savedSteps
+      .filter((s): s is { target: string; riddle: string } =>
+        isRecord(s) && typeof s["target"] === "string" && typeof s["riddle"] === "string" &&
+        content.objects.some((o) => o.id === s["target"]))
+      .map((s) => ({ target: s.target, riddle: s.riddle }));
+    if (steps.length > 0) player.clueSteps = steps;
   }
 
   // Run/walk preference + energy (winded is derived, never persisted).

@@ -4625,7 +4625,7 @@ export const items: Record<ItemId, ItemDef> = {
   "pale_mask": {
     "id": "pale_mask",
     "name": "Pale Mask",
-    "description": "A smooth mask of pale stone in the old north style, found only at the end of the hardest trails. Wearing a nameless face is an Underloft courtesy; on the living it simply unsettles everyone.",
+    "description": "A smooth mask of pale stone in the old north style, found only at the end of the hardest trails. Wearing a nameless face is an Underloft courtesy; on the living it simply unsettles everyone. The head-piece of the Pale Regalia.",
     "icon": "🎭",
     "cat": "Trails",
     "slot": "helmet",
@@ -4633,6 +4633,51 @@ export const items: Record<ItemId, ItemDef> = {
     "acc": 2,
     "rarity": "legendary",
     "sell": 4000
+  },
+  "pale_cuirass": {
+    "id": "pale_cuirass",
+    "name": "Pale Cuirass",
+    "description": "A breastplate of the same pale northern stone as the mask, chased with a dead king's tally-marks. Light as bone and cold to the touch. Won only from the hardest trails — the body of the Pale Regalia.",
+    "icon": "🥋",
+    "cat": "Trails",
+    "slot": "armor",
+    "def": 8,
+    "rarity": "legendary",
+    "sell": 5000
+  },
+  "pale_legwraps": {
+    "id": "pale_legwraps",
+    "name": "Pale Legwraps",
+    "description": "Leg-wraps of pale Underloft cloth and stone, worn smooth at the knee as if by centuries of kneeling. The legs of the Pale Regalia, found only at a hard trail's end.",
+    "icon": "🦵",
+    "cat": "Trails",
+    "slot": "legs",
+    "def": 7,
+    "rarity": "legendary",
+    "sell": 4500
+  },
+  "pale_treads": {
+    "id": "pale_treads",
+    "name": "Pale Treads",
+    "description": "Silent boots of soft pale hide and stone, made for walking a barrow without waking it. The feet of the Pale Regalia, drawn only from the hardest caskets.",
+    "icon": "🥾",
+    "cat": "Trails",
+    "slot": "boots",
+    "def": 4,
+    "rarity": "legendary",
+    "sell": 3000
+  },
+  "mantle_underking": {
+    "id": "mantle_underking",
+    "name": "The Underking's Mantle",
+    "description": "A mantle of pale feathers and old gold that no living hand stitched, clasped at the throat with a coin that predates coins. The rarest thing any trail has ever given up — the crown-jewel of the whole chase. Wearing it, you understand exactly why the moor rats keep digging.",
+    "icon": "👑",
+    "cat": "Trails",
+    "slot": "cape",
+    "def": 5,
+    "acc": 3,
+    "rarity": "legendary",
+    "sell": 25000
   },
   "bounty_crate": {
     "id": "bounty_crate",
