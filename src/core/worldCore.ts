@@ -3109,6 +3109,11 @@ function startInteraction(
     }
 
     case "shrine": {
+      // A one-off exploration find: search the site once for a reward (T6·03).
+      if (def.find) { searchLandmark(state, content, def, events); break; }
+      // A witness-the-heat devotion event at the Cult's warm seam: offer
+      // embercite for Devotion XP + Grace, tying Ashfen's lore to a deed (T6·02).
+      if (def.witnessOffering) { witnessSeam(state, content, def, obj, ctx, events); break; }
       // A shrine/altar of Orun: kneel and pray to refill Grace (the Faith fuel).
       // Each stone gives its blessing once a minute — camping one stone as an
       // infinite spell battery doesn't work; running to ANOTHER stone does.
@@ -3907,6 +3912,67 @@ function readRelic(
   }
   // Show the passage in the dialogue box, the relic's title at its head.
   events.push({ type: "DIALOGUE", npc: entry.title, lines: entry.text });
+}
+
+/**
+ * A repeatable "witness the heat" devotion event at the Cult's warm seam
+ * (T6·02). Offering embercite — the Cult's own tribute to the ground — is
+ * consumed for Devotion XP and a Grace refill, so Ashfen's lore ("witness, not
+ * help; the discomfort is the point") becomes something you DO, not just read.
+ * The item cost is the throttle; the first witness sets a one-off flag.
+ */
+function witnessSeam(
+  state: WorldState,
+  content: Content,
+  def: WorldObjectDef,
+  _obj: WorldObjectState,
+  _ctx: Ctx,
+  events: WorldEvent[],
+): void {
+  const { player } = state;
+  const off = def.witnessOffering!;
+  if (!hasItem(player, off.item)) {
+    events.push({ type: "LOG", message: `The ${def.name} pulses with a heat that aches to stand near. The Cult witnesses with embercite laid on the stone — you have none to give. Bring embercite ore and stand your witness.` });
+    return;
+  }
+  removeItems(player, off.item, 1);
+  grantXp(state, content, "faith", off.faithXp, events);
+  const gm = graceMax(player);
+  if (player.grace < gm) player.grace = gm;
+  if (!player.flags.includes("witnessed_the_seam")) {
+    player.flags.push("witnessed_the_seam");
+    events.push({ type: "LOG", message: `You set the embercite on the warm stone and stand the discomfort, as the Cult does. The ground answers under your boots — not warmth now, but attention. Something vast and slow marks that you stayed. Orun's grace rises with the heat.` });
+  } else {
+    events.push({ type: "LOG", message: `You lay embercite on the warm seam and stand your witness. The heat climbs through you, and Orun's grace comes with it.` });
+  }
+}
+
+/**
+ * A one-off exploration find (T6·03): searching a landmark the first time pays
+ * a finder's reward — an item, gold and/or XP — and sets its flag, so a
+ * curiosity hook rewards DOING, not just reading. Reuses the relic reward loop.
+ */
+function searchLandmark(
+  state: WorldState,
+  content: Content,
+  def: WorldObjectDef,
+  events: WorldEvent[],
+): void {
+  const { player } = state;
+  const f = def.find!;
+  if (player.flags.includes(f.flag)) {
+    events.push({ type: "LOG", message: def.lines?.[0] ?? `You search the ${def.name} again, but it has given up what it kept.` });
+    return;
+  }
+  player.flags.push(f.flag);
+  events.push({ type: "LOG", message: f.found });
+  if (f.item) addItem(player, f.item, f.qty ?? 1, events);
+  if (f.gold) {
+    player.gold += f.gold;
+    player.stats.goldEarned += f.gold;
+    events.push({ type: "LOG", message: `A finder's reward: ${f.gold} gold.` });
+  }
+  if (f.xp) grantXp(state, content, f.xp.skill, f.xp.amount, events);
 }
 
 /** Empty patch → pick a seed; growing → time left; ripe → harvest. */

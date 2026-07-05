@@ -1140,6 +1140,22 @@ export interface WorldObjectDef {
    *  renderer hangs a tinted pennant/standard in this colour so each town flies
    *  its own colours over the square. Purely cosmetic. */
   tint?: string;
+  /** shrine only: turns this landmark into a repeatable "witness the heat"
+   *  devotion event — offering `item` (consumed) grants `faithXp` Devotion XP
+   *  and refills Grace, tying a region's lore to something you DO (T6·02). */
+  witnessOffering?: { item: ItemId; faithXp: number };
+  /** shrine only: a one-off exploration find. Searching the site the first time
+   *  grants this reward and sets `flag`, so a discovery hook pays in an action +
+   *  drop instead of only prose (reuses the relic finder-reward loop) (T6·03). */
+  find?: {
+    flag: string;
+    /** The discovery message shown when the search first pays off. */
+    found: string;
+    item?: ItemId;
+    qty?: number;
+    gold?: number;
+    xp?: { skill: SkillId; amount: number };
+  };
 }
 
 /** One possible drop from a monster: an item with an independent roll chance. */
