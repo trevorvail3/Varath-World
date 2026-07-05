@@ -5149,6 +5149,35 @@ export const items: Record<ItemId, ItemDef> = {
       "petBoss": "vorlag"
     }
   },
+  "gaunt_maul": {
+    "id": "gaunt_maul",
+    "name": "The Gaunt Maul",
+    "description": "A head of black seal-stone lashed to a climber's broken haft, torn from the thing that clawed up the Hollow's throat ahead of Vorlag. It is too heavy to swing quickly and hits like the roof coming down. The endgame's on-ramp — a step short of Vorlag's own leavings.",
+    "icon": "🔨",
+    "cat": "Legendary Weapons",
+    "slot": "mainhand",
+    "acc": 58,
+    "dmg": 42,
+    "speed": 3000,
+    "attackStyle": "crush",
+    "wepType": "hammer",
+    "equipLevel": 100,
+    "rarity": "legendary",
+    "lore": "gaunt_below",
+    "sell": 6500
+  },
+  "pet_gaunt": {
+    "id": "pet_gaunt",
+    "name": "The Lesser Hunger",
+    "description": "A knuckle of the Gaunt Below that followed you up out of the dark, mistaking the one who ended it for the one who made it. Smaller than the Little Hunger, and endlessly, quietly jealous of it.",
+    "icon": "🦴",
+    "cat": "Boss Pets",
+    "slot": "companion",
+    "rarity": "legendary",
+    "meta": {
+      "petBoss": "gaunt_below"
+    }
+  },
   "wyrm_blade": {
     "id": "wyrm_blade",
     "name": "Wyrmfang",

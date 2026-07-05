@@ -2277,6 +2277,35 @@ export const monsters: Record<string, MonsterStats> = {
     ],
   },
 
+  // === THE GAUNT BELOW — the repeatable ~110 boss that fills the 100→125 cliff
+  // (T5·04). A lesser hunger that clawed up the Hollow's throat AHEAD of Vorlag,
+  // the vanguard of the thing the seals held. Weak to RANGED (variety against
+  // Vorlag's magic-only), it's the on-ramp to the apex: farm it for the Gaunt
+  // Maul and a step's worth of endgame mats before you bring Devotion to Vorlag.
+  "gaunt_below": {
+    id: "gaunt_below", name: "The Gaunt Below", icon: "💀", level: 110, hp: 2000,
+    acc: 400, def: 84, maxHit: 58, speed: 2800, xp: 5000, attackStyle: "crush",
+    weakness: ["ranged"],
+    boss: true,
+    bossHint: "The lesser hunger that reached the Hollow Below's gallery ahead of Vorlag. Repeatable, and the last real step before the apex — it flinches from arrows where its parent shrugs them off, so bring a bow and keep moving when the floor cracks.",
+    desc: "Not the Hunger itself — the thing that went up the throat FIRST, thinner and faster and almost as old. It gnaws where Vorlag swallows. Kill it on the way down, and again, and again; its maul is the on-ramp to the deep.",
+    mechanics: [
+      { type: "slam", every: 4, mult: 2.4, radius: 1, windupMs: 2000, tell: "The Gaunt rears and the gallery floor SPLITS beneath you. MOVE!" },
+      { type: "enrage", below: 0.3, mult: 1.4, tell: "The Gaunt Below remembers it was hungry first." },
+      { type: "selfheal", below: 0.4, amount: 90, tell: "The Gaunt folds in on itself and GNAWS — its own wounds close over." },
+    ],
+    drops: [
+      { item: "big_bones", chance: 1, tier: "always" },
+      { item: "worn_coin", chance: 1, min: 700, max: 1500, tier: "always" },
+      { item: "pet_gaunt", chance: 0.002, tier: "legendary" },
+      { item: "gaunt_maul", chance: 0.04, tier: "legendary" },
+      { item: "hearthite_bar", chance: 0.5, min: 2, max: 4, tier: "uncommon" },
+      { item: "cut_gem", chance: 0.5, min: 2, max: 4, tier: "uncommon" },
+      { item: "marrow_shard", chance: 0.3, tier: "rare" },
+      { item: "shard_of_orun", chance: 0.04, tier: "legendary" },
+    ],
+  },
+
   // === THE HUNT WARRENS — warren-bred quarry, each gated by Bounty level ====
   // OSRS-Slayer style: without the huntcraft you can't fight them at all
   // (bountyReq), and each tier pays better than the last, topped by a unique

@@ -2489,6 +2489,9 @@ function buildDungeonSites(): WorldObjectDef[] {
     },
     { id: "ret_hollow_below", kind: "portal", x: hbx + hollow.exit.x, y: hby + hollow.exit.y, name: "The Climb Out", target: { x: hbMouth.x, y: hbMouth.y + 1 }, lines: ["You climb out of the warm dark, and the mountain lets you."] },
     { id: "plq_hollow_below", kind: "signpost", x: hbx + 7, y: hby + 2, name: "A Watchman's Warning", lines: ["'TURN BACK. Whatever the five seals held, it is AWAKE, and it is HUNGRY, and the watch has lost four good climbers learning those two facts. The Record pays for word of it — it pays more for you alive.'"] },
+    // The Gaunt Below: the lesser hunger, holding the entry gallery ahead of the
+    // pit — a repeatable ~110 fight (T5·04) you clear on the way down to Vorlag.
+    { id: "boss_gaunt_below", kind: "monster", monster: "gaunt_below", x: hbx + 7, y: hby + 4, name: "The Gaunt Below" },
     // The Hunger itself, risen through the pit's floor.
     { id: "boss_vorlag", kind: "monster", monster: "vorlag", x: hbx + 13, y: hby + 10, name: "Vorlag, the Hunger Below" },
     // Dressing: the four climbers, and older leavings around the rim.

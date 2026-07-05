@@ -756,6 +756,10 @@ export type ItemId =
   | "sealbreaker_bulwark"
   | "mantle_of_the_below"
   | "pet_vorlag"
+  // The Gaunt Below — the repeatable ~110 boss that fills the 100→125 ladder
+  // gap (T5·04), and its signature crusher + pet.
+  | "gaunt_maul"
+  | "pet_gaunt"
   | "pet_greyback"
   | "neck_warden"
   | "neck_amber"

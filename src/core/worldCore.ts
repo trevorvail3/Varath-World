@@ -7469,8 +7469,15 @@ function rollDrops(
   ctx: Ctx,
   events: WorldEvent[],
 ): void {
+  // Boss familiarity (T5·04): each PRIOR clear of a boss nudges the odds of its
+  // legendary uniques up a little, hard-capped — so a repeatable apex (Vorlag)
+  // and the gap boss reward the grind without the drop ever becoming a sure
+  // thing. bossKills is incremented AFTER this roll, so the first kill gets +0.
+  const priorClears = stats.boss ? (state.player.bossKills[stats.id] ?? 0) : 0;
+  const legendaryBoost = Math.min(0.6, priorClears * 0.05); // +5%/clear, capped +60% relative
   for (const drop of stats.drops) {
-    if (ctx.rng() >= drop.chance) continue;
+    const chance = drop.tier === "legendary" ? drop.chance * (1 + legendaryBoost) : drop.chance;
+    if (ctx.rng() >= chance) continue;
     const min = drop.min ?? 1;
     const max = drop.max ?? min;
     const qty = min + Math.floor(ctx.rng() * (max - min + 1));
