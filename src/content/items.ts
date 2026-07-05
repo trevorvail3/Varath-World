@@ -45,6 +45,14 @@ export const items: Record<ItemId, ItemDef> = {
     "cat": "Ores",
     "sell": 35
   },
+  "spinite_ore": {
+    "id": "spinite_ore",
+    "name": "Spinite",
+    "description": "Cold blue-grey ore cut from the Spine's own rock. Fractures true when the seam is sound. The metal between ribstone and bloodore — the one the old smiths kept for their own tools.",
+    "icon": "🪨",
+    "cat": "Ores",
+    "sell": 60
+  },
   "gold_ore": {
     "id": "gold_ore",
     "name": "Gold Ore",
@@ -100,6 +108,14 @@ export const items: Record<ItemId, ItemDef> = {
     "icon": "▪️",
     "cat": "Bars",
     "sell": 120
+  },
+  "spinite_bar": {
+    "id": "spinite_bar",
+    "name": "Spinite Bar",
+    "description": "Cold steel with a faint blue cast. Holds an edge longer than ribstone and takes a plate's shape without complaint. The mid-smith's workhorse.",
+    "icon": "▪️",
+    "cat": "Bars",
+    "sell": 200
   },
   "gold_bar": {
     "id": "gold_bar",
@@ -1105,6 +1121,19 @@ export const items: Record<ItemId, ItemDef> = {
     "attackStyle": "slash",
     "sell": 250
   },
+  "sword_5": {
+    "id": "sword_5",
+    "name": "Spinite Sword",
+    "description": "Cold blue-grey steel, light and true. The blade that carries a smith from journeyman to master.",
+    "icon": "🗡️",
+    "cat": "Weapons",
+    "slot": "mainhand",
+    "tier": 5,
+    "acc": 21,
+    "dmg": 9,
+    "attackStyle": "slash",
+    "sell": 460
+  },
   "sword_6": {
     "id": "sword_6",
     "name": "Bloodore Sword",
@@ -1171,6 +1200,17 @@ export const items: Record<ItemId, ItemDef> = {
     "slot": "armor",
     "def": 14,
     "sell": 345
+  },
+  "armor_5": {
+    "id": "armor_5",
+    "name": "Spinite Plate",
+    "description": "Cold-steel plate, lighter than it looks. The armour a smith earns the right to wear.",
+    "icon": "🛡️",
+    "cat": "Armour",
+    "slot": "armor",
+    "tier": 5,
+    "def": 21,
+    "sell": 620
   },
   "armor_6": {
     "id": "armor_6",
@@ -2130,6 +2170,17 @@ export const items: Record<ItemId, ItemDef> = {
     "def": 11,
     "sell": 160
   },
+  "helm_5": {
+    "id": "helm_5",
+    "name": "Spinite Helm",
+    "description": "A spinite helmet. Cold to the brow, but it turns a blow.",
+    "icon": "⛑️",
+    "cat": "Armour",
+    "slot": "helmet",
+    "tier": 5,
+    "def": 17,
+    "sell": 290
+  },
   "helm_6": {
     "id": "helm_6",
     "name": "Bloodore Helm",
@@ -2310,6 +2361,17 @@ export const items: Record<ItemId, ItemDef> = {
     "def": 16,
     "sell": 195
   },
+  "legs_5": {
+    "id": "legs_5",
+    "name": "Spinite Leg Plate",
+    "description": "A spinite leg plate. Cold steel, honestly made.",
+    "icon": "🦿",
+    "cat": "Armour",
+    "slot": "legs",
+    "tier": 5,
+    "def": 25,
+    "sell": 380
+  },
   "legs_6": {
     "id": "legs_6",
     "name": "Bloodore Leg Plate",
@@ -2364,6 +2426,17 @@ export const items: Record<ItemId, ItemDef> = {
     "tier": 4,
     "def": 6,
     "sell": 90
+  },
+  "boot_5": {
+    "id": "boot_5",
+    "name": "Spinite Boots",
+    "description": "Spinite boots. Cold steel, a solid foundation.",
+    "icon": "🥾",
+    "cat": "Armour",
+    "slot": "boots",
+    "tier": 5,
+    "def": 10,
+    "sell": 170
   },
   "boot_6": {
     "id": "boot_6",
@@ -2433,6 +2506,18 @@ export const items: Record<ItemId, ItemDef> = {
     "def": 16,
     "twoHand": false,
     "sell": 195
+  },
+  "shield_5": {
+    "id": "shield_5",
+    "name": "Spinite Shield",
+    "description": "A spinite shield. Usable with one-handed weapons. Cold steel, well balanced.",
+    "icon": "🛡️",
+    "cat": "Armour",
+    "slot": "offhand",
+    "tier": 5,
+    "def": 25,
+    "twoHand": false,
+    "sell": 380
   },
   "shield_6": {
     "id": "shield_6",
@@ -2610,6 +2695,21 @@ export const items: Record<ItemId, ItemDef> = {
     "wepType": "dagger",
     "speed": 1800,
     "sell": 210
+  },
+  "dagger_5": {
+    "id": "dagger_5",
+    "name": "Spinite Dagger",
+    "description": "Cold-steel point, quick in the hand. Finds the gaps ribstone never could.",
+    "icon": "🔪",
+    "cat": "Weapons",
+    "slot": "mainhand",
+    "tier": 5,
+    "acc": 26,
+    "dmg": 9,
+    "attackStyle": "stab",
+    "wepType": "dagger",
+    "speed": 1850,
+    "sell": 400
   },
   "dagger_6": {
     "id": "dagger_6",

@@ -57,6 +57,15 @@ export const actions: SkillAction[] = [
     "produces": "ribstone_ore"
   },
   {
+    "id": "mine_spinite",
+    "skill": "mining",
+    "name": "Spinite",
+    "levelReq": 36,
+    "xp": 60,
+    "produces": "spinite_ore",
+    "note": "Cold blue-grey ore cut from the Spine. The mid-game metal between ribstone and bloodore."
+  },
+  {
     "id": "mine_rough_gem",
     "skill": "mining",
     "name": "Rough Gem",
@@ -177,6 +186,18 @@ export const actions: SkillAction[] = [
       "embercite_ore": 2
     },
     "produces": "ribstone_bar"
+  },
+  {
+    "id": "smelt_spinite",
+    "skill": "smithing",
+    "name": "Spinite Bar",
+    "levelReq": 40,
+    "xp": 105,
+    "requires": {
+      "spinite_ore": 1,
+      "embercite_ore": 2
+    },
+    "produces": "spinite_bar"
   },
   {
     "id": "smelt_gold",
@@ -510,6 +531,18 @@ export const actions: SkillAction[] = [
     "produces": "boot_4"
   },
   {
+    "id": "forge_boot_5",
+    "skill": "smithing",
+    "name": "Spinite Boots",
+    "levelReq": 43,
+    "xp": 52,
+    "baseTime": 3500,
+    "requires": {
+      "spinite_bar": 1
+    },
+    "produces": "boot_5"
+  },
+  {
     "id": "forge_boot_6",
     "skill": "smithing",
     "name": "Bloodore Boots",
@@ -568,6 +601,18 @@ export const actions: SkillAction[] = [
       "ribstone_bar": 1
     },
     "produces": "helm_4"
+  },
+  {
+    "id": "forge_helm_5",
+    "skill": "smithing",
+    "name": "Spinite Helm",
+    "levelReq": 42,
+    "xp": 60,
+    "baseTime": 4000,
+    "requires": {
+      "spinite_bar": 1
+    },
+    "produces": "helm_5"
   },
   {
     "id": "forge_helm_6",
@@ -630,6 +675,18 @@ export const actions: SkillAction[] = [
     "produces": "sword_4"
   },
   {
+    "id": "arms_sword_5",
+    "skill": "smithing",
+    "name": "Spinite Sword",
+    "levelReq": 46,
+    "xp": 100,
+    "baseTime": 4000,
+    "requires": {
+      "spinite_bar": 2
+    },
+    "produces": "sword_5"
+  },
+  {
     "id": "arms_sword_6",
     "skill": "smithing",
     "name": "Bloodore Sword",
@@ -688,6 +745,18 @@ export const actions: SkillAction[] = [
       "ribstone_bar": 2
     },
     "produces": "dagger_4"
+  },
+  {
+    "id": "arms_dagger_5",
+    "skill": "smithing",
+    "name": "Spinite Dagger",
+    "levelReq": 44,
+    "xp": 78,
+    "baseTime": 3500,
+    "requires": {
+      "spinite_bar": 1
+    },
+    "produces": "dagger_5"
   },
   {
     "id": "arms_dagger_6",
@@ -930,6 +999,18 @@ export const actions: SkillAction[] = [
     "produces": "shield_4"
   },
   {
+    "id": "forge_shld_5",
+    "skill": "smithing",
+    "name": "Spinite Shield",
+    "levelReq": 48,
+    "xp": 108,
+    "baseTime": 4000,
+    "requires": {
+      "spinite_bar": 2
+    },
+    "produces": "shield_5"
+  },
+  {
     "id": "forge_shld_6",
     "skill": "smithing",
     "name": "Bloodore Shield",
@@ -990,6 +1071,18 @@ export const actions: SkillAction[] = [
     "produces": "legs_4"
   },
   {
+    "id": "forge_legs_5",
+    "skill": "smithing",
+    "name": "Spinite Leg Plate",
+    "levelReq": 50,
+    "xp": 130,
+    "baseTime": 4500,
+    "requires": {
+      "spinite_bar": 3
+    },
+    "produces": "legs_5"
+  },
+  {
     "id": "forge_legs_6",
     "skill": "smithing",
     "name": "Bloodore Leg Plate",
@@ -1048,6 +1141,18 @@ export const actions: SkillAction[] = [
       "ribstone_bar": 3
     },
     "produces": "armor_4"
+  },
+  {
+    "id": "arms_armor_5",
+    "skill": "smithing",
+    "name": "Spinite Plate",
+    "levelReq": 52,
+    "xp": 145,
+    "baseTime": 5000,
+    "requires": {
+      "spinite_bar": 3
+    },
+    "produces": "armor_5"
   },
   {
     "id": "arms_armor_6",

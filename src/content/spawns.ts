@@ -897,6 +897,11 @@ const rawObjects: WorldObjectDef[] = [
   { id: "sp_rock_2", kind: "rock", x: 45, y: 17, name: "Ashiron Seam", resource: "mine_ashiron" },
   { id: "sp_rock_3", kind: "rock", x: 52, y: 24, name: "Ribstone Seam", resource: "mine_ribstone" },
   { id: "sp_rock_4", kind: "rock", x: 56, y: 31, name: "Ribstone Seam", resource: "mine_ribstone" },
+  // The Spinite Cut (lm_spinite_cut, 51,23) finally yields: the Spine's own
+  // mid-game metal, the seam the tier-5 gear is smithed from.
+  { id: "sp_rock_spin1", kind: "rock", x: 49, y: 21, name: "Spinite Seam", resource: "mine_spinite" },
+  { id: "sp_rock_spin2", kind: "rock", x: 53, y: 20, name: "Spinite Seam", resource: "mine_spinite" },
+  { id: "sp_rock_spin3", kind: "rock", x: 55, y: 26, name: "Spinite Seam", resource: "mine_spinite" },
   { id: "sp_wolf_1", kind: "monster", monster: "ridge_wolf", x: 46, y: 9, name: "Ridge Wolf" },
   { id: "sp_wolf_2", kind: "monster", monster: "ridge_wolf", x: 47, y: 14, name: "Ridge Wolf" },
   { id: "sp_crawler_1", kind: "monster", monster: "stone_crawler", x: 45, y: 20, name: "Stone Crawler" },
