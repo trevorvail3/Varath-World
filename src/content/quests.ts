@@ -1369,23 +1369,43 @@ export const quests: QuestDef[] = [
     ],
     steps: [
       { type: "kill", monster: "river_serpent", count: 2, text: "Face whatever moves in the Redrun (0/2)" },
+      // A re-askable deduction (T3·06 riddle port): the clues are in what the
+      // player just saw — the red settles fine and heavy and comes from the cut
+      // hills, so it reads as washed-down ore, not blood or rust. Wrong answers
+      // are rebuffed with the tell that rules them out; only ore advances. This
+      // also teaches the mining → red-water link through play.
       {
         type: "choice",
         npc: "town_fishwife",
-        text: "Tell the Fishwife what reddens the river",
-        prompt: "It's bloodore — the red metal washing down from the cut hills, not blood at all. What do you tell her?",
+        text: "Name what reddens the Redrun",
+        prompt: "You waded the shallows where the serpents nested and looked close. The red doesn't clot, doesn't stink, doesn't rise off any wound — it settles, fine and heavy, and there's more of it the further you look UPSTREAM, toward the cut hills. The Fishwife searches your face. 'You know. I can see you know. Say it — what's in my river?'",
         options: [
           {
-            label: "The truth: it's only ore in the water.",
+            label: "Ore — red metal, washing down from the mine-cuts.",
+            flags: ["sq_redriver_named"],
+            reply: "'Ore.' She turns the word over. 'Off the diggings, in the water.' Her shoulders drop an inch. 'Not a wound in the world after all. Metal.'",
+          },
+          { label: "Blood. Something died upstream.", flags: [], wrong: "'Blood clots, and it stinks, and this does neither — you saw as much, it's in your face. Think on how it SETTLED, and where it thickened.'" },
+          { label: "Rust, off old iron in the shallows.", flags: [], wrong: "'Rust flakes and floats, and there'd be less of it each year, not more. This sinks fine and heavy, and it's WORST up toward the hills. What's up there that bleeds red into water?'" },
+        ],
+      },
+      {
+        type: "choice",
+        npc: "town_fishwife",
+        text: "Decide how to give her the truth",
+        prompt: "It's bloodore — the red metal washing down from the cut hills, harmless in the water, no blood at all. She's waited weeks on this. How do you give it to her?",
+        options: [
+          {
+            label: "Plainly. It's only ore — nothing to fear.",
             flags: ["sq_redriver_done", "sq_redriver_truth"],
             gold: 300,
             reply: "She lets out a breath she's held for weeks. 'Ore. Just ore.' She'll sleep tonight, and her man will smile again. 'Bless you for the plainness of it.'",
           },
           {
-            label: "Tell her it's the serpents. Let the rest lie.",
+            label: "Gently. Let her keep a danger with a shape.",
             flags: ["sq_redriver_done", "sq_redriver_lie"],
             gold: 300,
-            reply: "'The serpents,' she repeats, comforted by a danger with a shape. You leave the deeper strangeness of the red water unsaid. Some comforts are worth more than the truth.",
+            reply: "'The serpents, then,' she decides, comforted by a fear she can picture. You let the stranger truth of the cut-hill red stay unsaid. Some comforts are worth more than the whole of it.",
           },
         ],
       },
@@ -2090,6 +2110,7 @@ export const quests: QuestDef[] = [
       "Dead. My sister's dead, and I feel — lighter, and I hate that I do, because that's HER trick and she's still doing it to me from the far side of it.",
       "The girl and the others will wake slow. Some won't come all the way back — she took real things, and killing her doesn't put them down where she found them. But they're THEIRS again, what's left. That's more than they had this morning.",
       "Here — her hat, her besom, the coven's kist. I want none of it in my hands. And, town-blood: she meant it, that she was the least of three. The Reed sister walks somewhere still. And the MOTHER, down in the deep bog — Nyssa was AFRAID of her, and Nyssa was afraid of nothing. If you ever feel the deep bog take an interest in you... come and find me first. Promise me that much.",
+      "(The Reed sister and the Mother in the deep bog are a thread left deliberately open — the coven's next chapter.)",
     ],
     reward: {
       xp: [
