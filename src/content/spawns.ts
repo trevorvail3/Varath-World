@@ -2219,31 +2219,36 @@ function buildDungeonSites(): WorldObjectDef[] {
     { id: "ruin_sky_2", kind: "ruin_prop", x: smouth.x + 2, y: smouth.y - 1, name: "Broken Beacon-Cradle", lines: ["An iron basket big enough to bathe in, rusted to lace. When this held fire, they say, you could read by it in Ironvale."] },
     { id: "ruin_sky_3", kind: "ruin_prop", x: smouth.x - 1, y: smouth.y + 2, name: "Carved Rubble", lines: ["A drift of dressed stone: star-charts, wind-roses, and one carved word no one reads anymore."] },
     { id: "ruin_sky_4", kind: "ruin_prop", x: smouth.x + 3, y: smouth.y + 1, name: "Fallen Stair", lines: ["A grand stair to nowhere — its top forty steps are somewhere down the mountain."] },
-    // Stage one: the beacons, in the order the star-charts climb.
-    { id: "lev_sky_1", kind: "puzzle_lever", x: sx + 5, y: sy + 14, name: "The Dusk Beacon", puzzle: "sky_beacons", order: 0, lines: ["A beacon-lamp of storm-glass in the gallery's west wall, cold a thousand years."] },
-    { id: "lev_sky_2", kind: "puzzle_lever", x: sx + 29, y: sy + 14, name: "The Midnight Beacon", puzzle: "sky_beacons", order: 1, lines: ["A beacon-lamp of storm-glass in the gallery's east wall."] },
-    { id: "lev_sky_3", kind: "puzzle_lever", x: sx + 17, y: sy + 19, name: "The Dawn Beacon", puzzle: "sky_beacons", order: 2, lines: ["A beacon-lamp of storm-glass at the gallery's south rail, facing the long fall."] },
-    { id: "plq_sky_1", kind: "signpost", x: sx + 12, y: sy + 16, name: "Star-Chart", lines: ["'The watch is lit as the night is walked: DUSK carries the first hour.'"] },
-    { id: "plq_sky_2", kind: "signpost", x: sx + 16, y: sy + 16, name: "Star-Chart", lines: ["'MIDNIGHT carries the second, when the pass is blind.'"] },
-    { id: "plq_sky_3", kind: "signpost", x: sx + 20, y: sy + 16, name: "Star-Chart", lines: ["'DAWN carries the last, and hands the road back to the sun. So the Wind Door knows the watch is kept.'"] },
+    // Stage one (T6·01 beacon line-of-sight): striking a beacon FLARES the ones
+    // in its sightline, never itself. Dawn (south rail) sees both the wall
+    // beacons; each wall beacon sees only Dawn. So no single strike lights all —
+    // strike Dawn to light the walls, then a wall beacon to catch Dawn.
+    { id: "lev_sky_1", kind: "puzzle_lever", x: sx + 5, y: sy + 14, name: "The Dusk Beacon", puzzle: "sky_beacons", puzzleMode: "beacon", links: ["lev_sky_3"], lines: ["A beacon-lamp of storm-glass in the gallery's west wall, cold a thousand years. From here you can see only the Dawn beacon on the south rail."] },
+    { id: "lev_sky_2", kind: "puzzle_lever", x: sx + 29, y: sy + 14, name: "The Midnight Beacon", puzzle: "sky_beacons", puzzleMode: "beacon", links: ["lev_sky_3"], lines: ["A beacon-lamp of storm-glass in the gallery's east wall. It faces the Dawn beacon across the fall, and nothing else."] },
+    { id: "lev_sky_3", kind: "puzzle_lever", x: sx + 17, y: sy + 19, name: "The Dawn Beacon", puzzle: "sky_beacons", puzzleMode: "beacon", links: ["lev_sky_1", "lev_sky_2"], lines: ["A beacon-lamp of storm-glass at the gallery's south rail, facing the long fall — and, across it, both the Dusk and Midnight beacons on the walls."] },
+    { id: "plq_sky_1", kind: "signpost", x: sx + 12, y: sy + 16, name: "Star-Chart", lines: ["'A beacon does not light itself — it throws its fire to the beacons it can SEE.'"] },
+    { id: "plq_sky_2", kind: "signpost", x: sx + 16, y: sy + 16, name: "Star-Chart", lines: ["'The DAWN stone on the rail sees both walls; each wall sees only the Dawn. Light all three at once and the watch is kept.'"] },
+    { id: "plq_sky_3", kind: "signpost", x: sx + 20, y: sy + 16, name: "Star-Chart", lines: ["'Strike Dawn to wake the walls; strike a wall to wake Dawn. So the Wind Door knows the watch is kept.'"] },
     {
       id: "gate_sky_wind", kind: "dungeon_gate", x: sx + 36, y: sy + 16, name: "The Wind Door",
       hiddenByFlag: "pz_sky_beacons",
-      lines: ["A door that is mostly a howl — wind pouring through carved baffles, hard enough to stand on. Three beacons flank the gallery; the star-charts keep their watch-order."],
+      lines: ["A door that is mostly a howl — wind pouring through carved baffles, hard enough to stand on. Three beacons flank the gallery; a struck beacon flares only the ones it can see."],
     },
-    // Stage two: the counterweight cells off the wind hall.
-    { id: "lev_sky_w1", kind: "puzzle_lever", x: sx + 49, y: sy + 7, name: "Counterweight: the ANVIL", puzzle: "sky_weights", order: 0, lines: ["A counterweight the size of an anvil, hung on chain that still runs true."] },
-    { id: "lev_sky_w2", kind: "puzzle_lever", x: sx + 73, y: sy + 22, name: "Counterweight: the PLOUGH", puzzle: "sky_weights", order: 1, lines: ["A counterweight cast as a plough-blade, in the south-east cell."] },
-    { id: "lev_sky_w3", kind: "puzzle_lever", x: sx + 73, y: sy + 7, name: "Counterweight: the CROWN", puzzle: "sky_weights", order: 2, lines: ["A counterweight cast as a crown, in the north-east cell."] },
-    { id: "lev_sky_w4", kind: "puzzle_lever", x: sx + 49, y: sy + 22, name: "Counterweight: the GATE", puzzle: "sky_weights", order: 3, lines: ["A counterweight cast as a gate, in the south-west cell — the last thing the mountain weighs."] },
-    { id: "plq_sky_w1", kind: "signpost", x: sx + 54, y: sy + 15, name: "Carved Relief", lines: ["'What the mountain weighs, it weighs in order: the ANVIL first, for the work —'"] },
-    { id: "plq_sky_w2", kind: "signpost", x: sx + 60, y: sy + 15, name: "Carved Relief", lines: ["'— the PLOUGH second, for the bread —'"] },
-    { id: "plq_sky_w3", kind: "signpost", x: sx + 64, y: sy + 15, name: "Carved Relief", lines: ["'— the CROWN third, for the law —'"] },
-    { id: "plq_sky_w4", kind: "signpost", x: sx + 70, y: sy + 15, name: "Carved Relief", lines: ["'— and the GATE last, for the road north. So the Gale Stair unbars.'"] },
+    // Stage two (T6·01 balance): the counterweights hang to be BALANCED, not
+    // pulled in order — drop the set that weighs the hall true to six ({4,2} or
+    // {3,2,1}); hang too much and the whole rig crashes back up.
+    { id: "lev_sky_w1", kind: "puzzle_lever", x: sx + 49, y: sy + 7, name: "Counterweight: the ANVIL", puzzle: "sky_weights", puzzleMode: "balance", weight: 4, puzzleTarget: 6, lines: ["A counterweight the size of an anvil, hung on chain that still runs true — the heaviest in the hall, a weight of four."] },
+    { id: "lev_sky_w2", kind: "puzzle_lever", x: sx + 73, y: sy + 22, name: "Counterweight: the PLOUGH", puzzle: "sky_weights", puzzleMode: "balance", weight: 3, puzzleTarget: 6, lines: ["A counterweight cast as a plough-blade, in the south-east cell — a weight of three."] },
+    { id: "lev_sky_w3", kind: "puzzle_lever", x: sx + 73, y: sy + 7, name: "Counterweight: the CROWN", puzzle: "sky_weights", puzzleMode: "balance", weight: 2, puzzleTarget: 6, lines: ["A counterweight cast as a crown, in the north-east cell — a weight of two."] },
+    { id: "lev_sky_w4", kind: "puzzle_lever", x: sx + 49, y: sy + 22, name: "Counterweight: the GATE", puzzle: "sky_weights", puzzleMode: "balance", weight: 1, puzzleTarget: 6, lines: ["A counterweight cast as a gate, in the south-west cell — the lightest thing the mountain weighs, a weight of one."] },
+    { id: "plq_sky_w1", kind: "signpost", x: sx + 54, y: sy + 15, name: "Carved Relief", lines: ["'The Gale Stair unbars for a hall weighed true to SIX — no more.'"] },
+    { id: "plq_sky_w2", kind: "signpost", x: sx + 60, y: sy + 15, name: "Carved Relief", lines: ["'ANVIL four, PLOUGH three, CROWN two, GATE one. Hang the set that balances; the order of hanging is nothing.'"] },
+    { id: "plq_sky_w3", kind: "signpost", x: sx + 64, y: sy + 15, name: "Carved Relief", lines: ["'Six is the anvil and the crown, or the plough and crown and gate.'"] },
+    { id: "plq_sky_w4", kind: "signpost", x: sx + 70, y: sy + 15, name: "Carved Relief", lines: ["'Hang too much and the whole rig crashes back up the chains. Weigh it true.'"] },
     {
       id: "gate_sky_gale", kind: "dungeon_gate", x: sx + 86, y: sy + 15, name: "The Gale Stair",
       hiddenByFlag: "pz_sky_weights",
-      lines: ["A stair sealed behind a shutter of storm-iron. Four counterweights hang in the hall's cells; the reliefs recite what the mountain weighs, and in what order."],
+      lines: ["A stair sealed behind a shutter of storm-iron. Four counterweights hang in the hall's cells; the reliefs say to weigh the hall true, not to pull in any order."],
     },
     // The aerie's garrison.
     { id: "sk_harpy_1", kind: "monster", monster: "aerie_harpy", x: sx + 20, y: sy + 37, name: "Aerie Shriker" },

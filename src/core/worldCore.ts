@@ -3462,6 +3462,7 @@ function throwPuzzleLever(
   const mode = def.puzzleMode ?? "order";
   if (mode === "balance") { solveBalance(state, def, doneFlag, levers, events); return; }
   if (mode === "timed") { solveTimed(state, def, group, doneFlag, levers, ctx, events); return; }
+  if (mode === "beacon") { solveBeacon(state, def, doneFlag, levers, events); return; }
   // --- "order": throw levers in ascending `order`; a wrong pull springs back --
   const progress = player.puzzles[group] ?? 0;
   const order = def.order ?? 0;
@@ -3512,6 +3513,30 @@ function solveBalance(
     events.push({ type: "LOG", message: `Too much weight — the pans crash and every arm springs back up. It wants ${target}, not more. Choose the locks that balance.` });
   } else {
     events.push({ type: "LOG", message: `The arm drops and the scale tilts — ${sum} of ${target}. Not balanced yet; the tallies on the arms are the weights.` });
+  }
+}
+
+/** "beacon" mode (Skyreach): a line-of-sight lights-out. Striking a beacon
+ *  FLARES (toggles) the beacons in its sightline (`links`), not itself, so no
+ *  single strike lights them all — you strike the keystone that sees both ends,
+ *  then an end to catch the keystone. No hard reset; you toggle to the answer. */
+function solveBeacon(
+  state: WorldState,
+  def: WorldObjectDef,
+  doneFlag: string,
+  levers: WorldObjectDef[],
+  events: WorldEvent[],
+): void {
+  for (const id of def.links ?? []) {
+    const st = state.objects[id];
+    if (st) st.thrown = !st.thrown;
+  }
+  const lit = levers.filter((l) => state.objects[l.id]?.thrown).length;
+  if (lit >= levers.length) {
+    state.player.flags.push(doneFlag);
+    events.push({ type: "LOG", message: "Every beacon catches at once and the gallery floods with a light a thousand years cold — and the sealed way grinds OPEN." });
+  } else {
+    events.push({ type: "LOG", message: `The struck beacon throws its light down its sightline — ${lit} of ${levers.length} lit. A beacon flares the ones it can SEE, never itself; light them all at once.` });
   }
 }
 

@@ -1162,8 +1162,14 @@ export interface WorldObjectDef {
    *   - "balance": throw ANY subset whose `weight`s sum to `puzzleTarget`;
    *      order is irrelevant, but overshooting the target springs it back.
    *   - "timed": throw in ascending `order` AND each within `puzzleWindowMs`
-   *      of the last — a run that resets if you dawdle between levers. */
-  puzzleMode?: "order" | "balance" | "timed";
+   *      of the last — a run that resets if you dawdle between levers.
+   *   - "beacon": a line-of-sight lights-out — striking a beacon FLARES (toggles)
+   *      the beacons in its `links` sightline, not itself; light them all at
+   *      once. No reset: you toggle your way to the answer. */
+  puzzleMode?: "order" | "balance" | "timed" | "beacon";
+  /** beacon mode: the ids of the other beacons THIS one's sightline flares
+   *  (toggles) when struck. */
+  links?: string[];
   /** balance mode: this lever's weight toward the group's `puzzleTarget`. */
   weight?: number;
   /** balance mode: the exact sum of thrown `weight`s that opens the group. */
