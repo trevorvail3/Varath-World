@@ -2088,15 +2088,17 @@ function buildDungeonSites(): WorldObjectDef[] {
       lines: ["The dressed-stone door gives at last. Stale mountain air, and dark going down. You enter the Spine Vault."],
     },
     { id: "ret_spine", kind: "portal", x: vx + vault.exit.x, y: vy + vault.exit.y, name: "Vault Exit", target: { x: vmouth.x, y: vmouth.y + 1 }, lines: ["You leave the vault to its silence."] },
-    // The weigh-locks, one to a counting-cell off the gallery.
-    { id: "lev_vault_1", kind: "puzzle_lever", x: vx + 17, y: vy + 3, name: "Weigh-Lock I", puzzle: "vault_locks", order: 0, lines: ["A counter-weighted lock-arm, stamped with a single tally."] },
-    { id: "lev_vault_2", kind: "puzzle_lever", x: vx + 29, y: vy + 18, name: "Weigh-Lock II", puzzle: "vault_locks", order: 1, lines: ["A counter-weighted lock-arm, stamped with two tallies."] },
-    { id: "lev_vault_3", kind: "puzzle_lever", x: vx + 29, y: vy + 3, name: "Weigh-Lock III", puzzle: "vault_locks", order: 2, lines: ["A counter-weighted lock-arm, stamped with three tallies."] },
-    { id: "lev_vault_4", kind: "puzzle_lever", x: vx + 17, y: vy + 18, name: "Weigh-Lock IIII", puzzle: "vault_locks", order: 3, lines: ["A counter-weighted lock-arm, stamped with four tallies."] },
-    // The tally-stones that recite the count and its compass.
-    { id: "plq_vault_1", kind: "signpost", x: vx + 18, y: vy + 8, name: "Tally-Stone", lines: ["'ONE weight to the NORTH-WEST cell, where the count begins.'"] },
-    { id: "plq_vault_2", kind: "signpost", x: vx + 24, y: vy + 8, name: "Tally-Stone", lines: ["'TWO to the SOUTH-EAST, across the gallery — the count crosses, always.'"] },
-    { id: "plq_vault_3", kind: "signpost", x: vx + 30, y: vy + 8, name: "Tally-Stone", lines: ["'THREE to the NORTH-EAST, FOUR to the SOUTH-WEST — and the stair unbars for honest hands.'"] },
+    // The weigh-locks (T6·01 balance puzzle): drop any set of arms whose stamped
+    // weights BALANCE the scale at five — {1,4} or {2,3} — order does not matter,
+    // but tip past five and the pans crash and spring every arm back up.
+    { id: "lev_vault_1", kind: "puzzle_lever", x: vx + 17, y: vy + 3, name: "Weigh-Lock I", puzzle: "vault_locks", puzzleMode: "balance", weight: 1, puzzleTarget: 5, lines: ["A counter-weighted lock-arm, stamped with a single tally — a weight of one."] },
+    { id: "lev_vault_2", kind: "puzzle_lever", x: vx + 29, y: vy + 18, name: "Weigh-Lock II", puzzle: "vault_locks", puzzleMode: "balance", weight: 2, puzzleTarget: 5, lines: ["A counter-weighted lock-arm, stamped with two tallies — a weight of two."] },
+    { id: "lev_vault_3", kind: "puzzle_lever", x: vx + 29, y: vy + 3, name: "Weigh-Lock III", puzzle: "vault_locks", puzzleMode: "balance", weight: 3, puzzleTarget: 5, lines: ["A counter-weighted lock-arm, stamped with three tallies — a weight of three."] },
+    { id: "lev_vault_4", kind: "puzzle_lever", x: vx + 17, y: vy + 18, name: "Weigh-Lock IIII", puzzle: "vault_locks", puzzleMode: "balance", weight: 4, puzzleTarget: 5, lines: ["A counter-weighted lock-arm, stamped with four tallies — a weight of four."] },
+    // The tally-stones that recite the scale, not an order.
+    { id: "plq_vault_1", kind: "signpost", x: vx + 18, y: vy + 8, name: "Tally-Stone", lines: ["'The stair unbars for a scale weighed true to FIVE — no more, no less.'"] },
+    { id: "plq_vault_2", kind: "signpost", x: vx + 24, y: vy + 8, name: "Tally-Stone", lines: ["'The arms are stamped one, two, three, four. Drop the set that balances; the order you drop them is nothing to the stone.'"] },
+    { id: "plq_vault_3", kind: "signpost", x: vx + 30, y: vy + 8, name: "Tally-Stone", lines: ["'Weigh too heavy and the pans crash and throw it all back. Honest hands find five: one and four, or two and three.'"] },
     // The warded stair-gate, opened by the count.
     {
       id: "gate_vault", kind: "dungeon_gate", x: vx + 36, y: vy + 11, name: "Warded Stair-Gate",
@@ -2363,12 +2365,15 @@ function buildDungeonSites(): WorldObjectDef[] {
       hiddenByFlag: "key_gate_under_4", keyItem: "undergate_key_2",
       lines: ["Pale iron, seamless, humming very faintly. The Herald of this stair holds its key — and its breath."],
     },
-    { id: "lev_under_w1", kind: "puzzle_lever", x: ux + 131, y: uy + 44, name: "The FAR Waymark", puzzle: "under_road", order: 0, lines: ["A waymark stone: a wolf at the road's far end, looking back."] },
-    { id: "lev_under_w2", kind: "puzzle_lever", x: ux + 121, y: uy + 44, name: "The MIDDLE Waymark", puzzle: "under_road", order: 1, lines: ["A waymark stone: a wolf mid-stride on the long road."] },
-    { id: "lev_under_w3", kind: "puzzle_lever", x: ux + 111, y: uy + 44, name: "The HOME Waymark", puzzle: "under_road", order: 2, lines: ["A waymark stone: a wolf at a gate, home at last."] },
-    { id: "plq_under_w1", kind: "signpost", x: ux + 133, y: uy + 40, name: "Road-Verse", lines: ["'The wolf walks home from the FAR stone —'"] },
-    { id: "plq_under_w2", kind: "signpost", x: ux + 123, y: uy + 40, name: "Road-Verse", lines: ["'— by the MIDDLE stone —'"] },
-    { id: "plq_under_w3", kind: "signpost", x: ux + 113, y: uy + 40, name: "Road-Verse", lines: ["'— to the HOME stone, and the last door knows her step.'"] },
+    // The waymark road (T6·01 timed run): light FAR → MIDDLE → HOME in order, but
+    // each stone's light fades fast — you have to RUN the road between them before
+    // it dies, or it goes dark and you start again from the far stone.
+    { id: "lev_under_w1", kind: "puzzle_lever", x: ux + 131, y: uy + 44, name: "The FAR Waymark", puzzle: "under_road", puzzleMode: "timed", puzzleWindowMs: 6000, order: 0, lines: ["A waymark stone: a wolf at the road's far end, looking back. Struck, it kindles — and at once begins to dim."] },
+    { id: "lev_under_w2", kind: "puzzle_lever", x: ux + 121, y: uy + 44, name: "The MIDDLE Waymark", puzzle: "under_road", puzzleMode: "timed", puzzleWindowMs: 6000, order: 1, lines: ["A waymark stone: a wolf mid-stride on the long road."] },
+    { id: "lev_under_w3", kind: "puzzle_lever", x: ux + 111, y: uy + 44, name: "The HOME Waymark", puzzle: "under_road", puzzleMode: "timed", puzzleWindowMs: 6000, order: 2, lines: ["A waymark stone: a wolf at a gate, home at last."] },
+    { id: "plq_under_w1", kind: "signpost", x: ux + 133, y: uy + 40, name: "Road-Verse", lines: ["'The wolf walks home from the FAR stone, by the MIDDLE, to the HOME —'"] },
+    { id: "plq_under_w2", kind: "signpost", x: ux + 123, y: uy + 40, name: "Road-Verse", lines: ["'— and she walks it at a RUN. Kindle each stone and reach the next before its light dies, or the road forgets you and goes dark.'"] },
+    { id: "plq_under_w3", kind: "signpost", x: ux + 113, y: uy + 40, name: "Road-Verse", lines: ["'Light all three before the first goes cold, and the last door knows her step.'"] },
     {
       id: "gate_under_5", kind: "dungeon_gate", x: ux + 143, y: uy + 41, name: "The Last Seal",
       hiddenByFlag: "pz_under_road",

@@ -1156,6 +1156,20 @@ export interface WorldObjectDef {
    *  lever of a group in `order` sets the flag `pz_<puzzle>`; a wrong throw
    *  resets the group. (`order` doubles as this lever's place in the sequence.) */
   puzzle?: string;
+  /** puzzle_lever only: how the group is solved, so different dungeons play
+   *  differently instead of all being the same order-of-levers (T6·01):
+   *   - "order" (default): throw in ascending `order`; a wrong pull resets.
+   *   - "balance": throw ANY subset whose `weight`s sum to `puzzleTarget`;
+   *      order is irrelevant, but overshooting the target springs it back.
+   *   - "timed": throw in ascending `order` AND each within `puzzleWindowMs`
+   *      of the last — a run that resets if you dawdle between levers. */
+  puzzleMode?: "order" | "balance" | "timed";
+  /** balance mode: this lever's weight toward the group's `puzzleTarget`. */
+  weight?: number;
+  /** balance mode: the exact sum of thrown `weight`s that opens the group. */
+  puzzleTarget?: number;
+  /** timed mode: ms allowed between one correct pull and the next. */
+  puzzleWindowMs?: number;
   /** dungeon_chest only: what the chest holds. Granted once per player. */
   loot?: { item: ItemId; qty: number }[];
   /** dungeon_gate only: a key that opens THIS gate instead of a puzzle. Using
@@ -1765,6 +1779,10 @@ export interface WorldState {
   /** A player-lit campfire (Survivalist): burns for a while as a cooking source,
    *  then goes out. One at a time; runtime/session only — not persisted. */
   campfire?: { x: number; y: number; expiresAt: number } | null;
+  /** timed-puzzle deadlines: group id → the ms by which the next correct lever
+   *  must be thrown before the run resets. Runtime/session only — a timed puzzle
+   *  simply restarts on reload, so it never needs persisting. */
+  puzzleTimers?: Record<string, number>;
   /** An active Marrow Delve run: the current wave and kills left in it. Waves
    *  reveal flag-gated arena spawns; clearing the last pays the Delve Cache.
    *  Past the fixed waves the run continues into endless DEPTH (`depth` ≥ 1),

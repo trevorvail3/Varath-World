@@ -3410,7 +3410,7 @@ function startInteraction(
 
     // --- Dungeon furniture (the Act II exploration sites) --------------------
     case "puzzle_lever":
-      throwPuzzleLever(state, content, def, events);
+      throwPuzzleLever(state, content, def, ctx, events);
       break;
 
     case "dungeon_gate":
@@ -3446,6 +3446,7 @@ function throwPuzzleLever(
   state: WorldState,
   content: Content,
   def: WorldObjectDef,
+  ctx: Ctx,
   events: WorldEvent[],
 ): void {
   const { player } = state;
@@ -3456,6 +3457,12 @@ function throwPuzzleLever(
     return;
   }
   const levers = content.objects.filter((o) => o.kind === "puzzle_lever" && (o.puzzle ?? o.id) === group);
+  // Different dungeons, different mechanics (T6·01) — dispatch on the group's
+  // mode instead of every ruin being the same throw-in-order lever hunt.
+  const mode = def.puzzleMode ?? "order";
+  if (mode === "balance") { solveBalance(state, def, doneFlag, levers, events); return; }
+  if (mode === "timed") { solveTimed(state, def, group, doneFlag, levers, ctx, events); return; }
+  // --- "order": throw levers in ascending `order`; a wrong pull springs back --
   const progress = player.puzzles[group] ?? 0;
   const order = def.order ?? 0;
   if (order === progress) {
@@ -3475,6 +3482,85 @@ function throwPuzzleLever(
     player.puzzles[group] = 0;
     for (const l of levers) { const st = state.objects[l.id]; if (st) st.thrown = false; }
     events.push({ type: "LOG", message: "A wrong pull — the levers spring back with a grinding CLACK. The order matters; the carvings will know it." });
+  }
+}
+
+/** "balance" mode (the Vault): throw ANY subset of weigh-locks whose weights
+ *  SUM to the target — order is irrelevant, but tip past the target and the pans
+ *  crash and everything springs back. You choose WHICH, not in what sequence. */
+function solveBalance(
+  state: WorldState,
+  def: WorldObjectDef,
+  doneFlag: string,
+  levers: WorldObjectDef[],
+  events: WorldEvent[],
+): void {
+  const stDef = state.objects[def.id];
+  if (stDef?.thrown) {
+    events.push({ type: "LOG", message: "This weigh-lock is already dropped. The scale waits on the others." });
+    return;
+  }
+  if (stDef) stDef.thrown = true;
+  const target = def.puzzleTarget ?? 0;
+  let sum = 0;
+  for (const l of levers) if (state.objects[l.id]?.thrown) sum += l.weight ?? 0;
+  if (sum === target) {
+    state.player.flags.push(doneFlag);
+    events.push({ type: "LOG", message: "The scale settles dead level. Counterweights sigh into place, and the sealed way grinds OPEN." });
+  } else if (sum > target) {
+    for (const l of levers) { const st = state.objects[l.id]; if (st) st.thrown = false; }
+    events.push({ type: "LOG", message: `Too much weight — the pans crash and every arm springs back up. It wants ${target}, not more. Choose the locks that balance.` });
+  } else {
+    events.push({ type: "LOG", message: `The arm drops and the scale tilts — ${sum} of ${target}. Not balanced yet; the tallies on the arms are the weights.` });
+  }
+}
+
+/** "timed" mode (the Undergate's road): throw the waymarks in order AND keep
+ *  moving — each correct pull opens a window for the next, and dawdling past it
+ *  lets the run go dark and start over. A run, not a leisurely lever hunt. */
+function solveTimed(
+  state: WorldState,
+  def: WorldObjectDef,
+  group: string,
+  doneFlag: string,
+  levers: WorldObjectDef[],
+  ctx: Ctx,
+  events: WorldEvent[],
+): void {
+  const { player } = state;
+  const resetGroup = () => {
+    player.puzzles[group] = 0;
+    for (const l of levers) { const st = state.objects[l.id]; if (st) st.thrown = false; }
+    if (state.puzzleTimers) delete state.puzzleTimers[group];
+  };
+  let progress = player.puzzles[group] ?? 0;
+  const deadline = state.puzzleTimers?.[group];
+  // Mid-run and the window has closed: the run collapses, and THIS pull becomes
+  // a fresh first attempt (so a late pull on lever 0 still starts the run).
+  if (progress > 0 && deadline !== undefined && ctx.now > deadline) {
+    resetGroup();
+    progress = 0;
+    events.push({ type: "LOG", message: "You dawdled — the waymarks go dark, and the run resets to the first stone." });
+  }
+  const order = def.order ?? 0;
+  const window = def.puzzleWindowMs ?? 8000;
+  if (order === progress) {
+    player.puzzles[group] = progress + 1;
+    const st = state.objects[def.id];
+    if (st) st.thrown = true;
+    if (player.puzzles[group] >= levers.length) {
+      player.flags.push(doneFlag);
+      if (state.puzzleTimers) delete state.puzzleTimers[group];
+      events.push({ type: "LOG", message: "The last waymark lights, and the whole road blazes at once — the wolf is home. A sealed way grinds OPEN." });
+    } else {
+      state.puzzleTimers = { ...(state.puzzleTimers ?? {}), [group]: ctx.now + window };
+      events.push({ type: "LOG", message: "The waymark flares and starts to fade — the next one, QUICKLY, before the light dies." });
+    }
+  } else if (order < progress) {
+    events.push({ type: "LOG", message: "This waymark's already lit and running ahead of you." });
+  } else {
+    resetGroup();
+    events.push({ type: "LOG", message: "Wrong stone — the light gutters out and the run breaks. Begin again from the far waymark." });
   }
 }
 
