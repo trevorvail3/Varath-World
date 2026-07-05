@@ -67,6 +67,24 @@ type TabId =
   | "inventory" | "skills" | "spells" | "character"
   | "quests" | "social" | "factions" | "records" | "settings";
 
+/** Dock opens before the tap-an-open-tab-to-collapse gesture arms (T7·03). */
+const COLLAPSE_ARM_OPENS = 4;
+const DOCK_OPENS_KEY = "varath-dock-opens";
+function readDockOpens(): number {
+  try { return Math.max(0, Number(localStorage.getItem(DOCK_OPENS_KEY)) || 0); } catch { return 0; }
+}
+
+/** Reduce-motion accessibility toggle: a root class the stylesheet reacts to,
+ *  persisted on this device and re-applied on boot. */
+const REDUCE_MOTION_KEY = "varath-reduce-motion";
+function getReduceMotion(): boolean {
+  try { return localStorage.getItem(REDUCE_MOTION_KEY) === "1"; } catch { return false; }
+}
+function setReduceMotion(on: boolean): void {
+  try { localStorage.setItem(REDUCE_MOTION_KEY, on ? "1" : "0"); } catch { /* ignore */ }
+  document.documentElement.classList.toggle("reduce-motion", on);
+}
+
 const TABS: { id: TabId; icon: string; title: string }[] = [
   { id: "inventory", icon: "🎒", title: "Pack" },
   { id: "skills", icon: "📜", title: "Skills" },
@@ -74,7 +92,7 @@ const TABS: { id: TabId; icon: string; title: string }[] = [
   { id: "character", icon: "👤", title: "Character" },
   { id: "quests", icon: "📋", title: "Quests" },
   { id: "social", icon: "👥", title: "Social" },
-  { id: "factions", icon: "🌍", title: "World" },
+  { id: "factions", icon: "📖", title: "Almanac" },
   { id: "records", icon: "🏆", title: "Records" },
   { id: "settings", icon: "⚙️", title: "Settings" },
 ];
@@ -132,8 +150,10 @@ export class Hud {
   private specChip!: HTMLElement;
   private clueChip!: HTMLElement;
   private hpBar!: HTMLElement;
+  private hpNum!: HTMLElement;
   private graceFill!: HTMLElement;
   private graceBar!: HTMLElement;
+  private graceNum!: HTMLElement;
   private goldText!: HTMLElement;
   private vitals!: HTMLElement;
   private runControl!: HTMLElement;
@@ -159,6 +179,9 @@ export class Hud {
   private tabButtons = new Map<TabId, HTMLElement>();
   private activeTab: TabId = "inventory";
   private collapsed = false;
+  /** How many times the dock has been opened — gates the collapse-on-second-tap
+   *  gesture so it never surprises a newcomer (T7·03). Persisted. */
+  private dockOpenCount = readDockOpens();
   private dock!: HTMLElement;
 
   private charName!: HTMLElement;
@@ -213,6 +236,7 @@ export class Hud {
     this.rootEl = root;
     this.applyUiScale(getUiScale()); // restore the saved interface size
     setBrightness(getBrightnessSetting()); // restore the saved scene brightness
+    setReduceMotion(getReduceMotion()); // re-apply the reduce-motion preference on boot
     this.skillDetail = new SkillDetailModal(root, content);
     this.hiscores = new HiscoresUI(root, content);
     this.exchange = new ExchangeUI(root, content, dispatch, () => this.lastState);
@@ -290,8 +314,8 @@ export class Hud {
       <div class="vitals-row">
         <div class="hud-control run-control"><button class="run-toggle" type="button" title="Toggle run / walk"><span class="run-face">${glyph("boot")}</span></button></div>
         <div class="vitals-bars">
-          <div class="hp-bar" title="Hitpoints"><div class="hp-fill"></div></div>
-          <div class="grace-row"><div class="grace-bar" title="Grace — the Devotion spell fuel. Refill at a shrine or altar."><div class="grace-fill"></div></div></div>
+          <div class="hp-bar" title="Hitpoints"><div class="hp-fill"></div><span class="hp-num bar-num"></span></div>
+          <div class="grace-row"><div class="grace-bar" title="Grace — the Devotion spell fuel. Refill at a shrine or altar."><div class="grace-fill"></div><span class="grace-num bar-num"></span></div></div>
         </div>
       </div>
       <div class="hunt-chip hidden" title="Your active bounty task"></div>
@@ -314,8 +338,10 @@ export class Hud {
     });
     this.hpFill = vitals.querySelector(".hp-fill") as HTMLElement;
     this.hpBar = vitals.querySelector(".hp-bar") as HTMLElement;
+    this.hpNum = vitals.querySelector(".hp-num") as HTMLElement;
     this.graceFill = vitals.querySelector(".grace-fill") as HTMLElement;
     this.graceBar = vitals.querySelector(".grace-bar") as HTMLElement;
+    this.graceNum = vitals.querySelector(".grace-num") as HTMLElement;
     this.vitals = vitals;
     // The boot orb: a ring that drains as energy spends; click toggles run/walk.
     const runCtl = vitals.querySelector(".run-control") as HTMLElement;
@@ -414,7 +440,9 @@ export class Hud {
       btn.type = "button";
       btn.className = "dock-tab";
       btn.title = t.title;
-      btn.innerHTML = iconize(t.icon);
+      // Icon + a label that CSS reveals only on the ACTIVE tab, so a touch
+      // player always sees the name of the tab they're in (no hover title).
+      btn.innerHTML = `${iconize(t.icon)}<span class="dock-tab-label">${t.title}</span>`;
       btn.addEventListener("click", () => this.setTab(t.id));
       tabsCol.appendChild(btn);
       this.tabButtons.set(t.id, btn);
@@ -909,7 +937,7 @@ export class Hud {
         tsSlider.type = "range";
         tsSlider.className = "settings-slider";
         tsSlider.min = "0.85";
-        tsSlider.max = "1.4";
+        tsSlider.max = "2";
         tsSlider.step = "0.05";
         tsSlider.value = String(getUiScale());
         const syncTs = (): void => {
@@ -958,6 +986,20 @@ export class Hud {
         perfText.textContent = "Performance mode (less lag)";
         perfRow.append(perfBox, perfText);
         gameplay.appendChild(perfRow);
+
+        // --- Reduce motion: stills the UI's slides, pulses and fades for players
+        //     who find animation distracting or nauseating (accessibility). Sets
+        //     a root class the stylesheet reacts to; applied on boot too. ---
+        const rmRow = document.createElement("label");
+        rmRow.className = "settings-toggle";
+        const rmBox = document.createElement("input");
+        rmBox.type = "checkbox";
+        rmBox.checked = getReduceMotion();
+        rmBox.addEventListener("change", () => setReduceMotion(rmBox.checked));
+        const rmText = document.createElement("span");
+        rmText.textContent = "Reduce motion (fewer UI animations)";
+        rmRow.append(rmBox, rmText);
+        gameplay.appendChild(rmRow);
 
         // --- Audio: master volume + mute for the procedural dark-ambient score. ---
         const volRow = document.createElement("div");
@@ -1026,10 +1068,18 @@ export class Hud {
   }
 
   private setTab(id: TabId): void {
-    // Tapping the already-open tab collapses the dock to just its tab column.
-    if (id === this.activeTab && !this.collapsed) {
+    // Tapping the already-open tab collapses the dock to just its tab column —
+    // BUT not for the first few opens, when a newcomer reads that as "my content
+    // vanished." Only after they've opened the dock several times does the
+    // second-tap-to-collapse gesture switch on (T7·03).
+    const collapseArmed = this.dockOpenCount >= COLLAPSE_ARM_OPENS;
+    if (id === this.activeTab && !this.collapsed && collapseArmed) {
       this.collapsed = true;
     } else {
+      if (this.collapsed || id !== this.activeTab) {
+        this.dockOpenCount++;
+        try { localStorage.setItem(DOCK_OPENS_KEY, String(this.dockOpenCount)); } catch { /* ignore */ }
+      }
       this.activeTab = id;
       this.collapsed = false;
     }
@@ -1751,6 +1801,8 @@ export class Hud {
     const pct = Math.max(0, Math.min(1, player.hp / player.maxHp));
     this.hpFill.style.width = `${pct * 100}%`;
     this.hpBar.title = `Hitpoints: ${Math.max(0, player.hp)} / ${player.maxHp}`;
+    // Inline numerics so a touch player can read HP/Grace without a hover tip.
+    this.hpNum.textContent = `${Math.max(0, Math.round(player.hp))}/${player.maxHp}`;
     this.goldText.textContent = player.gold.toLocaleString();
     this.vitals.classList.toggle("low", player.alive && pct <= 0.35);
 
@@ -1763,6 +1815,7 @@ export class Hud {
     const gpct = Math.max(0, Math.min(1, player.grace / graceMax));
     this.graceFill.style.width = `${gpct * 100}%`;
     this.graceBar.title = `Grace: ${Math.floor(player.grace)} / ${graceMax} — the Devotion spell fuel. Refill at a shrine or altar.`;
+    this.graceNum.textContent = `${Math.floor(player.grace)}/${graceMax}`;
 
     // Run/walk: bar width, percentage, on/off and low-energy styling.
     // Run orb: the ring depletes with energy (a CSS var drives the conic fill),
@@ -1881,7 +1934,7 @@ export class Hud {
       // The chip warns (red) while the quest's toughest kill outclasses you.
       const rec = recLevel(def);
       const chip = rec
-        ? ` <span class="quest-lvl${cl < rec ? " over" : ""}" title="Toughest foe this quest asks you to fight">${glyph("swords")} ${rec}</span>`
+        ? ` <span class="quest-lvl${cl < rec ? " over" : ""}" title="${cl < rec ? "This quest's toughest foe OUTRANKS you — take care" : "Toughest foe this quest asks you to fight"}">${cl < rec ? "▲ " : ""}${glyph("swords")} ${rec}</span>`
         : "";
       return (
         `<div class="quest-item${on ? " tracked" : ""}" data-track="${id}" title="${on ? "Tracked — tap to clear" : "Tap to track this quest"}">` +

@@ -131,9 +131,36 @@ const MM_OBJ: Record<ObjKind, string> = {
 /** Draw a resource marker with a shape that reads at a glance: a little tree
  *  for woodcutting, a faceted diamond for ore, a ripple for fishing — anything
  *  else falls back to a plain dot. `r` is the dot radius the dot would use. */
+/** Destination POIs the minimap draws as EMOJI glyphs (matching the world map's
+ *  vocabulary) rather than near-identical coloured dots — so a bank, a bounty
+ *  board and a signpost are told apart at a glance (T7·04). Resource nodes keep
+ *  their distinct shapes below; only these look-alike dots get a glyph. */
+const MM_GLYPH: Partial<Record<ObjKind, string>> = {
+  bank: "🪙",
+  grand_exchange: "💰",
+  bounty_board: "🎯",
+  signpost: "🪧",
+  waystone: "🧭",
+  portal: "🌀",
+  housing_plot: "🏠",
+  shrine: "⛩️",
+  plant_patch: "🌾",
+};
+
 function drawObjShape(
   g: CanvasRenderingContext2D, kind: ObjKind, cx: number, cy: number, r: number, color: string,
 ): void {
+  const em = MM_GLYPH[kind];
+  if (em) {
+    const size = Math.max(8, r * 3.8);
+    g.font = `${size}px "Segoe UI Emoji", "Noto Color Emoji", system-ui, sans-serif`;
+    g.textAlign = "center";
+    g.textBaseline = "middle";
+    g.globalAlpha = color.startsWith("rgba(120") ? 0.45 : 1; // dim when depleted
+    g.fillText(em, cx, cy);
+    g.globalAlpha = 1;
+    return;
+  }
   g.fillStyle = color;
   g.strokeStyle = color;
   if (kind === "tree" || kind === "tree_patch") {
