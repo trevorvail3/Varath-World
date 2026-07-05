@@ -24,7 +24,7 @@
  */
 
 import type { Content, Player, WorldState } from "../core/types.ts";
-import { getTrackedQuest, setTrackedQuest } from "./questTrack.ts";
+import { getTrackedQuest, setTrackedQuest, isTrackingDismissed } from "./questTrack.ts";
 
 /** Quest-derived phases of the opening coach, in the order a new player meets them. */
 type Phase = "off" | "greet" | "mine" | "smelt" | "deliver" | "graduate";
@@ -260,6 +260,10 @@ export class Guide {
    *  somewhere. */
   private computeObjective(state: WorldState): string | null {
     const p = state.player;
+    // The player explicitly turned tracking off — keep the guide quiet and DON'T
+    // auto-retrack, so the top-left banner and the gold arrow stay hidden until
+    // they choose to track a quest again.
+    if (isTrackingDismissed()) return null;
     let tid = getTrackedQuest();
     if (!tid || !p.quests[tid]) {
       const active = Object.keys(p.quests);

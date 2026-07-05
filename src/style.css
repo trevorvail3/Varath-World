@@ -111,7 +111,11 @@ body {
    Grace) fill the rest to its RIGHT edge — so orb and bars line up under the
    minimap on both sides. No numbers or icons on the bars — values live in the
    hover tooltips. */
-.vitals-row { display: flex; align-items: center; gap: 6px; margin-top: 4px; width: 116px; }
+/* Match the minimap's OUTER span: its canvas is 116px plus a 1px border each
+   side (118px), and both panels share the same .hud-panel border + 3px padding,
+   so an 118px row makes the vitals box exactly as wide as the minimap above it —
+   the two line up flush on both edges instead of the minimap overhanging by 2px. */
+.vitals-row { display: flex; align-items: center; gap: 6px; margin-top: 4px; width: 118px; }
 .vitals-bars { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
 .vitals-bars .hp-bar { width: 100%; margin-top: 0; }
 
@@ -541,22 +545,10 @@ body {
   border-color: var(--ember);
 }
 
-/* The active tab widens to show its NAME (touch users have no hover title). */
+/* Tabs are icon-only — no text labels beside the glyphs (kept as the button's
+   `title` for hover). The active tab is marked by its ember highlight, not a
+   name, so the dock stays uncluttered. */
 .dock-tab-label { display: none; }
-.dock-tab.active {
-  width: auto;
-  min-width: 31px;
-  padding: 0 9px 0 7px;
-  gap: 5px;
-}
-.dock-tab.active .dock-tab-label {
-  display: inline;
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.2px;
-  white-space: nowrap;
-  color: var(--gold);
-}
 
 .dock-body {
   padding: 7px 8px;
@@ -4012,8 +4004,10 @@ button.inv-slot {
 /* A genuinely tiny window (very small phones in landscape): trim further so the
    dock and minimap still both fit without overlapping. */
 @media (max-height: 430px) {
-  /* Below 440px tall the minimap drops to 76px; pull the HP up + the run orb in. */
+  /* Below 440px tall the minimap canvas drops to 92px; pull the HP up + the run
+     orb in, and shrink the vitals row to match (92 + 2px border). */
   .hud-vitals { top: 96px; }
+  .vitals-row { width: 94px; }
   .run-control { right: 96px; }
   .dock-body {
     height: min(320px, calc(100vh - 130px));

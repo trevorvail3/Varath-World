@@ -39,7 +39,7 @@ import { PlayersUI } from "./playersUI.ts";
 import { TradeUI, registerStackables } from "./tradeUI.ts";
 import { currentTrade, requestTrade } from "./trade.ts";
 import { recentChat, sendChat } from "./chat.ts";
-import { getTrackedQuest, setTrackedQuest } from "./questTrack.ts";
+import { getTrackedQuest, setTrackedQuest, dismissTracking } from "./questTrack.ts";
 
 // How many lines of history the log keeps (you can scroll back through them).
 // The panel itself shows ~7 at a time; older lines stay available above. Game
@@ -640,12 +640,16 @@ export class Hud {
         list.className = "quest-list";
         this.questList = list;
         // Tap an active quest to track it (a gold marker then guides you to its
-        // objective); tap the tracked one again to clear it.
+        // objective); tap the tracked one again to turn tracking OFF — which
+        // stays off (the guide banner + arrow go quiet, no auto-retrack) until
+        // you tap a quest again, so you can minimise the guide when you're not
+        // working on a quest.
         list.addEventListener("click", (e) => {
           const row = (e.target as HTMLElement).closest("[data-track]") as HTMLElement | null;
           if (!row) return;
           const id = row.dataset.track!;
-          setTrackedQuest(getTrackedQuest() === id ? null : id);
+          if (getTrackedQuest() === id) dismissTracking();
+          else setTrackedQuest(id);
           if (this.lastState) this.renderQuests(this.lastState.player);
         });
         p.appendChild(list);

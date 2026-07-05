@@ -106,7 +106,8 @@ type Shape =
   | "ring" | "amulet" | "gem" | "bead" | "vial" | "herb" | "seed" | "mushroom"
   | "fish" | "meat" | "cooked" | "bowl" | "bread" | "hide" | "pet" | "mount" | "coin"
   | "scroll" | "key" | "trophy" | "powder" | "rivet" | "sack" | "rune"
-  | "hook" | "spike" | "horn" | "satchel";
+  | "hook" | "spike" | "horn" | "satchel"
+  | "bone" | "tooth" | "tail";
 
 function classify(def: ItemDef): Shape {
   const id = def.id.toLowerCase();
@@ -204,7 +205,13 @@ function classify(def: ItemDef): Shape {
   if (has("pearl") || has("gem")) return "gem";
   if (has("key") || has("lens") || has("cipher pendant")) return "key";
   if (has("scroll") || has("notes") || has("ledger") || has("record") || has("seal") || has("cipher") || has("pass") || has("lens")) return "scroll";
-  if (has("fang") || has("tusk") || has("claw") || has("tooth") || has("skull") || has("ear") || has("tail") || has("crown") || has("trophy") || has("bone") || has("horn") || has("antler") || has("hoof") || has("shell")) return "trophy";
+  // Bones, teeth and tails each get their OWN silhouette so a stack of drops
+  // isn't a wall of near-identical trophies. (Bonemeal is crushed bone — powder.)
+  if (has("bonemeal")) return "powder";
+  if (has("bone")) return "bone";
+  if (has("tooth") || has("teeth") || has("fang") || has("tusk")) return "tooth";
+  if (has("tail")) return "tail";
+  if (has("claw") || has("skull") || has("ear") || has("crown") || has("trophy") || has("horn") || has("antler") || has("hoof") || has("shell")) return "trophy";
   if (has("stone") && !has("stonewood")) return "ore";
   if (has("hook") || has("nail")) return "rivet";
   if (has("token") || has("coin") || has("badge") || has("mark") || has("sigil") || has("forge_token")) return "coin";
@@ -290,6 +297,9 @@ function paletteFor(def: ItemDef, shape: Shape): Pal {
     case "scroll": return shadeFrom(tweak("#d8c690", id, 12, 12, 8), hslHex(hash(id) % 360, 45, 45));
     case "key": return shadeFrom(tweak("#b89352", id, 18, 16, 12));
     case "trophy": return shadeFrom(hashColor(id, 28, 26, 12, 22, 62, 18));
+    case "bone": return shadeFrom(tweak("#e9e1cd", id, 7, 6, 5), "#cfc6ac");   // aged ivory
+    case "tooth": return shadeFrom(tweak("#efe9d6", id, 5, 5, 4), "#dcd4ba");  // whiter enamel
+    case "tail": return shadeFrom(hashColor(id, 12, 30, 32, 20, 30, 16));      // fleshy/scaled
     case "powder": return shadeFrom(hashColor(id, 18, 44, 6, 16, 36, 16));
     case "sack": return shadeFrom(hashColor(id, 22, 28, 28, 20, 42, 16));
     case "board":
@@ -674,6 +684,25 @@ function draw(shape: Shape, p: Pal, id: string): string {
     case "scroll": return `<rect x="9" y="7" width="14" height="18" rx="1" fill="#e3d4a8" stroke="#9a7a4a" stroke-width="1"/><rect x="7" y="6" width="18" height="3" rx="1.5" fill="${p.accent}"/><rect x="7" y="23" width="18" height="3" rx="1.5" fill="${p.accent}"/><line x1="12" y1="12" x2="20" y2="12" stroke="#9a7a4a" stroke-width="0.8"/><line x1="12" y1="15" x2="20" y2="15" stroke="#9a7a4a" stroke-width="0.8"/><line x1="12" y1="18" x2="18" y2="18" stroke="#9a7a4a" stroke-width="0.8"/>`;
     case "key": return `<circle cx="11" cy="12" r="5" fill="none" stroke="${p.base}" stroke-width="2.4"/><circle cx="11" cy="12" r="1.6" fill="${p.dark}"/><line x1="14" y1="15" x2="23" y2="24" stroke="${p.base}" stroke-width="2.4"/><line x1="20" y1="21" x2="23" y2="18" stroke="${p.base}" stroke-width="2.4"/>`;
     case "trophy": return `<path d="M12,6 Q20,7 21,14 Q21,24 16,27 Q11,24 11,14 Q11,9 12,6 Z" fill="${p.base}" stroke="${p.edge}" stroke-width="1" stroke-linejoin="round"/><path d="M14,9 Q15,16 16,24" fill="none" stroke="${p.dark}" stroke-width="0.8" opacity="0.5"/>`;
+    case "bone": {
+      // A proper femur: a shaft with a double-lobed knob at each end, drawn on
+      // the diagonal. Big/dragon/marrow bones read chunkier so they're distinct
+      // from plain bones at a glance.
+      const big = id.includes("big") || id.includes("dragon") || id.includes("marrow");
+      const w = big ? 5 : 3.6, r = big ? 3.4 : 2.7;
+      return `<line x1="10" y1="22" x2="22" y2="10" stroke="${p.edge}" stroke-width="${w + 2}" stroke-linecap="round"/>`
+        + `<circle cx="8.6" cy="20.6" r="${r}" fill="${p.base}" stroke="${p.edge}"/><circle cx="11.4" cy="23.4" r="${r}" fill="${p.base}" stroke="${p.edge}"/>`
+        + `<circle cx="20.6" cy="8.6" r="${r}" fill="${p.base}" stroke="${p.edge}"/><circle cx="23.4" cy="11.4" r="${r}" fill="${p.base}" stroke="${p.edge}"/>`
+        + `<line x1="10" y1="22" x2="22" y2="10" stroke="${p.base}" stroke-width="${w}" stroke-linecap="round"/>`
+        + `<line x1="11.6" y1="20" x2="20" y2="11.6" stroke="${p.light}" stroke-width="1" opacity="0.55" stroke-linecap="round"/>`;
+    }
+    case "tooth": // a fang: wide rounded crown tapering to a sharp root
+      return `<path d="M11,8 Q16,5 21,8 Q20.5,18 16.5,27 Q16,28 15.5,27 Q11.5,18 11,8 Z" fill="${p.base}" stroke="${p.edge}" stroke-width="1" stroke-linejoin="round"/>`
+        + `<path d="M13.6,9 Q13.1,14 14.6,19" fill="none" stroke="${p.light}" stroke-width="1.2" opacity="0.6" stroke-linecap="round"/>`
+        + `<path d="M18,9 Q19,15 17,22" fill="none" stroke="${p.dark}" stroke-width="0.8" opacity="0.4"/>`;
+    case "tail": // a tapering, curving tail — thick at the base, whip-thin at the tip
+      return `<path d="M7,26 Q9,20 13.5,17.5 Q19,14.5 22.5,8 Q24,8.8 22.5,10.8 Q19,16 14.5,19 Q10.5,21.5 9.5,26.5 Z" fill="${p.base}" stroke="${p.edge}" stroke-width="1" stroke-linejoin="round"/>`
+        + `<path d="M11.5,20.5 Q12.2,21.4 12.9,20.7 M15,17.7 Q15.6,18.7 16.3,18 M18.6,13.6 Q19.2,14.6 19.9,13.8" fill="none" stroke="${p.dark}" stroke-width="0.7" opacity="0.45"/>`;
     case "powder": return `<path d="M6,24 Q16,13 26,24 Z" fill="${p.base}" stroke="${p.edge}" stroke-width="1" stroke-linejoin="round"/><circle cx="12" cy="22" r="1" fill="${p.dark}"/><circle cx="16" cy="20" r="1" fill="${p.light}"/><circle cx="20" cy="22.5" r="1" fill="${p.dark}"/>`;
     case "rivet": return `<circle cx="16" cy="10" r="5" fill="${p.base}" stroke="${p.edge}" stroke-width="1"/><polygon points="13,13 19,13 17,26 15,26" fill="${p.base}" stroke="${p.edge}" stroke-width="1"/><ellipse cx="14" cy="9" rx="1.6" ry="1" fill="${p.light}" opacity="0.6"/>`;
     case "sack": return `<path d="M9,12 Q9,9 16,9 Q23,9 23,12 L24,24 Q24,27 16,27 Q8,27 8,24 Z" fill="${p.base}" stroke="${p.edge}" stroke-width="1"/><path d="M11,11 Q16,7 21,11" fill="none" stroke="${p.dark}" stroke-width="1.4"/><line x1="16" y1="16" x2="16" y2="23" stroke="${p.dark}" stroke-width="0.8" opacity="0.5"/>`;
