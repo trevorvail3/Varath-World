@@ -403,6 +403,10 @@ export class Hud {
       const parent = vitals.offsetParent as HTMLElement | null;
       const parentTop = parent ? parent.getBoundingClientRect().top : 0;
       vitals.style.top = `${Math.round(rect.bottom - parentTop + 6)}px`;
+      // Match the minimap's exact outer width (box-sizing: border-box) and share
+      // its right:10px, so the two panels line up edge-for-edge — the vitals box
+      // never protrudes past the minimap on either side. The inner row is 100%.
+      vitals.style.width = `${Math.round(rect.width)}px`;
     };
     placeVitals();
     requestAnimationFrame(placeVitals);

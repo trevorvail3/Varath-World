@@ -99,12 +99,13 @@ body {
 
 /* --- Hitpoints (top-right, tucked under the minimap so it's always in view) --- */
 .hud-vitals {
-  top: 138px; /* below the minimap (top 10 + 116 canvas + frame) */
+  top: 138px; /* fallback; JS pins it just below the minimap's real bottom */
   right: 10px;
-  /* Match the minimap panel exactly: same 3px horizontal padding and 1px border,
-     so this panel's outer box lines up edge-for-edge with the minimap above it. */
   padding: 6px 3px;
-  width: auto;
+  /* Fallback width (a normal-screen minimap's outer box). JS overrides this
+     with the minimap's exact rendered width so the two panels line up
+     edge-for-edge on every device; the inner row is 100% so it never spills. */
+  width: 124px;
 }
 /* The whole vitals row spans exactly the minimap's canvas width (116px): the run
    orb sits flush with the minimap's LEFT edge, the two stacked bars (HP over
@@ -115,7 +116,7 @@ body {
    side (118px), and both panels share the same .hud-panel border + 3px padding,
    so an 118px row makes the vitals box exactly as wide as the minimap above it —
    the two line up flush on both edges instead of the minimap overhanging by 2px. */
-.vitals-row { display: flex; align-items: center; gap: 6px; margin-top: 4px; width: 118px; }
+.vitals-row { display: flex; align-items: center; gap: 6px; margin-top: 4px; width: 100%; }
 .vitals-bars { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
 .vitals-bars .hp-bar { width: 100%; margin-top: 0; }
 
@@ -2135,8 +2136,7 @@ button.inv-slot {
 }
 
 @media (max-width: 520px) {
-  /* HP + Grace bars stay tucked under the minimap, sized to its width. */
-  .hud-vitals { width: auto; }
+  /* HP + Grace bars stay tucked under the minimap; JS sets the exact width. */
 
   /* Keep the bottom-left log and bottom-right dock from crowding each other. */
   .hud-log {
@@ -4064,8 +4064,7 @@ button.inv-slot {
   /* Below 440px tall the minimap canvas drops to 92px; pull the HP up + the run
      orb in, and shrink the vitals row to match (92 + 2px border). */
   .hud-vitals { top: 96px; }
-  .vitals-row { width: 94px; }
-  .run-control { right: 96px; }
+  .vitals-row { width: 100%; }
   .dock-body {
     height: min(320px, calc(100vh - 130px));
     height: min(320px, calc(100vh - 130px));
