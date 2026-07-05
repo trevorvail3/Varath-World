@@ -4784,6 +4784,33 @@ function drawSkillPet(
       eye(cx - 5, wy - 3, 0.9);
       break;
     }
+    case "pet_pier_crab": { // PIER CRAB — a stout red shore-crab, claws up
+      const scu = moving ? Math.abs(Math.sin(now / 90)) * 1.4 : 0; // sideways scuttle bob
+      g.fillStyle = "#b23a2a"; // carapace
+      g.beginPath(); g.ellipse(cx, y + 1, 6.5, 4.4, 0, 0, Math.PI * 2); g.fill();
+      g.fillStyle = "#c85a44"; // lit top of the shell
+      g.beginPath(); g.ellipse(cx - 1, y - 0.6, 4.6, 2.4, 0, 0, Math.PI * 2); g.fill();
+      g.strokeStyle = "#7f2418"; g.lineWidth = 0.7; // shell seam
+      g.beginPath(); g.moveTo(cx - 5, y + 1); g.lineTo(cx + 5, y + 1); g.stroke();
+      // Legs (three a side), splayed and stepping.
+      g.strokeStyle = "#8f2c1f"; g.lineWidth = 1;
+      for (let i = 0; i < 3; i++) {
+        const ly = y + 1 + i * 1.8, kick = ((i % 2) ? scu : -scu);
+        g.beginPath(); g.moveTo(cx - 5, ly); g.lineTo(cx - 9, ly + 2 + kick); g.stroke();
+        g.beginPath(); g.moveTo(cx + 5, ly); g.lineTo(cx + 9, ly + 2 - kick); g.stroke();
+      }
+      // Claws, held up.
+      g.fillStyle = "#b23a2a";
+      g.beginPath(); g.ellipse(cx - 7, y - 3.5, 2.4, 1.7, -0.5, 0, Math.PI * 2); g.fill();
+      g.beginPath(); g.ellipse(cx + 7, y - 3.5, 2.4, 1.7, 0.5, 0, Math.PI * 2); g.fill();
+      g.strokeStyle = "#7f2418"; g.lineWidth = 0.8; // pincer notch
+      g.beginPath(); g.moveTo(cx - 8.4, y - 4); g.lineTo(cx - 6.4, y - 3.2); g.moveTo(cx + 8.4, y - 4); g.lineTo(cx + 6.4, y - 3.2); g.stroke();
+      // Eyestalks.
+      g.strokeStyle = "#8f2c1f"; g.lineWidth = 1;
+      g.beginPath(); g.moveTo(cx - 2, y - 3); g.lineTo(cx - 2.5, y - 6); g.moveTo(cx + 2, y - 3); g.lineTo(cx + 2.5, y - 6); g.stroke();
+      eye(cx - 2.5, y - 6.2, 1); eye(cx + 2.5, y - 6.2, 1);
+      break;
+    }
     case "pet_mining": { // ROCK PUP — a living pebble with a crystal spine
       g.fillStyle = "#6a6660";
       g.beginPath(); g.ellipse(cx, y + 2, 9, 7, 0, 0, Math.PI * 2); g.fill();

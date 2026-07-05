@@ -1083,8 +1083,20 @@ function openContainer(
 ): void {
   const { player } = state;
   const held = player.inventory[slot];
-  const table = held ? CONTAINER_TABLES[held.item] : undefined;
-  if (!held || !table) return;
+  if (!held) return;
+  // The Trailblazer's Lamp: an Agility-Mark sink that pours straight into
+  // Agility XP, scaled by level so it stays worth striking at any tier. Bonus
+  // XP on top of what the laps already paid — the point is spending SPARE Marks.
+  if (held.item === "lamp_agility") {
+    removeItems(player, "lamp_agility", 1);
+    const lvl = player.skills.agility.level;
+    const amount = Math.round(lvl * lvl * 1.2 + 400); // 99 -> ~12,160; 50 -> ~3,400
+    grantXp(state, content, "agility", amount, events);
+    events.push({ type: "LOG", message: `You crack the Trailblazer's Lamp and its light pours into your stride — ${amount.toLocaleString()} Agility XP.` });
+    return;
+  }
+  const table = CONTAINER_TABLES[held.item];
+  if (!table) return;
   removeItems(player, held.item, 1);
   const container = held.item;
   const coins = randInt(ctx, table.coins[0], table.coins[1]);

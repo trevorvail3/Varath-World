@@ -25,7 +25,7 @@ export const shops: ShopDef[] = [
       // Canon generalStoreHTML stock + prices, exactly.
       { item: "plant_fiber", price: 15, qty: 1 },
       { item: "ashwood_shaft", price: 80, qty: 10 },
-      { item: "embercite_ore", price: 90, qty: 5 },
+      { item: "embercite_ore", price: 90, qty: 2, max: 6, restockMs: 600000 }, // rationed: a trickle for flux; BULK embercite must be mined (T4·06)
       { item: "seed_ashweed", price: 20, qty: 3 },
       { item: "seed_thornroot", price: 38, qty: 3 },
       { item: "seed_bloodberry", price: 69, qty: 3 },
@@ -247,7 +247,7 @@ export const shops: ShopDef[] = [
     stock: [
       { item: "pickaxe_3", price: 320, qty: 1 },
       { item: "pickaxe_4", price: 950, qty: 1 },
-      { item: "embercite_ore", price: 90, qty: 5 },
+      { item: "embercite_ore", price: 90, qty: 2, max: 6, restockMs: 600000 }, // rationed: a trickle for flux; BULK embercite must be mined (T4·06)
       { item: "glass_flask", price: 30, qty: 3 },
       { item: "cooked_meat", price: 40, qty: 2 },
     ],
@@ -282,7 +282,7 @@ export const shops: ShopDef[] = [
     name: "Emberhearth Flux",
     greeting: "Sefa's trade — embercite for flux, charcoal for the forge, flasks for the brew. The warm ground gives plenty.",
     stock: [
-      { item: "embercite_ore", price: 90, qty: 5 },
+      { item: "embercite_ore", price: 90, qty: 2, max: 6, restockMs: 600000 }, // rationed: a trickle for flux; BULK embercite must be mined (T4·06)
       { item: "charcoal", price: 24, qty: 5 },
       { item: "glass_flask", price: 30, qty: 3 },
       { item: "cooked_meat", price: 40, qty: 2 },
@@ -330,6 +330,9 @@ export const shops: ShopDef[] = [
       // wren — a marks-only prestige companion at the top of the ladder.
       { item: "pot_runner", price: 0, qty: 1, costItem: "agility_mark", costQty: 2 },
       { item: "pet_trail_wren", price: 0, qty: 1, costItem: "agility_mark", costQty: 120 },
+      // The endless sink: pour spare Marks straight into Agility XP, so a runner
+      // with the whole set + wren still has a reason to keep earning Marks.
+      { item: "lamp_agility", price: 0, qty: 1, costItem: "agility_mark", costQty: 3 },
     ],
   },
   {
@@ -402,6 +405,9 @@ export const shops: ShopDef[] = [
       { item: "redgill_raw", price: 0, qty: 1, costItem: "pier_chit", costQty: 4 },
       { item: "runestout_raw", price: 0, qty: 1, costItem: "pier_chit", costQty: 6 },
       { item: "deepscale_raw", price: 0, qty: 1, costItem: "pier_chit", costQty: 8 },
+      // The pier's marquee: a chit-only prestige companion at the top of the
+      // racks, so the chit currency has an apex chase and not just a fish loop.
+      { item: "pet_pier_crab", price: 0, qty: 1, costItem: "pier_chit", costQty: 50 },
     ],
   },
 ];

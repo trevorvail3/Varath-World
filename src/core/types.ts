@@ -418,6 +418,8 @@ export type ItemId =
   | "farmer_boots"
   | "agility_mark"
   | "pier_chit"
+  | "lamp_agility"
+  | "pet_pier_crab"
   | "trail_hood"
   | "trail_vest"
   | "trail_legs"

@@ -3470,12 +3470,32 @@ export const items: Record<ItemId, ItemDef> = {
     "stackable": true,
     "sell": 0
   },
+  "pet_pier_crab": {
+    "id": "pet_pier_crab",
+    "name": "Pier Crab",
+    "description": "A stout red shore-crab that took up under Jacob's racks and never left. Fifty chits' worth of loyalty — it sidles after you now, claws up, defending a pier it will never see again.",
+    "icon": "🦀",
+    "cat": "Skilling Pets",
+    "slot": "companion",
+    "rarity": "legendary",
+    "sell": 0
+  },
   "agility_mark": {
     "id": "agility_mark",
     "name": "Agility Mark",
     "description": "A runner's token, struck for each full lap of the Varathian Trail. Cael the Trailkeeper trades these for the Trailblazer outfit.",
     "icon": "🎗️",
     "cat": "Finds",
+    "stackable": true,
+    "sell": 0
+  },
+  "lamp_agility": {
+    "id": "lamp_agility",
+    "name": "Trailblazer's Lamp",
+    "description": "A runner's lantern Cael strikes from spare Marks. Open it to pour its light straight into your Agility — the more seasoned the runner, the brighter it burns. Cael keeps striking them for anyone with Marks to spare.",
+    "icon": "🏮",
+    "cat": "Finds",
+    "container": true,
     "stackable": true,
     "sell": 0
   },
