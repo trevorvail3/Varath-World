@@ -590,17 +590,20 @@ export class Hud {
         styleWrap.innerHTML = `<div class="style-label">Combat style</div>`;
         const row = document.createElement("div");
         row.className = "style-row";
-        const styles: { id: CombatStyle; name: string; icon: string; hint: string }[] = [
-          { id: "edge", name: "Edge", icon: "⚔️", hint: "accuracy" },
-          { id: "vigour", name: "Vigour", icon: "💪", hint: "damage" },
-          { id: "ward", name: "Ward", icon: "🛡️", hint: "defence" },
+        const styles: { id: CombatStyle; name: string; icon: string; hint: string; tip: string }[] = [
+          { id: "edge", name: "Edge", icon: "⚔️", hint: "accuracy",
+            tip: "Accurate — more of your blows land, each a shade softer. Trains Edge." },
+          { id: "vigour", name: "Vigour", icon: "💪", hint: "damage",
+            tip: "Aggressive — harder hits at ordinary accuracy. Trains Vigour." },
+          { id: "ward", name: "Ward", icon: "🛡️", hint: "defence",
+            tip: "Defensive — trades damage for a real guard. Trains Ward." },
         ];
         for (const st of styles) {
           const b = document.createElement("button");
           b.type = "button";
           b.className = "style-btn";
           b.innerHTML = `<span class="style-ic">${iconize(st.icon)}</span>${st.name}`;
-          b.title = `Train ${st.name} — bonus to ${st.hint}`;
+          b.title = st.tip;
           b.addEventListener("click", () => this.dispatch({ type: "SET_STYLE", style: st.id }));
           this.styleButtons.set(st.id, b);
           row.appendChild(b);

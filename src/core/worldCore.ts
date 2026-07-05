@@ -22,6 +22,7 @@
 import type {
   AchievementCond,
   BountyTaskDef,
+  CombatStyle,
   Content,
   CropDef,
   Ctx,
@@ -360,8 +361,6 @@ const COMBAT = {
   bossOffStyleDmg: 0.6,
   /** Ward soaks floor(defence / this) flat damage per hit. */
   wardDivisor: 15,
-  /** Small flat bonus the matching style grants. */
-  styleBonus: 3,
   /** How long a slain monster stays down before respawning (ms). */
   respawn: 9000,
   /** Tiles a player with a bow can loose an arrow across (Chebyshev). */
@@ -379,6 +378,21 @@ const COMBAT = {
    *  and you have to eat / play the weakness triangle. Bosses keep their own
    *  hand-tuned damage (they're excluded). */
   monsterDmgMult: 1.4,
+};
+
+// T1·06 — the combat-style toggle is a LIVE tradeoff, not a flat +3. Each stance
+// re-weights the SAME accuracy / max-hit / defence you already carry, so the
+// choice matters moment-to-moment and switching mid-fight is a real decision:
+//   Edge (Accurate)    — more of your blows land, each a shade softer.
+//   Vigour (Aggressive)— harder hits at ordinary accuracy: raw DPS.
+//   Ward (Defensive)   — trades offence for a real guard, the tank stance.
+// The acc/dmg legs only touch MELEE (ranged/magic have their own ratings); the
+// def leg applies to whatever you're doing, so Ward tanks for any build. The
+// duel snapshot reads the same functions, so PvP inherits the tradeoff for free.
+const STYLE_MODS: Record<CombatStyle, { acc: number; dmg: number; def: number }> = {
+  edge: { acc: 1.15, dmg: 0.92, def: 1.0 },
+  vigour: { acc: 1.0, dmg: 1.12, def: 1.0 },
+  ward: { acc: 0.9, dmg: 0.82, def: 1.25 },
 };
 
 /** Base max HP before the Vitality level is added. */
@@ -6064,14 +6078,15 @@ function weaponStyle(player: Player, content: Content): string | undefined {
 }
 
 /**
- * Player accuracy rating: Edge + summed gear acc (weapon, ring, amulet) + the
- * Edge-style bonus. equipStat sums the field across every worn item, and only
- * weapons/rings/amulets carry `acc`, so this matches the idle game's sum.
+ * Player accuracy rating: Edge + summed gear acc (weapon, ring, amulet), then
+ * re-weighted by the live combat stance (Accurate lands more; Defensive less).
+ * equipStat sums the field across every worn item, and only weapons/rings/
+ * amulets carry `acc`, so the base matches the idle game's sum.
  */
 function playerAccuracy(player: Player, content: Content): number {
-  const styleBonus = player.combatStyle === "edge" ? COMBAT.styleBonus : 0;
   const cape = varathCapeWorn(player) ? 5 : 0; // Cape of Varath: +5 Edge
-  return skillLvl(player, "edge") + equipStat(player, content, "acc") + styleBonus + cape + buffVal(player, "melee_acc");
+  const base = skillLvl(player, "edge") + equipStat(player, content, "acc") + cape + buffVal(player, "melee_acc");
+  return Math.max(1, Math.round(base * STYLE_MODS[player.combatStyle].acc));
 }
 
 /** Max Hitpoints at a given Vitality level — the skill-info milestone maths
@@ -6086,12 +6101,13 @@ export function vigourBaseHit(level: number): number {
   return Math.max(1, Math.round(level * COMBAT.dmgSkillScale));
 }
 
-/** Player max hit: Vigour + summed gear dmg (weapon, amulet) + Vigour bonus. */
+/** Player max hit: Vigour + summed gear dmg (weapon, amulet), re-weighted by the
+ *  live stance (Aggressive hits harder; Accurate and Defensive trade damage away). */
 function playerMaxHit(player: Player, content: Content): number {
-  const styleBonus = player.combatStyle === "vigour" ? COMBAT.styleBonus : 0;
   const str = Math.round(skillLvl(player, "vigour") * COMBAT.dmgSkillScale);
   const cape = varathCapeWorn(player) ? 5 : 0; // Cape of Varath: +5 Vigour
-  return str + equipStat(player, content, "dmg") + styleBonus + cape + buffVal(player, "melee_dmg");
+  const base = str + equipStat(player, content, "dmg") + cape + buffVal(player, "melee_dmg");
+  return Math.max(1, Math.round(base * STYLE_MODS[player.combatStyle].dmg));
 }
 
 /** The bow the player is wielding, if any — a ranged weapon worn in the mainhand. */
@@ -6162,10 +6178,12 @@ function magicMaxHit(player: Player, content: Content): number {
   return str + sd + equipStat(player, content, "magDmg") + buffVal(player, "magic_dmg");
 }
 
-/** Player defence rating: Ward + summed armour defence (+ any Defence buff). */
+/** Player defence rating: Ward + summed armour defence (+ any Defence buff),
+ *  then boosted while in the Defensive stance — the tank tradeoff (T1·06). */
 function playerDefence(player: Player, content: Content): number {
   const cape = varathCapeWorn(player) ? 5 : 0; // Cape of Varath: +5 Ward
-  return skillLvl(player, "ward") + equipStat(player, content, "def") + cape + buffVal(player, "defence");
+  const base = skillLvl(player, "ward") + equipStat(player, content, "def") + cape + buffVal(player, "defence");
+  return Math.round(base * STYLE_MODS[player.combatStyle].def);
 }
 
 /**

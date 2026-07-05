@@ -158,7 +158,7 @@ const TIPS: Tip[] = [
   {
     id: "combat_style",
     test: (s) => (s.player.stats?.monstersSlain ?? 0) >= 3,
-    text: "Tip: switch your combat style in the Gear tab — Edge trains accuracy, Vigour trains damage, Ward trains defence. Each kill pours XP into the style you're using.",
+    text: "Tip: your combat style in the Gear tab is a live tradeoff — Edge lands more but softer hits, Vigour hits hardest, Ward trades damage for a real guard. Switch it mid-fight to match the foe. Each kill also trains that style.",
   },
   {
     id: "pack_full",
