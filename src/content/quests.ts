@@ -229,6 +229,13 @@ export const quests: QuestDef[] = [
     steps: [
       { type: "talk", npc: "sera", text: "Bring the worn coin to Sera" },
       { type: "gather", item: "worn_coin", count: 3, text: "Gather 3 more worn coins from the moor rats", from: "moor_rat" },
+      // Teaching folds (T3·06): a newcomer's first trip into Ironvale is where
+      // they meet the two town systems most players never discover on their own —
+      // the Bank chest (stash what you can't carry) and the Grand Exchange (price
+      // your finds against the world). Both auto-clear for anyone who's already
+      // used them, so only a true first-timer is ever nudged to the counter.
+      { type: "learn", system: "bank", text: "Stash your coins safe in the Bank chest in Ironvale" },
+      { type: "learn", system: "exchange", text: "See what your finds fetch at the Grand Exchange" },
       { type: "talk", npc: "ashfen_tender", text: "Investigate the warm workings the cult tends" },
       {
         type: "choice",
@@ -973,6 +980,11 @@ export const quests: QuestDef[] = [
     ],
     steps: [
       { type: "kill", monster: "bog_knight", count: 1, text: "Break the Bog Barrow's old watch (0/1)" },
+      // Teaching fold (T3·06): the faith quest that finally asks the player to
+      // *practise* the faith. Train Faith once — burying a bone at the fire, or
+      // loosing a staff-bolt — so Devotion stops being a tab they never open.
+      // Auto-clears for anyone who has already earned Faith XP.
+      { type: "learn", system: "faith", text: "Give the warmth its due — train Faith once (bury a bone, or cast with a staff)" },
       {
         type: "choice",
         npc: "calder",
@@ -1742,6 +1754,11 @@ export const quests: QuestDef[] = [
     ],
     steps: [
       { type: "deliver", npc: "pier_warden", item: "ashfin_raw", count: 8, text: "Bring Jacob 8 raw ashfin" },
+      // Teaching fold (T3·06): a fisher who can't cook goes hungry. Land one more
+      // and put it over a fire — the newcomer's first taste of Cooking, on the
+      // one quest where they're already holding raw fish. Auto-clears for anyone
+      // who's cooked before.
+      { type: "learn", system: "cook", text: "Cook an ashfin over a fire — raw fish won't feed you" },
       { type: "talk", npc: "pier_warden", text: "Return to Jacob at the pier" },
     ],
     outro: [

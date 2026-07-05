@@ -6086,7 +6086,31 @@ function checkGatherQuests(
       advanceQuest(state, content, def, st, events);
     } else if (obj.type === "build" && hasBuilt(state, content, obj.category)) {
       advanceQuest(state, content, def, st, events);
+    } else if (obj.type === "learn" && hasLearned(state, obj.system)) {
+      advanceQuest(state, content, def, st, events);
     }
+  }
+}
+
+/** True once the player has met a core system for the first time — used by the
+ *  "learn" teaching objective. Bank/exchange read the live station the player is
+ *  standing at; cook/faith read whether the skill has earned any XP at all (a
+ *  fresh skill sits at 0), so the step blocks only someone who has genuinely
+ *  never cooked or trained Faith and clears itself for anyone who already has. */
+function hasLearned(
+  state: WorldState,
+  system: "bank" | "exchange" | "cook" | "faith",
+): boolean {
+  const { player } = state;
+  switch (system) {
+    case "bank":
+      return player.station?.kind === "bank";
+    case "exchange":
+      return player.station?.kind === "exchange";
+    case "cook":
+      return (player.skills.cooking?.xp ?? 0) > 0;
+    case "faith":
+      return (player.skills.faith?.xp ?? 0) > 0;
   }
 }
 

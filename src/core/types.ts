@@ -2500,7 +2500,13 @@ export type QuestObjective =
   /** Claim any homestead plot (introduces player housing). */
   | { type: "claim"; text: string }
   /** Build a furniture piece (optionally of a given category) at a home. */
-  | { type: "build"; category?: string; text: string };
+  | { type: "build"; category?: string; text: string }
+  /** Teaching objective: introduce a core system by having the player engage it
+   *  once — open the Bank or the Grand Exchange, cook over a fire, or train Faith
+   *  (a prayer, a buried bone, a staff cast). Auto-completes the instant the
+   *  player has already done it, so a veteran is never made to repeat a tutorial
+   *  and the step only ever blocks someone who genuinely hasn't met the system. */
+  | { type: "learn"; system: "bank" | "exchange" | "cook" | "faith"; text: string };
 
 /** What a quest grants on completion. */
 export interface QuestReward {
