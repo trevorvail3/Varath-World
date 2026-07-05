@@ -36,7 +36,7 @@ export class LoginUI {
     this.backdrop.innerHTML = `
       <div class="login-box">
         <div class="login-title">VARATH</div>
-        <div class="login-sub">The stone remembers.</div>
+        <div class="login-sub">The stone remembers, and the moon watches.</div>
         <button class="login-play" type="button">Play now</button>
         <div class="login-foot">An old-school adventure — free to play in your browser.</div>
       </div>`;
