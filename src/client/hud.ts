@@ -383,6 +383,30 @@ export class Hud {
     this.runControl = runCtl;
     root.appendChild(vitals);
 
+    // Pin the vitals box directly under the minimap by MEASURING it, rather than
+    // a fixed `top` offset that can't know the minimap's real rendered height
+    // (which shifts with DPI, short screens and a device notch) and so let the
+    // minimap clip the box's top. Re-measured on resize and whenever the minimap
+    // itself changes size.
+    const placeVitals = (): void => {
+      const mm = root.querySelector(".hud-minimap") as HTMLElement | null;
+      if (mm) vitals.style.top = `${mm.offsetTop + mm.offsetHeight + 6}px`;
+    };
+    placeVitals();
+    requestAnimationFrame(placeVitals);
+    window.addEventListener("resize", placeVitals);
+    if (typeof ResizeObserver !== "undefined") {
+      const ro = new ResizeObserver(placeVitals);
+      // The minimap is created elsewhere and may not exist yet — attach the
+      // observer as soon as it appears, then keep the box glued beneath it.
+      const hookMinimap = (): void => {
+        const mm = root.querySelector(".hud-minimap");
+        if (mm) { ro.observe(mm); placeVitals(); }
+        else requestAnimationFrame(hookMinimap);
+      };
+      hookMinimap();
+    }
+
     // --- Active buff chips (top-left) ---
     const topLeft = document.createElement("div");
     topLeft.className = "hud-topleft";
