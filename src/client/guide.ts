@@ -24,7 +24,7 @@
  */
 
 import type { Content, Player, WorldState } from "../core/types.ts";
-import { getTrackedQuest, setTrackedQuest, isTrackingDismissed } from "./questTrack.ts";
+import { getTrackedQuest, setTrackedQuest, isTrackingDismissed, dismissTracking } from "./questTrack.ts";
 
 /** Quest-derived phases of the opening coach, in the order a new player meets them. */
 type Phase = "off" | "greet" | "mine" | "smelt" | "deliver" | "graduate";
@@ -205,7 +205,31 @@ export class Guide {
     this.content = content;
     this.banner = document.createElement("div");
     this.banner.className = "guide-banner hidden";
+    this.banner.title = "Tap to dismiss";
+    // Click/tap anywhere on the banner to dismiss it — works with a mouse on
+    // desktop and a touch on mobile, and covers every layer (opening coach,
+    // contextual tips, and the pinned quest objective).
+    this.banner.addEventListener("click", () => this.dismissBanner());
     root.appendChild(this.banner);
+  }
+
+  /** Hide the banner in response to a user tap, and keep it quiet:
+   *  - a live tip is cleared;
+   *  - the opening coach is retired (the player has opted out of the tutorial);
+   *  - the pinned objective is turned off (same as un-tracking the quest) so it
+   *    doesn't just reappear on the next tick. */
+  private dismissBanner(): void {
+    if (this.tipTimer !== null) { window.clearTimeout(this.tipTimer); this.tipTimer = null; }
+    // Turn the pinned objective off (same as un-tracking the quest) so it does
+    // not just reappear on the next tick.
+    dismissTracking();
+    this.objectiveText = null;
+    if (this.active) {
+      // Opening coach was showing — the player has chosen to dismiss the tutorial.
+      try { localStorage.setItem(COACH_KEY, "1"); } catch { /* ignore */ }
+      this.retireOpeningCoach();
+    }
+    this.banner.classList.add("hidden");
   }
 
   get currentStep(): Phase {

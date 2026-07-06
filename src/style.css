@@ -1775,7 +1775,10 @@ body {
   z-index: 25;
   max-width: min(440px, 80vw);
   text-align: center;
-  pointer-events: none;
+  /* Clickable so it can be dismissed with a mouse (desktop) or a tap (mobile) —
+     it lives under #hud, which is pointer-events:none, so re-enable it here. */
+  pointer-events: auto;
+  cursor: pointer;
   font-family: "EB Garamond", serif;
   font-size: 15px;
   line-height: 1.4;
@@ -1783,9 +1786,26 @@ body {
   background: rgba(20, 16, 12, 0.9);
   border: 1px solid var(--gold);
   border-radius: 8px;
-  padding: 9px 16px;
+  padding: 9px 30px 9px 16px; /* room on the right for the ✕ dismiss hint */
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.55);
 }
+
+/* A visible dismiss affordance (esp. for desktop). Drawn with ::after so it
+   survives the banner's textContent updates; clicking anywhere on the banner
+   — including here — hides it. */
+.guide-banner::after {
+  content: "\00d7";
+  position: absolute;
+  top: 4px;
+  right: 8px;
+  font-family: system-ui, sans-serif;
+  font-size: 15px;
+  line-height: 1;
+  color: var(--gold);
+  opacity: 0.7;
+}
+
+.guide-banner:hover::after { opacity: 1; }
 
 .guide-banner.hidden {
   display: none;

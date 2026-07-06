@@ -2626,8 +2626,9 @@ export class Game {
     }
 
     // Loot on the tile is grabbable, listed first (even under a creature). Each
-    // pile is its own entry so you can take just what you want; a stack asks how
-    // many. With more than one pile, a "Take all" entry tops the list.
+    // pile is its own entry; taking one always grabs the WHOLE pile — no
+    // "how many" prompt, even for a stack. With more than one pile, a
+    // "Take all" entry tops the list.
     const loot = this.bridge.state.ground.filter((g) => g.x === tile.x && g.y === tile.y);
     if (loot.length) {
       const lootEntries: MenuItem[] = loot.map((g) => {
@@ -2636,16 +2637,7 @@ export class Game {
           label: "Take",
           target: g.qty > 1 ? `${g.qty}× ${name}` : name,
           tone: "action",
-          onSelect: () => {
-            if (g.qty > 1) {
-              const ans = window.prompt(`Take how many ${name}? (1–${g.qty})`, String(g.qty));
-              if (ans === null) return;
-              const n = Math.max(1, Math.min(g.qty, Math.floor(Number(ans)) || 0));
-              if (n > 0) this.pickupAt(tile, { id: g.id, qty: n });
-            } else {
-              this.pickupAt(tile, { id: g.id });
-            }
-          },
+          onSelect: () => this.pickupAt(tile, { id: g.id }),
         };
       });
       if (loot.length > 1) {
