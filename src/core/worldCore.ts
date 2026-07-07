@@ -1544,6 +1544,49 @@ function levelFromXp(xpTable: number[], xp: number): number {
   return level;
 }
 
+/**
+ * Per-skill XP-rate multipliers — the "~25 hours to max each skill" knob.
+ *
+ * Every skill grants XP at a different natural pace (fishing's reel timer is
+ * slow; a combat swing is fast), so at the flat rate maxing one skill ranged
+ * from ~30h (combat) to ~110h (fishing). These factors NORMALISE each skill's
+ * effective XP/hr toward a common target of ~480,000 XP/hr, so that the fixed
+ * 12,000,000-XP cost of level 100 (see xpCurve.ts) is reached in roughly 25
+ * hours of focused training — whatever the skill. Each factor is 480k divided
+ * by that skill's measured base rate, so a slow skill is boosted more.
+ *
+ * The level curve and the 12M cap are untouched (saved characters keep every
+ * level); only the XP *awarded per action* is scaled here at the single choke
+ * point through which all XP flows.
+ *
+ *  - vitality: 1.0 — it already maxes for free as a by-product of combat
+ *    (every swing feeds it ⅓ of the style's XP), so it needs no boost.
+ *  - farming: 1.0 — its bottleneck is real-time crop growth, not active hours
+ *    (a single harvest is already worth tens of thousands of XP).
+ */
+const XP_RATE: Record<SkillId, number> = {
+  fishing: 4.4,
+  survivalist: 4.0,
+  bounty: 4.0,
+  hunter: 3.2,
+  construction: 3.2,
+  woodcraft: 2.4,
+  herblore: 2.4,
+  agility: 2.4,
+  mining: 1.9,
+  forestry: 1.9,
+  smithing: 1.6,
+  cooking: 1.6,
+  crafting: 1.6,
+  faith: 1.25,
+  edge: 1.2,
+  vigour: 1.2,
+  ward: 1.2,
+  draw: 1.2,
+  vitality: 1.0,
+  farming: 1.0,
+};
+
 function grantXp(
   state: WorldState,
   content: Content,
@@ -1553,6 +1596,8 @@ function grantXp(
 ): void {
   const s = state.player.skills[skill];
   const before = s.level;
+  // Normalise this skill's rate toward the ~25-hours-to-max target (see XP_RATE).
+  amount = amount * (XP_RATE[skill] ?? 1);
   // A summoned skilling companion sweetens XP for its own skill. Kept fractional
   // so a small % still accrues on low-XP actions (the display rounds it).
   const comp = activeCompanion(state.player, content);
