@@ -1400,6 +1400,7 @@ export const items: Record<ItemId, ItemDef> = {
     "description": "Tough sinew from a Pale Stag. Used in bowcraft and fine cordage.",
     "icon": "〰️",
     "cat": "Materials",
+    "stackable": true,
     "sell": 65
   },
   "trophy": {

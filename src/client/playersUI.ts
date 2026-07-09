@@ -10,11 +10,12 @@ import {
   acceptFriend, addFriend, listFriends, onlineNow, removeFriend, resolveByName,
   type Friend, type OnlinePlayer,
 } from "./friends.ts";
-import { profileFor, type HiscoreEntry } from "./social.ts";
+import { profileFor, getSocial, getLocal, submitCurrent, type HiscoreEntry } from "./social.ts";
 import type { Content, SkillId } from "../core/types.ts";
 import { iconize } from "./glyph.ts";
+import { currentUser } from "./supabase.ts";
 
-type Tab = "online" | "friends";
+type Tab = "online" | "friends" | "hiscores";
 
 function ago(ms: number): string {
   const s = Math.max(0, Math.floor(ms / 1000));
@@ -66,7 +67,7 @@ export class PlayersUI {
     );
     this.backdrop.addEventListener("pointerdown", (e) => { if (e.target === this.backdrop) this.close(); });
 
-    for (const [id, label] of [["online", "Online Now"], ["friends", "Friends"]] as [Tab, string][]) {
+    for (const [id, label] of [["online", "Online Now"], ["friends", "Friends"], ["hiscores", "High Scores"]] as [Tab, string][]) {
       const b = document.createElement("button");
       b.type = "button";
       b.className = `players-tab${id === this.tab ? " on" : ""}`;
@@ -102,6 +103,7 @@ export class PlayersUI {
     this.body.innerHTML = `<div class="players-empty">Loading…</div>`;
     try {
       if (this.tab === "online") this.renderOnline(await onlineNow());
+      else if (this.tab === "hiscores") this.renderHiscores(await this.loadHiscores());
       else this.renderFriends(await listFriends());
     } catch {
       this.body.innerHTML = `<div class="players-empty">Couldn't reach the server.</div>`;
@@ -242,6 +244,39 @@ export class PlayersUI {
       void removeFriend(Number((el as HTMLElement).dataset.id)).then(() => this.refresh());
     }));
     this.bindTrade();
+    this.bindProfile();
+  }
+
+  /** Push our own row, then fetch the shared board (falling back to this
+   *  device's local board if the server is unreachable), and flag our row. */
+  private async loadHiscores(): Promise<HiscoreEntry[]> {
+    await submitCurrent(this.content);
+    let list: HiscoreEntry[];
+    try { list = await getSocial(this.content).hiscores(); }
+    catch { list = await getLocal(this.content).hiscores(); }
+    const myId = currentUser()?.id;
+    for (const e of list) e.you = e.userId ? e.userId === myId : false;
+    return list;
+  }
+
+  /** All-time leaderboard: every ranked player (online or not, friend or not),
+   *  ordered by total level. Names open the same public profile as elsewhere. */
+  private renderHiscores(list: HiscoreEntry[]): void {
+    if (list.length === 0) {
+      this.body.innerHTML = `<div class="players-empty">No ranked players yet.</div>`;
+      return;
+    }
+    const ranked = [...list].sort((a, b) =>
+      b.totalLevel - a.totalLevel || b.combat - a.combat || a.name.localeCompare(b.name),
+    );
+    this.body.innerHTML = `<div class="players-sub">All players, ranked by total level</div>` +
+      ranked.map((e, i) => `
+        <div class="players-row${e.you ? " you" : ""}">
+          <span class="players-rank">${i + 1}</span>
+          <span class="players-name" ${e.userId ? `data-id="${escapeHtml(e.userId)}" data-name="${escapeHtml(e.name)}"` : ""}>${escapeHtml(e.name)}</span>
+          <span class="players-hs-lvl" title="Total level">${iconize("⭐")} ${e.totalLevel.toLocaleString()}</span>
+          <span class="players-ago" title="Combat level">${iconize("⚔️")} ${e.combat}</span>
+        </div>`).join("");
     this.bindProfile();
   }
 

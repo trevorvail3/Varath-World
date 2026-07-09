@@ -383,8 +383,9 @@ export class Game {
   private records: RecordsUI;
   private duel: DuelUI;
   private tension: TensionUI;
-  /** Active "Cook all" run: keep cooking every cookable dish at this fire. */
-  private cookAll: { objId: string } | null = null;
+  /** Active "make all" run at a station: keep crafting every makeable recipe
+   *  there (Cook all at a fire, Smelt all at a furnace) until nothing's left. */
+  private cookAll: { objId: string; station: ObjKind } | null = null;
   /** An item armed with "Use", awaiting a target tap (OSRS use-on). */
   private useItem: { slot: number; item: ItemId } | null = null;
   /** A bounded craft run (Use → cook N): stop after `n` of `rawItem` are used. */
@@ -1141,17 +1142,19 @@ export class Game {
       .sort((x, y) => Math.min(...x[1].map((a) => a.levelReq)) - Math.min(...y[1].map((a) => a.levelReq)))
       .map(([label, as]) => ({ label, items: as.map(toItem) }));
 
-    // At the cooking fire, a "Cook all" shortcut chains through every raw food
-    // you can cook, so a full pack of mixed catch cooks in one tap.
-    if (station === "fire" && this.cookableNow().length > 0) {
-      const cookAll: MenuItem = {
-        label: "Cook all",
+    // A one-tap "make all" chains through every recipe you have materials for,
+    // so a full pack processes in a single tap: "Cook all" at a fire, "Smelt
+    // all" at a furnace (across every ore type — no clicking per ore).
+    const makeAllLabel = station === "fire" ? "Cook all" : station === "furnace" ? "Smelt all" : null;
+    if (makeAllLabel && this.cookableNow(station).length > 0) {
+      const makeAll: MenuItem = {
+        label: makeAllLabel,
         target: "everything you can",
         tone: "action",
-        onSelect: () => { this.cookAll = { objId }; this.startNextCook(); },
+        onSelect: () => { this.cookAll = { objId, station }; this.startNextCook(); },
       };
-      items.unshift(cookAll);
-      if (tabs[0]) tabs[0].items.unshift(cookAll);
+      items.unshift(makeAll);
+      if (tabs[0]) tabs[0].items.unshift(makeAll);
     }
     const title = VERB[station].replace(/ at$/, "");
     this.menu.show(
@@ -1233,7 +1236,8 @@ export class Game {
   }
 
   /** Recipes at the cooking fire the player can make right now (level + stock). */
-  private cookableNow(): SkillAction[] {
+  /** Every recipe at `station` the player can make right now (level + materials). */
+  private cookableNow(station: ObjKind = "fire"): SkillAction[] {
     const player = this.bridge.state.player;
     const have = (id: string): number =>
       player.inventory.reduce((n, s) => (s?.item === id ? n + s.qty : n), 0);
@@ -1242,15 +1246,15 @@ export class Game {
       if (a.requiresAny?.length && !a.requiresAny.some((it) => have(it) > 0)) return false;
       return true;
     };
-    return this.bridge.stationRecipes("fire")
+    return this.bridge.stationRecipes(station)
       .filter((a) => a.produces && player.skills[a.skill].level >= a.levelReq && has(a));
   }
 
-  /** Start the next cookable dish for an active "Cook all"; false if none/no room. */
+  /** Start the next makeable recipe for an active "make all"; false if none/no room. */
   private startNextCook(): boolean {
     if (!this.cookAll) return false;
     const player = this.bridge.state.player;
-    const next = this.cookableNow()[0];
+    const next = this.cookableNow(this.cookAll.station)[0];
     if (!next || !player.inventory.some((s) => s === null)) return false;
     this.dispatch({ type: "CRAFT", actionId: next.id, objId: this.cookAll.objId });
     return true;
@@ -1286,41 +1290,35 @@ export class Game {
     );
   }
 
-  /** The Courier's waystone network: pick a destination and pay the toll. */
+  /** The Courier's waystone network: open the world map and tap the destination
+   *  waystone directly — no need to know each stop by name. The toll (by
+   *  distance) is paid on arrival. */
   private openTravel(srcId: string): void {
     const content = this.bridge.content;
     const player = this.bridge.state.player;
-    const dests = content.objects
-      .filter((o) => o.kind === "waystone" && o.id !== srcId && o.target)
-      .map((o) => ({ o, fare: travelFare(player.pos, o.target!) }))
-      .sort((a, b) => a.fare - b.fare);
+    const dests = content.objects.filter((o) => o.kind === "waystone" && o.id !== srcId && o.target);
+    if (dests.length === 0) { this.hud.log("This is the only waystone you know."); return; }
 
-    const items: MenuItem[] = dests.map(({ o, fare }) => {
-      const afford = player.gold >= fare;
-      return {
-        label: o.name,
-        target: `${fare}g`,
-        tone: afford ? "action" : "normal",
-        onSelect: () => {
-          if (!afford) {
-            this.hud.log(`The toll to ${o.name} is ${fare}g — you can't cover it.`);
-            return;
-          }
-          this.dispatch({ type: "TRAVEL", to: o.id });
-        },
-      };
+    this.worldMap.show({
+      hint: "Tap a waystone ◆ on the map to ride there — the toll is paid on arrival.",
+      onSelect: (tile) => {
+        // Snap to the nearest waystone to where they tapped.
+        let best = dests[0]!;
+        let bestD = Infinity;
+        for (const o of dests) {
+          const d = Math.max(Math.abs(o.x - tile.x), Math.abs(o.y - tile.y));
+          if (d < bestD) { bestD = d; best = o; }
+        }
+        // Guard against a stray tap on empty land teleporting (and charging) you.
+        if (bestD > 6) { this.hud.log("Tap closer to a waystone ◆ to ride there."); return; }
+        const fare = travelFare(player.pos, best.target!);
+        if (player.gold < fare) {
+          this.hud.log(`The toll to ${best.name} is ${fare}g — you can't cover it.`);
+          return;
+        }
+        this.dispatch({ type: "TRAVEL", to: best.id });
+      },
     });
-    if (items.length === 0) {
-      this.hud.log("This is the only waystone you know.");
-      return;
-    }
-    this.menu.show(
-      window.innerWidth / 2,
-      window.innerHeight / 2,
-      "Courier Waystone",
-      items,
-      `Pay the toll to ride elsewhere. You carry ${player.gold.toLocaleString()}g.`,
-    );
   }
 
   /**

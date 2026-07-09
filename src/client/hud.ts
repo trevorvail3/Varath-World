@@ -39,6 +39,8 @@ import { PlayersUI } from "./playersUI.ts";
 import { TradeUI, registerStackables } from "./tradeUI.ts";
 import { currentTrade, requestTrade } from "./trade.ts";
 import { recentChat, sendChat } from "./chat.ts";
+import { listFriends } from "./friends.ts";
+import { currentUser } from "./supabase.ts";
 import { getTrackedQuest, setTrackedQuest, dismissTracking } from "./questTrack.ts";
 
 // How many lines of history the log keeps (you can scroll back through them).
@@ -279,6 +281,37 @@ export class Hud {
     this.buildSkillPicker(root);
     this.startChatFeed();
     this.startTradeFeed();
+    this.startFriendWatch();
+  }
+
+  /** Which accepted friends were online last poll (null until the first poll, so
+   *  we never announce everyone already online at sign-in). */
+  private onlineFriends: Set<string> | null = null;
+
+  /** Poll the friends list and post a private chat line whenever an accepted
+   *  friend transitions to online — "Bob has logged in." Local-only (never sent
+   *  to world chat), and a no-op while signed out. */
+  private startFriendWatch(): void {
+    const tick = (): void => {
+      void this.pollFriends();
+      window.setTimeout(tick, 20000); // ~ONLINE_MS/3, so a login shows within ~20s
+    };
+    window.setTimeout(tick, 4000); // let boot settle before the first poll
+  }
+
+  private async pollFriends(): Promise<void> {
+    if (!currentUser()) { this.onlineFriends = null; return; } // signed out
+    let friends;
+    try { friends = await listFriends(); }
+    catch { return; } // offline — try again next tick
+    const online = new Map<string, string>();
+    for (const f of friends) if (f.status === "accepted" && f.online) online.set(f.id, f.name);
+    if (this.onlineFriends !== null) {
+      for (const [id, name] of online) {
+        if (!this.onlineFriends.has(id)) this.log(`${name} has logged in.`);
+      }
+    }
+    this.onlineFriends = new Set(online.keys());
   }
 
   private hiscores: HiscoresUI;

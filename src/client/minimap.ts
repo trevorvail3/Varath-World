@@ -9,6 +9,7 @@
 import type { Content, ObjKind, TileType, Vec2, WorldState } from "../core/types.ts";
 import { objectPos, objectHidden } from "../core/worldCore.ts";
 import { OVERWORLD_HEIGHT, instanceRectAt, REGIONS, CITY } from "../content/map.ts";
+import type { InstanceRect } from "../content/map.ts";
 import { Camera, TILE } from "./render.ts";
 import { iconize } from "./glyph.ts";
 import { currentGhosts } from "./presence.ts";
@@ -372,6 +373,10 @@ export class Minimap {
   }
 }
 
+/** The map's default footer hint, restored whenever the map opens for a plain
+ *  walk (i.e. not in a pick-a-destination mode). */
+const WORLDMAP_HINT = "Tap the map to walk there · scroll or ± to zoom · drag to pan · tap a chip to filter.";
+
 /** A full-screen overlay showing the whole continent: terrain + player on a
  *  canvas, with a DOM overlay of named places and a filterable legend of POI
  *  markers (banks, stations, waystones, people, …). */
@@ -394,9 +399,17 @@ export class WorldMapModal {
 
   private stage!: HTMLElement;
   private viewport!: HTMLElement;
+  private hintEl!: HTMLElement;
   private mapZoom = 1;
   private baseW = 0;
   private baseH = 0;
+  /** When set, the next map tap SELECTS a destination (waystone teleport) rather
+   *  than walking there; cleared after a pick or when the map closes. */
+  private pickCb: ((tile: Vec2) => void) | null = null;
+  /** The tile rect currently rendered: an instance's interior sub-grid while the
+   *  player is inside one, or null for the plain overworld. Drives the tap→tile
+   *  math (walk + pick) and the you-are-here dot. */
+  private curRect: InstanceRect | null = null;
 
   constructor(root: HTMLElement, content: Content, onWalk: (tile: Vec2) => void) {
     const m = content.map;
@@ -428,6 +441,7 @@ export class WorldMapModal {
     this.legend = this.backdrop.querySelector(".worldmap-legend") as HTMLElement;
     this.stage = this.backdrop.querySelector(".worldmap-stage") as HTMLElement;
     this.viewport = this.backdrop.querySelector(".worldmap-viewport") as HTMLElement;
+    this.hintEl = this.backdrop.querySelector(".worldmap-hint") as HTMLElement;
     root.appendChild(this.backdrop);
     const g = canvas.getContext("2d");
     if (!g) throw new Error("Could not get a 2D context for the world map.");
@@ -448,11 +462,28 @@ export class WorldMapModal {
       e.stopPropagation();
       if (dragged) return; // it was a pan, not a tap
       const r = canvas.getBoundingClientRect();
-      onWalk({
-        x: Math.floor(((e.clientX - r.left) / r.width) * m.width),
-        y: Math.floor(((e.clientY - r.top) / r.height) * OVERWORLD_HEIGHT),
-      });
-      this.close();
+      const fx = (e.clientX - r.left) / r.width;
+      const fy = (e.clientY - r.top) / r.height;
+      // Inside an instance the canvas shows only that region's sub-grid, so map
+      // the tap within the region rect; in the overworld it spans the atlas.
+      const rect = this.curRect;
+      const tile = rect
+        ? {
+            x: rect.x0 + Math.floor(fx * (rect.x1 - rect.x0 + 1)),
+            y: rect.y0 + Math.floor(fy * (rect.y1 - rect.y0 + 1)),
+          }
+        : { x: Math.floor(fx * m.width), y: Math.floor(fy * OVERWORLD_HEIGHT) };
+      if (this.pickCb) {
+        // Pick-a-destination mode (waystone teleport): hand back the tile, drop
+        // out of pick mode, and close — no walking.
+        const cb = this.pickCb;
+        this.pickCb = null;
+        cb(tile);
+        this.close();
+      } else {
+        onWalk(tile);
+        this.close();
+      }
     });
     // Wheel zoom, centred roughly on the cursor.
     this.viewport.addEventListener("wheel", (e) => {
@@ -627,8 +658,16 @@ export class WorldMapModal {
   }
 
   isOpen(): boolean { return this.open; }
-  show(): void { this.open = true; this.backdrop.classList.remove("hidden"); this.layout(); }
-  close(): void { this.open = false; this.backdrop.classList.add("hidden"); }
+  /** Open the map. With no argument it's the usual tap-to-walk map; pass a `pick`
+   *  to enter "choose a destination" mode (waystone teleport): the next tap calls
+   *  `onSelect(tile)` instead of walking, and `hint` (if given) replaces the
+   *  footer text so the player knows to pick a spot. */
+  show(pick?: { onSelect: (tile: Vec2) => void; hint?: string }): void {
+    this.pickCb = pick ? pick.onSelect : null;
+    this.hintEl.textContent = pick?.hint ?? WORLDMAP_HINT;
+    this.open = true; this.backdrop.classList.remove("hidden"); this.layout();
+  }
+  close(): void { this.open = false; this.pickCb = null; this.backdrop.classList.add("hidden"); }
 
   /** Repaint terrain + player + view-rect each frame; markers are static DOM. */
   /** The atlas layer — terrain, coastlines, relief, grain, frame, compass —
@@ -773,6 +812,44 @@ export class WorldMapModal {
     const m = state.map;
     const cell = g.canvas.width / m.width;
     const rows = OVERWORLD_HEIGHT;
+    const p = state.player.pos;
+
+    // Inside a sealed instance (dungeon / home / arena) the overworld atlas is
+    // meaningless (wrong coords, and no player dot), so render THAT region's tile
+    // sub-grid scaled to fill the canvas instead — a clean flat-tiled floor plan.
+    const region = instanceRectAt(Math.round(p.x), Math.round(p.y));
+    this.curRect = region;
+    if (region) {
+      // The overworld POI markers + place labels belong to overworld coords, so
+      // hide the whole DOM overlay while we're underground.
+      this.markerLayer.style.display = "none";
+      const W = g.canvas.width, H = g.canvas.height;
+      const rw = region.x1 - region.x0 + 1, rh = region.y1 - region.y0 + 1;
+      const cx = W / rw, cy = H / rh; // per-tile cell, stretched to fill the map
+      g.fillStyle = "#0c0907";
+      g.fillRect(0, 0, W, H);
+      for (let ry = 0; ry < rh; ry++) {
+        const my = region.y0 + ry;
+        if (my < 0 || my >= m.height) continue;
+        for (let rx = 0; rx < rw; rx++) {
+          const mx = region.x0 + rx;
+          if (mx < 0 || mx >= m.width) continue;
+          g.fillStyle = MM_TILE[m.tiles[my * m.width + mx]!];
+          g.fillRect(rx * cx, ry * cy, cx + 0.8, cy + 0.8);
+        }
+      }
+      // You-are-here, mapped within the region rect (matching the tap math above).
+      const px = (p.x - region.x0 + 0.5) * cx, py = (p.y - region.y0 + 0.5) * cy;
+      const ph = (performance.now() % 1600) / 1600;
+      g.strokeStyle = `rgba(242,207,107,${(0.75 * (1 - ph)).toFixed(3)})`;
+      g.lineWidth = 1.6;
+      g.beginPath(); g.arc(px, py, 4 + ph * 9, 0, Math.PI * 2); g.stroke();
+      drawPlayerDot(g, px, py);
+      void content; void cam; void viewW; void viewH;
+      return;
+    }
+    // Back in the open overworld: make sure the DOM overlay is visible again.
+    this.markerLayer.style.display = "";
 
     g.drawImage(this.atlasTerrain(m), 0, 0);
     // Deliberately NO live-hunt ring here either: the contract and the guide's
@@ -796,7 +873,6 @@ export class WorldMapModal {
     }
     // You-are-here: the familiar dot, ringed by a slow gold pulse so the eye
     // finds itself on a busy chart at once.
-    const p = state.player.pos;
     if (p.y < rows) {
       const px = (p.x + 0.5) * cell, py = (p.y + 0.5) * cell;
       const ph = (performance.now() % 1600) / 1600;

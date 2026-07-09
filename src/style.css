@@ -2711,6 +2711,11 @@ button.inv-slot {
 .players-name[data-id] { cursor: pointer; }
 .players-name[data-id]:hover { color: var(--gold); text-decoration: underline; }
 .players-ago { font-size: 11px; color: var(--ink-dim); }
+/* High Scores rows: a rank number, and total-level / combat readouts. */
+.players-rank { flex: 0 0 auto; width: 26px; text-align: right; color: var(--ink-dim); font-variant-numeric: tabular-nums; }
+.players-hs-lvl { flex: 0 0 auto; color: var(--gold); font-variant-numeric: tabular-nums; }
+.players-row.you { outline: 1px solid var(--gold); border-radius: 5px; }
+.players-row.you .players-name { color: var(--gold); font-weight: 600; }
 
 /* --- Player profile (skills + time played) --- */
 .players-back { align-self: flex-start; margin-bottom: 8px; }
@@ -4280,3 +4285,40 @@ button.inv-slot {
 .deco-hint-text { font-family: "EB Garamond", serif; font-size: 14px; color: #e6dcc2; }
 .deco-hint-text b { color: #f2cf6b; }
 .decorate-hint button { padding: 6px 14px; border-radius: 16px; cursor: pointer; font-family: "Cinzel", serif; font-size: 11px; color: #f2e2b8; background: linear-gradient(180deg, #6b4a2c, #4a2f1a); border: 1px solid #8a6a3a; }
+
+/* ── Bigger, easier-to-tap close buttons across every popup/modal ─────────────
+   All the modal close glyphs were an 18px ✕ with no padding — a tiny target,
+   especially on a phone. Give them a larger glyph and a generous ~40px tap
+   area (centred), without touching their header placement. */
+.worldmap-close,
+.ctx-close,
+.bank-close,
+.shop-close,
+.hiscores-close,
+.players-close,
+.trade-close,
+.duel-close,
+.ge-close,
+.skilldetail-close {
+  font-size: 26px;
+  line-height: 1;
+  min-width: 40px;
+  min-height: 40px;
+  padding: 4px 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+}
+.worldmap-close:hover,
+.ctx-close:hover,
+.bank-close:hover,
+.shop-close:hover,
+.hiscores-close:hover,
+.players-close:hover,
+.trade-close:hover,
+.duel-close:hover,
+.ge-close:hover,
+.skilldetail-close:hover {
+  background: rgba(255, 255, 255, 0.08);
+}

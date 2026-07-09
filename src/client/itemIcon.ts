@@ -107,7 +107,7 @@ type Shape =
   | "fish" | "meat" | "cooked" | "bowl" | "bread" | "hide" | "pet" | "mount" | "coin"
   | "scroll" | "key" | "trophy" | "powder" | "rivet" | "sack" | "rune"
   | "hook" | "spike" | "horn" | "satchel"
-  | "bone" | "tooth" | "tail";
+  | "bone" | "tooth" | "tail" | "sinew";
 
 function classify(def: ItemDef): Shape {
   const id = def.id.toLowerCase();
@@ -215,7 +215,10 @@ function classify(def: ItemDef): Shape {
   if (has("stone") && !has("stonewood")) return "ore";
   if (has("hook") || has("nail")) return "rivet";
   if (has("token") || has("coin") || has("badge") || has("mark") || has("sigil") || has("forge_token")) return "coin";
-  if (has("fiber") || has("bark") || has("resin") || has("sap") || has("gall") || has("splinter") || has("chip") || has("nest") || has("sinew") || has("bloom") || has("root") || has("moss")) return "herb";
+  // Sinew (and other cordage) is the bowstring material — a coiled hank of cord,
+  // NOT a plant. Must come before the "fiber"/"root"/"moss" herb catch-all.
+  if (has("sinew") || has("bowstring") || has("bow string") || has("catgut") || has("gut string") || has("cordage")) return "sinew";
+  if (has("fiber") || has("bark") || has("resin") || has("sap") || has("gall") || has("splinter") || has("chip") || has("nest") || has("bloom") || has("root") || has("moss")) return "herb";
 
   return "rune";
 }
@@ -300,6 +303,7 @@ function paletteFor(def: ItemDef, shape: Shape): Pal {
     case "bone": return shadeFrom(tweak("#e9e1cd", id, 7, 6, 5), "#cfc6ac");   // aged ivory
     case "tooth": return shadeFrom(tweak("#efe9d6", id, 5, 5, 4), "#dcd4ba");  // whiter enamel
     case "tail": return shadeFrom(hashColor(id, 12, 30, 32, 20, 30, 16));      // fleshy/scaled
+    case "sinew": return shadeFrom(tweak("#d8c9a6", id, 6, 8, 6), "#b8a274");  // pale dried cord
     case "powder": return shadeFrom(hashColor(id, 18, 44, 6, 16, 36, 16));
     case "sack": return shadeFrom(hashColor(id, 22, 28, 28, 20, 42, 16));
     case "board":
@@ -615,6 +619,8 @@ function draw(shape: Shape, p: Pal, id: string): string {
     case "cape": return `<path d="M11,7 Q16,5 21,7 L24,26 Q16,23 8,26 Z" fill="${p.base}" stroke="${p.edge}" stroke-width="1.1" stroke-linejoin="round"/><path d="M13,8 Q16,7 19,8 L20,11 Q16,10 12,11 Z" fill="${p.dark}"/><line x1="16" y1="8" x2="16" y2="24" stroke="${p.light}" stroke-width="0.7" opacity="0.5"/>`;
     case "ring": return `<circle cx="16" cy="19" r="7" fill="none" stroke="${p.base}" stroke-width="3"/><circle cx="16" cy="19" r="7" fill="none" stroke="${p.light}" stroke-width="0.8"/><polygon points="16,5 20,10 16,14 12,10" fill="${p.accent}" stroke="${p.edge}" stroke-width="0.6"/>`;
     case "amulet": return `<path d="M9,7 Q16,18 23,7" fill="none" stroke="#caa24a" stroke-width="1.4"/><polygon points="16,13 21,18 16,26 11,18" fill="${p.base}" stroke="${p.edge}" stroke-width="1" stroke-linejoin="round"/><circle cx="16" cy="18.5" r="2" fill="${p.accent}"/>`;
+    // Sinew: a coiled hank of cord (bowstring stock), bound at the middle.
+    case "sinew": return `<g stroke-linecap="round"><path d="M13,5 Q6,16 13,27" fill="none" stroke="${p.base}" stroke-width="3"/><path d="M19,5 Q26,16 19,27" fill="none" stroke="${p.base}" stroke-width="3"/><path d="M12.5,5 Q16,3 19.5,5" fill="none" stroke="${p.base}" stroke-width="3"/><path d="M12.5,27 Q16,29 19.5,27" fill="none" stroke="${p.base}" stroke-width="3"/><path d="M13,7 Q8,16 13,25" fill="none" stroke="${p.light}" stroke-width="0.7" opacity="0.6"/><path d="M19,7 Q24,16 19,25" fill="none" stroke="${p.light}" stroke-width="0.7" opacity="0.6"/></g><rect x="10.5" y="13" width="11" height="6" rx="2.5" fill="${p.dark}" stroke="${p.edge}" stroke-width="0.9"/><path d="M12,14.7 H20 M12,16 H20 M12,17.3 H20" stroke="${p.light}" stroke-width="0.5" opacity="0.5"/>`;
     case "gem": return `<polygon points="16,5 25,13 16,28 7,13" fill="${p.base}" stroke="${p.edge}" stroke-width="1" stroke-linejoin="round"/><polygon points="16,5 25,13 16,16 7,13" fill="${p.light}"/><polygon points="7,13 16,16 16,28" fill="${p.dark}"/><line x1="11" y1="13" x2="16" y2="28" stroke="${p.edge}" stroke-width="0.5" opacity="0.5"/>`;
     case "bead": return `<circle cx="16" cy="17" r="8" fill="${p.base}" opacity="0.7" stroke="${p.edge}" stroke-width="1"/><ellipse cx="13" cy="14" rx="2.4" ry="3.4" fill="#ffffff" opacity="0.4"/>`;
     case "vial": return `<path d="M13,9 L19,9 L23,20 Q23,28 16,28 Q9,28 9,20 Z" fill="#cfe0e6" opacity="0.32" stroke="#9fb4bc" stroke-width="1"/><path d="M11,18 Q16,16 21,18 L22,21 Q16,29 10,21 Z" fill="${p.base}"/><ellipse cx="13" cy="22" rx="1.4" ry="2" fill="${p.light}" opacity="0.6"/><rect x="13" y="4" width="6" height="6" rx="1" fill="#cfe0e6" opacity="0.45" stroke="${p.edge}" stroke-width="0.5"/><rect x="12.5" y="3" width="7" height="2.6" rx="1" fill="${WOOD}"/>`;
