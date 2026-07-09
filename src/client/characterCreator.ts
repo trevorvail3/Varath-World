@@ -110,7 +110,7 @@ export class CharacterCreator {
     const randBtn = document.createElement("button");
     randBtn.type = "button";
     randBtn.className = "creator-random";
-    randBtn.textContent = "🎲 Surprise me";
+    randBtn.textContent = "Surprise me";
     randBtn.addEventListener("pointerdown", (e) => { e.stopPropagation(); this.randomize(); });
     rows.parentElement?.insertBefore(randBtn, rows);
 

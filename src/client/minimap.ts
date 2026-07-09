@@ -132,38 +132,79 @@ const MM_OBJ: Record<ObjKind, string> = {
 /** Draw a resource marker with a shape that reads at a glance: a little tree
  *  for woodcutting, a faceted diamond for ore, a ripple for fishing — anything
  *  else falls back to a plain dot. `r` is the dot radius the dot would use. */
-/** Destination POIs the minimap draws as EMOJI glyphs (matching the world map's
- *  vocabulary) rather than near-identical coloured dots — so a bank, a bounty
- *  board and a signpost are told apart at a glance (T7·04). Resource nodes keep
- *  their distinct shapes below; only these look-alike dots get a glyph. */
-const MM_GLYPH: Partial<Record<ObjKind, string>> = {
-  bank: "🪙",
-  grand_exchange: "💰",
-  bounty_board: "🎯",
-  signpost: "🪧",
-  waystone: "🧭",
-  portal: "🌀",
-  housing_plot: "🏠",
-  shrine: "⛩️",
-  plant_patch: "🌾",
-};
+/** Destination POIs the minimap draws as distinct little LINE MARKS (matching
+ *  the world map's line-art vocabulary) rather than near-identical coloured dots
+ *  — so a bank, a bounty board and a signpost are told apart at a glance
+ *  (T7·04). No emoji: each is a small monochrome shape in `drawLandmark`.
+ *  Resource nodes keep their own shapes below. */
+const LANDMARK = new Set<ObjKind>([
+  "bank", "grand_exchange", "bounty_board", "signpost",
+  "waystone", "portal", "housing_plot", "shrine", "plant_patch",
+]);
+
+/** Draw a landmark POI as a small, recognisable monochrome mark at (cx,cy). */
+function drawLandmark(
+  g: CanvasRenderingContext2D, kind: ObjKind, cx: number, cy: number, r: number,
+): void {
+  const s = Math.max(2.4, r * 1.6);
+  g.lineWidth = Math.max(0.8, r * 0.42);
+  const ring = (rad: number): void => { g.beginPath(); g.arc(cx, cy, rad, 0, Math.PI * 2); g.stroke(); };
+  const disc = (x: number, y: number, rad: number): void => { g.beginPath(); g.arc(x, y, rad, 0, Math.PI * 2); g.fill(); };
+  switch (kind) {
+    case "bank": // a coin: ring with a centre dot
+      ring(s * 0.9); disc(cx, cy, s * 0.32); break;
+    case "grand_exchange": // stacked coins
+      ring(s * 0.72); g.save(); g.translate(0, -s * 0.5); ring(s * 0.72); g.restore(); break;
+    case "bounty_board": // a target: concentric rings
+      ring(s); ring(s * 0.5); disc(cx, cy, s * 0.18); break;
+    case "waystone": // a compass diamond
+      g.beginPath(); g.moveTo(cx, cy - s); g.lineTo(cx + s, cy); g.lineTo(cx, cy + s); g.lineTo(cx - s, cy); g.closePath(); g.stroke();
+      disc(cx, cy, s * 0.22); break;
+    case "portal": // a swirl ring
+      ring(s * 0.9); ring(s * 0.45); break;
+    case "housing_plot": { // a house: roof over a box
+      const w = s * 0.9;
+      g.beginPath(); g.moveTo(cx - w, cy); g.lineTo(cx, cy - s); g.lineTo(cx + w, cy); g.stroke();
+      g.strokeRect(cx - w * 0.7, cy, w * 1.4, s * 0.9); break;
+    }
+    case "shrine": { // a torii gate: two posts + a top bar
+      const w = s * 0.95;
+      g.beginPath();
+      g.moveTo(cx - w, cy - s * 0.7); g.lineTo(cx + w, cy - s * 0.7);
+      g.moveTo(cx - w * 0.7, cy - s); g.lineTo(cx - w * 0.7, cy + s);
+      g.moveTo(cx + w * 0.7, cy - s); g.lineTo(cx + w * 0.7, cy + s);
+      g.stroke(); break;
+    }
+    case "plant_patch": { // a sprout: stem with two leaves
+      g.beginPath();
+      g.moveTo(cx, cy + s); g.lineTo(cx, cy - s * 0.4);
+      g.moveTo(cx, cy); g.quadraticCurveTo(cx - s, cy - s * 0.2, cx - s * 0.9, cy - s);
+      g.moveTo(cx, cy - s * 0.3); g.quadraticCurveTo(cx + s, cy - s * 0.5, cx + s * 0.9, cy - s * 1.2);
+      g.stroke(); break;
+    }
+    case "signpost": { // a board on a post
+      const w = s * 0.95;
+      g.strokeRect(cx - w, cy - s, w * 2, s * 0.95);
+      g.beginPath(); g.moveTo(cx, cy - s * 0.05); g.lineTo(cx, cy + s); g.stroke(); break;
+    }
+    default:
+      disc(cx, cy, s * 0.7);
+  }
+}
 
 function drawObjShape(
   g: CanvasRenderingContext2D, kind: ObjKind, cx: number, cy: number, r: number, color: string,
 ): void {
-  const em = MM_GLYPH[kind];
-  if (em) {
-    const size = Math.max(8, r * 3.8);
-    g.font = `${size}px "Segoe UI Emoji", "Noto Color Emoji", system-ui, sans-serif`;
-    g.textAlign = "center";
-    g.textBaseline = "middle";
+  g.fillStyle = color;
+  g.strokeStyle = color;
+  // Landmark POIs get a distinct little line-drawn mark (never an emoji), so a
+  // bank, a bounty board and a signpost still read apart at a glance.
+  if (LANDMARK.has(kind)) {
     g.globalAlpha = color.startsWith("rgba(120") ? 0.45 : 1; // dim when depleted
-    g.fillText(em, cx, cy);
+    drawLandmark(g, kind, cx, cy, r);
     g.globalAlpha = 1;
     return;
   }
-  g.fillStyle = color;
-  g.strokeStyle = color;
   if (kind === "tree" || kind === "tree_patch") {
     // A tiny conifer: triangle crown over a stub trunk.
     const h = r * 2.2, w = r * 1.7;

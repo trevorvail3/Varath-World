@@ -193,6 +193,25 @@ export class BankUI {
     return this.tabs.findIndex((t) => t.items.includes(item));
   }
 
+  /** A sort key that groups a stored item with its own TYPE. Items are ordered
+   *  by a curated category run (valuables → raw materials → smithed goods →
+   *  gear → consumables → the rest), then by name within a type, so the chest
+   *  reads as tidy blocks of like-with-like. */
+  private typeKey(item: ItemId): string {
+    const def = this.content.items[item];
+    const cat = def?.cat ?? "";
+    const ORDER = [
+      "Coins", "Finds", "Gems", "Ores", "Bars", "Logs", "Herbs", "Seeds",
+      "Foraged", "Forage", "Fish", "Meat", "Food", "Potions", "Hides", "Leathers",
+      "Weapons", "Weapon", "Combat", "Armour", "Armor", "Capes", "Jewellery",
+      "Arrows", "Runes", "Materials", "Quest",
+    ];
+    const rank = ORDER.indexOf(cat);
+    // Known categories keep the curated order; unknowns sort alphabetically after.
+    const bucket = rank >= 0 ? String(rank).padStart(3, "0") : `999_${cat}`;
+    return `${bucket}_${def?.name ?? item}`;
+  }
+
   private depositAll(): void {
     if (!this.state) return;
     const ids = new Set<ItemId>();
@@ -225,11 +244,13 @@ export class BankUI {
     if (!this.state) return;
     const { player } = this.state;
 
-    // Stored items (stacked), filtered by the search box.
+    // Stored items (stacked), filtered by the search box. The chest auto-sorts
+    // by TYPE so every ore, bar, weapon, potion… sits together without any
+    // manual filing — a stack lands beside its own kind the moment it's banked.
     this.bankGrid.innerHTML = "";
-    const stored = (Object.keys(player.bank) as ItemId[]).filter(
-      (id) => (player.bank[id] ?? 0) > 0,
-    );
+    const stored = (Object.keys(player.bank) as ItemId[])
+      .filter((id) => (player.bank[id] ?? 0) > 0)
+      .sort((a, b) => this.typeKey(a).localeCompare(this.typeKey(b)));
     this.countEl.textContent = stored.length ? `(${stored.length})` : "";
     // Total sell value of everything stored, shown in the header.
     const value = stored.reduce(

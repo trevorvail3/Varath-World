@@ -107,10 +107,33 @@ export class ShopUI {
     this.backdrop.classList.add("hidden");
   }
 
+  /** A "barter" shop trades entirely in one alt-currency item (Jacob's Angler's
+   *  Chits, a bounty board's Marks…) rather than gold — every ware is bought
+   *  with a costItem and lists no gold price. Returns that currency, or null for
+   *  an ordinary gold shop. */
+  private barterCurrency(): ItemId | null {
+    if (!this.shop || this.shop.stock.length === 0) return null;
+    const first = this.shop.stock[0]!.costItem as ItemId | undefined;
+    if (!first) return null;
+    return this.shop.stock.every((l) => l.costItem === first) ? first : null;
+  }
+
+  /** How many of an item the player is carrying. */
+  private carried(item: ItemId): number {
+    return this.state?.player.inventory.reduce((n, s) => (s?.item === item ? n + s.qty : n), 0) ?? 0;
+  }
+
   private render(): void {
     if (!this.state || !this.shop) return;
     const { player } = this.state;
-    this.goldEl.textContent = `${player.gold.toLocaleString()}g`;
+    const cur = this.barterCurrency();
+    if (cur) {
+      const have = this.carried(cur);
+      const name = this.content.items[cur]?.name ?? "chit";
+      this.goldEl.textContent = `${have.toLocaleString()} ${name}${have === 1 ? "" : "s"}`;
+    } else {
+      this.goldEl.textContent = `${player.gold.toLocaleString()}g`;
+    }
     for (const t of Array.from(this.tabsEl.querySelectorAll<HTMLElement>(".shop-tab"))) {
       t.classList.toggle("active", t.dataset["tab"] === this.tab);
     }
@@ -161,7 +184,8 @@ export class ShopUI {
         <span class="shop-card-price${afford ? "" : " short"}">${costLabel}</span>
         ${stockTag}`;
       // Tap = buy (when affordable & in stock); hold = inspect what you're buying.
-      const inspect = (): void => this.showInspect(line.item, line.qty, "buy", line.price);
+      const cost = payItem ? { item: payItem as ItemId, qty: payQty } : undefined;
+      const inspect = (): void => this.showInspect(line.item, line.qty, "buy", line.price, cost);
       this.attachPress(
         card,
         inspect,
@@ -256,7 +280,7 @@ export class ShopUI {
   }
 
   // --- Inspect: name, description, gear stats, requirement, and value. --------
-  private showInspect(item: ItemId, qty: number, mode: "buy" | "sell", buyPrice = 0): void {
+  private showInspect(item: ItemId, qty: number, mode: "buy" | "sell", buyPrice = 0, cost?: { item: ItemId; qty: number }): void {
     const def = this.content.items[item];
     if (!def) return;
     const stats = this.itemStats(def);
@@ -266,7 +290,13 @@ export class ShopUI {
     let valueLine: string;
     if (mode === "buy") {
       const bundle = qty > 1 ? ` (×${qty})` : "";
-      valueLine = `Buy: ${buyPrice.toLocaleString()}g${bundle} · ${value > 0 ? `sells back for ${value.toLocaleString()}g` : "can't be sold back"}`;
+      if (cost) {
+        // A barter ware: priced in an alt-currency (chits/marks), not gold.
+        const cname = this.content.items[cost.item]?.name ?? "chit";
+        valueLine = `Buy: ${cost.qty.toLocaleString()} ${cname}${cost.qty === 1 ? "" : "s"}${bundle}`;
+      } else {
+        valueLine = `Buy: ${buyPrice.toLocaleString()}g${bundle} · ${value > 0 ? `sells back for ${value.toLocaleString()}g` : "can't be sold back"}`;
+      }
     } else {
       valueLine = value > 0
         ? `Sells for ${value.toLocaleString()}g each${qty > 1 ? ` · ${(value * qty).toLocaleString()}g for all ${qty}` : ""}`

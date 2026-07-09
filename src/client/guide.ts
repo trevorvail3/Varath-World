@@ -98,7 +98,7 @@ const TIPS: Tip[] = [
     // arrow keeps pointing the way once the world opens up.
     id: "track_quest",
     test: (s) => Object.keys(s.player.quests).length >= 1,
-    text: "Your current goal shows top-left and a gold arrow points the way. To follow a different quest, open the 📋 Quests tab and tap any quest to track it.",
+    text: "Your current goal shows top-left and a gold arrow points the way. To follow a different quest, open the Quests tab and tap any quest to track it.",
   },
   {
     // T7·05 — equipping: a newcomer may carry gear without ever wearing it.
@@ -119,7 +119,7 @@ const TIPS: Tip[] = [
     // T7·05 — first coins: what to do with money (spend / bank / the Exchange).
     id: "first_coins",
     test: (s) => (s.player.stats?.goldEarned ?? 0) > 0,
-    text: "Coins earned! Spend them at any shop, or post buy and sell orders at the Grand Exchange in Ironvale (the 💰 booth on the map) to trade with players across Varath.",
+    text: "Coins earned! Spend them at any shop, or post buy and sell orders at the Grand Exchange in Ironvale (the trade booth on the map) to trade with players across Varath.",
   },
   {
     id: "faith_bones",
@@ -148,7 +148,7 @@ const TIPS: Tip[] = [
   {
     id: "farming_seed",
     test: (s) => packHas(s.player, (id) => id.startsWith("seed_")),
-    text: "A seed. Farming patches are dotted around the world (a 🌾 icon on the map) — plant it there, then come back later. Crops grow in real time, even while you're away.",
+    text: "A seed. Farming patches are dotted around the world (a farming icon on the map) — plant it there, then come back later. Crops grow in real time, even while you're away.",
   },
   {
     id: "cooking_raw",
@@ -163,7 +163,7 @@ const TIPS: Tip[] = [
   {
     id: "pack_full",
     test: (s) => s.player.inventory.every((slot) => slot !== null),
-    text: "Your pack is full. Head to a Bank (the 🪙 icon on the map) to stash items — bank storage is unlimited, and you can withdraw anything later.",
+    text: "Your pack is full. Head to a Bank (the bank icon on the map) to stash items — bank storage is unlimited, and you can withdraw anything later.",
   },
 ];
 

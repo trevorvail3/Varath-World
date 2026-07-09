@@ -90,7 +90,24 @@ const GLYPHS: Record<string, string> = {
   cherry: line(`<circle cx="8.5" cy="16" r="3.2"/><circle cx="15.5" cy="15" r="3.2"/><path d="M8.5 12.8 Q9.5 8 13.5 5 M15.5 11.8 Q14.5 8 13.5 5 M13.5 5 Q16 3.8 18 5.5"/>`),
   wyrm: line(`<path d="M4 15 Q4 6.5 11.5 6.5 L20 9 L15.5 10.5 Q17.5 12 15.8 13.8 Q13 16.5 9.5 15.2 L7.5 19.5 L5.8 15.6 Q4 15.5 4 15 Z"/><circle cx="12.5" cy="9.5" r="0.9" fill="currentColor"/>`),
   mage: line(`<path d="M12 3 L16 11 H8 Z"/><line x1="6" y1="11" x2="18" y2="11"/><circle cx="12" cy="14" r="2.2"/><path d="M7 20 Q7 16.8 12 16.8 Q17 16.8 17 20"/>`),
+  gift: line(`<rect x="5" y="10" width="14" height="10" rx="1"/><line x1="12" y1="10" x2="12" y2="20"/><line x1="4" y1="13" x2="20" y2="13"/><path d="M12 10 Q9 5 6.5 7 Q5 9 12 10 Q15 5 17.5 7 Q19 9 12 10 Z"/>`),
+  compass: line(`<circle cx="12" cy="12" r="8.5"/><polygon points="12 7 14 12 12 17 10 12"/><circle cx="12" cy="12" r="0.8" fill="currentColor"/>`),
+  sign: line(`<rect x="5" y="5" width="14" height="8" rx="1"/><line x1="8" y1="8.5" x2="16" y2="8.5"/><line x1="8" y1="10.8" x2="13" y2="10.8"/><line x1="12" y1="13" x2="12" y2="21"/>`),
+  torii: line(`<path d="M3 7 H21 M4 9.5 H20"/><line x1="7" y1="7" x2="7" y2="21"/><line x1="17" y1="7" x2="17" y2="21"/>`),
+  die: line(`<rect x="5" y="5" width="14" height="14" rx="2.5"/><circle cx="9" cy="9" r="1.1" fill="currentColor"/><circle cx="15" cy="9" r="1.1" fill="currentColor"/><circle cx="12" cy="12" r="1.1" fill="currentColor"/><circle cx="9" cy="15" r="1.1" fill="currentColor"/><circle cx="15" cy="15" r="1.1" fill="currentColor"/>`),
+  marker: line(`<path d="M12 21 Q5 13 5 9 A7 7 0 0 1 19 9 Q19 13 12 21 Z"/><circle cx="12" cy="9" r="2.4"/>`),
 };
+
+/** Typographic marks the game uses AS TEXT (ticks, stars, arrows) — they must
+ *  pass straight through iconize, never be mistaken for a coloured emoji. */
+const TEXT_SYMBOLS = new Set(["★", "☆", "✦", "✧", "✓", "✔", "✗", "✘", "✕", "▶", "◀", "◆", "◈", "●", "○", "♦", "❖"]);
+
+/** True if `s` is a single pictographic emoji (the coloured system kind we never
+ *  want rendered raw — as opposed to line symbols like ✓ ✕ ★ ▶ that we keep). */
+function isEmoji(s: string): boolean {
+  if (TEXT_SYMBOLS.has(s)) return false;
+  return /[\u{1F000}-\u{1FAFF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/u.test(s);
+}
 
 // Every emoji that ever renders → a glyph name above.
 const EMOJI: Record<string, string> = {
@@ -126,6 +143,12 @@ const EMOJI: Record<string, string> = {
   "🪓": "axe", "🜛": "flask", "🌄": "peak", "🏙️": "castle",
   // Crops + odds and ends.
   "🌳": "pine", "🌸": "blossom", "🌺": "blossom", "🍒": "cherry", "🖤": "heart",
+  // Map + minor UI pictographs (kept out of the raw-emoji net below).
+  "🎁": "gift", "🧭": "compass", "🪧": "sign", "⛩️": "torii", "🎲": "die",
+  "🧟": "ghost", "👹": "skull", "👺": "skull", "🦁": "paw", "🐍": "wyrm",
+  "🐊": "wyrm", "🦎": "wyrm", "🐗": "paw", "🐴": "paw", "🐎": "paw",
+  "🦌": "paw", "🐀": "paw", "🐇": "paw", "🦅": "feather", "🦇": "feather",
+  "🦀": "scorpion", "🐟": "fish", "🐡": "fish", "🦈": "fish",
 };
 
 /** A named glyph's SVG (falls back to a neutral dot if unknown). */
@@ -141,5 +164,9 @@ export function glyph(name: string): string {
 export function iconize(s: string): string {
   const key = s.trim();
   const name = EMOJI[key] ?? EMOJI[key.replace(/️/g, "")];
-  return name ? glyph(name) : s;
+  if (name) return glyph(name);
+  // No raw coloured emoji ever reaches the UI: an unmapped pictograph falls back
+  // to a neutral line marker instead of a system emoji. Plain text and line
+  // symbols (✓ ✕ ★ ▶) pass straight through unchanged.
+  return isEmoji(key) ? glyph("marker") : s;
 }

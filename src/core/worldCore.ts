@@ -294,6 +294,14 @@ function recordCatch(player: Player, f: HookedFish): number {
     angler: player.appearance.name,
   };
   const list = player.fishingRecords;
+  // One row per angler — the board keeps only each angler's HEAVIEST catch, so
+  // your own catches never fill all five slots and crowd the rivals off. (The
+  // shared online board is deduped the same way in syncPierBoard.)
+  const mine = list.findIndex((r) => r.angler === entry.angler);
+  if (mine >= 0) {
+    if (list[mine]!.weight >= entry.weight) return 0; // not a personal best — board unchanged
+    list.splice(mine, 1);
+  }
   list.push(entry);
   list.sort((a, b) => b.weight - a.weight);
   if (list.length > 5) list.length = 5;
@@ -3252,7 +3260,7 @@ function startInteraction(
         // live, or the contract would appear to belong to the wrong guide.
         if (!player.bounty.task) player.bounty.guideId = def.bountyGuide;
         player.station = { kind: "bounty" };
-        events.push({ type: "OPEN_BOUNTY", objId });
+        events.push({ type: "OPEN_BOUNTY", objId, guideId: def.bountyGuide });
         break;
       }
       // A shopkeeper can be talked to OR traded with. "shop" forces the trade

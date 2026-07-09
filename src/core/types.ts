@@ -2359,8 +2359,11 @@ export type WorldEvent =
   | { type: "OPEN_SHOP"; shop: string }
   /** Open the seed-choice menu for an empty farming patch. */
   | { type: "OPEN_PLANT"; patchId: string; patchType: "plant" | "tree" }
-  /** Open the Bounty board (guides, current task, Hunt-Marks shop). */
-  | { type: "OPEN_BOUNTY"; objId: string }
+  /** Open the Bounty board (guides, current task, Hunt-Marks shop).
+   *  `guideId` names the guide being spoken to, so the board locks to them —
+   *  you only deal with the guide in front of you. Absent for the notices
+   *  board, which lists every guide. */
+  | { type: "OPEN_BOUNTY"; objId: string; guideId?: string }
   /** Open the fast-travel menu at a waystone. */
   | { type: "OPEN_TRAVEL"; objId: string }
   /** Open the pier's records board (top five catches by weight). */

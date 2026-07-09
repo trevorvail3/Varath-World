@@ -187,6 +187,7 @@ export class Hud {
   private graceBar!: HTMLElement;
   private graceNum!: HTMLElement;
   private goldText!: HTMLElement;
+  private goldChip!: HTMLElement;
   private vitals!: HTMLElement;
   private runControl!: HTMLElement;
   private runToggle!: HTMLElement;
@@ -576,6 +577,7 @@ export class Hud {
         gold.innerHTML = `<span class="gold-coin">${iconize("🪙")}</span><span class="gold-text">0</span>g`;
         head.appendChild(gold);
         this.goldText = gold.querySelector(".gold-text") as HTMLElement;
+        this.goldChip = gold;
         const grid = document.createElement("div");
         grid.className = "inv-grid";
         for (let i = 0; i < 28; i++) {
@@ -1827,7 +1829,21 @@ export class Hud {
     this.hpBar.title = `Hitpoints: ${Math.max(0, player.hp)} / ${player.maxHp}`;
     // Inline numerics so a touch player can read HP/Grace without a hover tip.
     this.hpNum.textContent = `${Math.max(0, Math.round(player.hp))}/${player.maxHp}`;
-    this.goldText.textContent = player.gold.toLocaleString();
+    // The pack header shows your TOTAL pack value — coins plus the market worth
+    // of everything you're carrying — so the number tracks what's actually in
+    // the pack, not just your loose gold. (Was gold-only, so it never moved when
+    // you looted, mined or crafted items into the pack.)
+    const packWorth = player.inventory.reduce((sum, slot) => {
+      if (!slot || slot.noted) return sum; // bank notes carry no market value here
+      return sum + (this.content.items[slot.item]?.sell ?? 0) * slot.qty;
+    }, 0);
+    const packTotal = player.gold + packWorth;
+    this.goldText.textContent = packTotal.toLocaleString();
+    if (this.goldChip) {
+      this.goldChip.title = packWorth > 0
+        ? `Pack value: ${packTotal.toLocaleString()}g (${player.gold.toLocaleString()}g coins + ${packWorth.toLocaleString()}g in items)`
+        : `${player.gold.toLocaleString()}g coins`;
+    }
     this.vitals.classList.toggle("low", player.alive && pct <= 0.35);
 
     // Grace (Faith fuel): always shown under the HP bar (like a prayer orb) —
