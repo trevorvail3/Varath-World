@@ -106,7 +106,7 @@ type Shape =
   | "ring" | "amulet" | "gem" | "bead" | "vial" | "herb" | "seed" | "mushroom"
   | "fish" | "meat" | "cooked" | "bowl" | "bread" | "hide" | "pet" | "mount" | "coin"
   | "scroll" | "key" | "trophy" | "powder" | "rivet" | "sack" | "rune"
-  | "hook" | "spike" | "horn" | "satchel"
+  | "hook" | "spike" | "horn" | "satchel" | "nest"
   | "bone" | "tooth" | "tail" | "sinew";
 
 function classify(def: ItemDef): Shape {
@@ -151,6 +151,8 @@ function classify(def: ItemDef): Shape {
 
   // The bounty board's field tools are cat "Combat" but aren't weapons — each
   // gets its own icon instead of falling through to the generic sword.
+  // A bird nest reads as a woven bowl of twigs, not a leafy herb.
+  if (has("nest")) return "nest";
   if (id === "flensing_hook") return "hook";
   if (id === "maw_spike") return "spike";
   if (id === "hunters_horn") return "horn";
@@ -218,7 +220,7 @@ function classify(def: ItemDef): Shape {
   // Sinew (and other cordage) is the bowstring material — a coiled hank of cord,
   // NOT a plant. Must come before the "fiber"/"root"/"moss" herb catch-all.
   if (has("sinew") || has("bowstring") || has("bow string") || has("catgut") || has("gut string") || has("cordage")) return "sinew";
-  if (has("fiber") || has("bark") || has("resin") || has("sap") || has("gall") || has("splinter") || has("chip") || has("nest") || has("bloom") || has("root") || has("moss")) return "herb";
+  if (has("fiber") || has("bark") || has("resin") || has("sap") || has("gall") || has("splinter") || has("chip") || has("bloom") || has("root") || has("moss")) return "herb";
 
   return "rune";
 }
@@ -304,6 +306,7 @@ function paletteFor(def: ItemDef, shape: Shape): Pal {
     case "tooth": return shadeFrom(tweak("#efe9d6", id, 5, 5, 4), "#dcd4ba");  // whiter enamel
     case "tail": return shadeFrom(hashColor(id, 12, 30, 32, 20, 30, 16));      // fleshy/scaled
     case "sinew": return shadeFrom(tweak("#d8c9a6", id, 6, 8, 6), "#b8a274");  // pale dried cord
+    case "nest": return shadeFrom(tweak("#8a6a3e", id, 8, 8, 6), "#c9a24e"); // woven twig-brown
     case "powder": return shadeFrom(hashColor(id, 18, 44, 6, 16, 36, 16));
     case "sack": return shadeFrom(hashColor(id, 22, 28, 28, 20, 42, 16));
     case "board":
@@ -562,6 +565,20 @@ function petShape(p: Pal, id: string): string {
         + `<polygon points="20,5.2 22.5,3.4 22,6.6" fill="#c85a28"/>`
         + `<polygon points="21.8,8.6 25,9.4 22,10.6" fill="#8a5040"/>`
         + eye(18, 7.2, 0.9, "#f2a848");
+    case "pet_pier_crab": // PIER CRAB — a stout red shore-crab, claws up
+      return `<ellipse cx="16" cy="18" rx="9" ry="6.5" fill="#b23a2a" stroke="#7f2418" stroke-width="1"/>`
+        + `<ellipse cx="14.5" cy="15.5" rx="6" ry="3" fill="#c85a44"/>`               // lit shell
+        + `<path d="M7,18 H25" stroke="#7f2418" stroke-width="0.7"/>`                   // shell seam
+        // legs — three a side, stepping outward
+        + `<path d="M8,16 L3,14 M8,18.5 L2.5,18.5 M8.5,21 L4,24 M24,16 L29,14 M24,18.5 L29.5,18.5 M23.5,21 L28,24" stroke="#8f2c1f" stroke-width="1.1" stroke-linecap="round"/>`
+        // raised claws
+        + `<path d="M9,13 Q5.5,10 6,6.5" fill="none" stroke="#9c2f20" stroke-width="1.4" stroke-linecap="round"/>`
+        + `<path d="M23,13 Q26.5,10 26,6.5" fill="none" stroke="#9c2f20" stroke-width="1.4" stroke-linecap="round"/>`
+        + `<path d="M6,6.5 Q4,5 6,4 Q7.4,5 6,6.5 Z" fill="#b23a2a" stroke="#7f2418" stroke-width="0.6"/>`
+        + `<path d="M26,6.5 Q28,5 26,4 Q24.6,5 26,6.5 Z" fill="#b23a2a" stroke="#7f2418" stroke-width="0.6"/>`
+        // stalked eyes
+        + `<line x1="14" y1="13" x2="13.5" y2="10.5" stroke="#7f2418" stroke-width="0.9"/><line x1="18" y1="13" x2="18.5" y2="10.5" stroke="#7f2418" stroke-width="0.9"/>`
+        + eye(13.5, 10, 1.1) + eye(18.5, 10, 1.1);
     default: // any new pet: the generic critter, until it earns its portrait
       return `<ellipse cx="16" cy="20" rx="8" ry="7" fill="${p.base}" stroke="${p.edge}" stroke-width="1"/><circle cx="16" cy="12" r="5.5" fill="${p.base}" stroke="${p.edge}" stroke-width="1"/><polygon points="11,8 12.5,13 14,10" fill="${p.dark}"/><polygon points="21,8 19.5,13 18,10" fill="${p.dark}"/><circle cx="14" cy="12" r="1" fill="#1a1a1a"/><circle cx="18" cy="12" r="1" fill="#1a1a1a"/><circle cx="16" cy="14" r="0.9" fill="${p.dark}"/>`;
   }
@@ -627,6 +644,12 @@ function draw(shape: Shape, p: Pal, id: string): string {
     case "herb": return `<path d="M16,28 Q15,18 16,8" fill="none" stroke="#5a6a2a" stroke-width="1.6"/><path d="M16,20 Q9,18 8,12 Q15,13 16,18 Z" fill="${p.base}" stroke="${p.edge}" stroke-width="0.6"/><path d="M16,16 Q23,14 24,8 Q17,9 16,14 Z" fill="${p.light}" stroke="${p.edge}" stroke-width="0.6"/><path d="M16,11 Q12,8 13,4 Q17,6 16,10 Z" fill="${p.base}" stroke="${p.edge}" stroke-width="0.6"/>`;
     case "seed": return `<ellipse cx="13" cy="18" rx="3" ry="5" transform="rotate(-20 13 18)" fill="${p.base}" stroke="${p.edge}" stroke-width="0.8"/><ellipse cx="19" cy="15" rx="2.6" ry="4.4" transform="rotate(25 19 15)" fill="${p.light}" stroke="${p.edge}" stroke-width="0.8"/><ellipse cx="17" cy="22" rx="2.4" ry="4" transform="rotate(10 17 22)" fill="${p.dark}" stroke="${p.edge}" stroke-width="0.8"/>`;
     case "mushroom": return `<rect x="14" y="16" width="4" height="10" rx="1.5" fill="#e6dcc4" stroke="${p.edge}" stroke-width="0.8"/><path d="M7,16 Q7,8 16,8 Q25,8 25,16 Q16,19 7,16 Z" fill="${p.base}" stroke="${p.edge}" stroke-width="1" stroke-linejoin="round"/><circle cx="12" cy="13" r="1.3" fill="#ffffff" opacity="0.7"/><circle cx="19" cy="12" r="1" fill="#ffffff" opacity="0.6"/>`;
+    // A woven bowl of twigs cradling a couple of pale eggs.
+    case "nest": return `<path d="M4,15 Q16,9 28,15 Q28,24 16,26 Q4,24 4,15 Z" fill="${p.base}" stroke="${p.edge}" stroke-width="1" stroke-linejoin="round"/>`
+      + `<ellipse cx="16" cy="16" rx="9" ry="3.4" fill="${p.dark}"/>`
+      + `<ellipse cx="13.5" cy="15.5" rx="2.4" ry="3" fill="#efe8d6" stroke="${p.edge}" stroke-width="0.5"/>`
+      + `<ellipse cx="18" cy="16" rx="2.4" ry="3" fill="#e6dcc4" stroke="${p.edge}" stroke-width="0.5"/>`
+      + `<path d="M5,16 Q12,14 20,15 M11,20 Q18,19 26,17 M6,19 Q13,20 22,21" fill="none" stroke="${p.light}" stroke-width="0.7" opacity="0.7"/>`;
     case "fish": return fishShape(p, id);
     case "meat": return `<line x1="9" y1="22" x2="14" y2="17" stroke="#efe6d4" stroke-width="3.2" stroke-linecap="round"/><circle cx="8.5" cy="22.5" r="2.2" fill="#efe6d4"/><circle cx="11" cy="20" r="2.2" fill="#efe6d4"/><ellipse cx="18" cy="13" rx="8" ry="7.5" fill="${p.base}" stroke="${p.edge}" stroke-width="1"/><ellipse cx="15" cy="10" rx="2.5" ry="2" fill="${p.light}" opacity="0.55"/>`;
     case "cooked": // a plated, grill-marked, steaming portion — unmistakably cooked

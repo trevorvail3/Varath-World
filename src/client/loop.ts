@@ -855,7 +855,7 @@ export class Game {
           this.openPlant(ev.patchId, ev.patchType);
           break;
         case "OPEN_BOUNTY":
-          this.bounty.show(this.bridge.state);
+          this.bounty.show(this.bridge.state, ev.guideId);
           break;
         case "OPEN_RECORDS":
           this.records.show(this.bridge.state);
@@ -2814,7 +2814,15 @@ export class Game {
     this.dispatch({ type: "MOVE", path });
   }
 
-  private interactObject(objId: string, tile: Vec2, mode?: "talk" | "shop"): void {
+  private interactObject(objId: string, tile: Vec2, mode?: "talk" | "shop", synced = false): void {
+    // Talking to Jacob is when the Golden Rod changes hands. Reconcile with the
+    // shared board FIRST, so the trophy is only ever granted to the true global
+    // record-holder — and stripped from a local champion since out-fished
+    // elsewhere — instead of every client minting its own champion.
+    if (!synced && objId === "pier_warden" && mode === "talk") {
+      void this.syncPierBoard().finally(() => this.interactObject(objId, tile, mode, true));
+      return;
+    }
     const player = this.bridge.state.player;
     // Fighting a monster with a bow? Close only to bow-shot, not melee range.
     const obj = this.bridge.content.objects.find((o) => o.id === objId);

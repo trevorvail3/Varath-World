@@ -22,6 +22,10 @@ export class BountyUI {
   private body: HTMLElement;
   private open = false;
   private state: WorldState | null = null;
+  // When the board is opened by talking to a guide, it locks to that guide —
+  // you only deal with the one in front of you. `null` = the notices board,
+  // which lists every guide.
+  private lockedGuideId: string | null = null;
 
   constructor(
     root: HTMLElement,
@@ -122,9 +126,10 @@ export class BountyUI {
     return this.open;
   }
 
-  show(state: WorldState): void {
+  show(state: WorldState, guideId?: string): void {
     this.state = state;
     this.open = true;
+    this.lockedGuideId = guideId ?? null;
     this.backdrop.classList.remove("hidden");
     this.render();
   }
@@ -153,24 +158,38 @@ export class BountyUI {
     (this.backdrop.querySelector(".bounty-marks") as HTMLElement).innerHTML =
       `${b.marks.toLocaleString()} <span class="mark-ic">${iconize("🎯")}</span>${streakBadge}`;
 
-    // While a task is live the active guide is whoever issued it — never a guide
-    // the player merely walked past — so the contract can't look misattributed.
-    const activeGuideId = b.task?.guideId ?? b.guideId;
-    const guide = this.content.bountyGuides.find((g) => g.id === activeGuideId)
+    // The guide you're dealing with: the one you walked up to (locked), else the
+    // last board you opened. The guide who ISSUED an active task can differ (you
+    // can carry another guide's contract) — that's tracked separately so the
+    // contract line stays honestly attributed.
+    const focusId = this.lockedGuideId ?? b.guideId;
+    const focusGuide = this.content.bountyGuides.find((g) => g.id === focusId)
       ?? this.content.bountyGuides[0];
+    const issuerGuide = b.task
+      ? this.content.bountyGuides.find((g) => g.id === b.task!.guideId) ?? focusGuide
+      : focusGuide;
 
     // --- 1) Guide picker ---
+    // Talking to a guide locks the board to them — every guide is shown for
+    // context, but only the one in front of you can be chosen. The notices
+    // board (no lock) lets you pick any guide you've earned.
     let html = `<div class="bounty-section-label">Guides</div><div class="bounty-guides">`;
     for (const g of this.content.bountyGuides) {
-      const locked = level < g.levelReq;
-      const active = guide && g.id === guide.id;
+      const levelLocked = level < g.levelReq;
+      const selectable = this.lockedGuideId != null
+        ? g.id === this.lockedGuideId
+        : !levelLocked;
+      const active = focusGuide && g.id === focusGuide.id;
+      const sub = levelLocked
+        ? `<span class="bounty-lock">${iconize("🔒")}</span> Lv ${g.levelReq}`
+        : g.title;
       html += `
-        <button class="bounty-guide${active ? " active" : ""}${locked ? " locked" : ""}"
+        <button class="bounty-guide${active ? " active" : ""}${selectable ? "" : " locked"}"
                 data-guide="${g.id}" type="button"
-                title="${g.title} — ${g.desc}${locked ? ` (needs Bounty ${g.levelReq})` : ""}">
+                title="${g.title} — ${g.desc}${levelLocked ? ` (needs Bounty ${g.levelReq})` : selectable ? "" : ` — speak to ${g.name} in person to take their work`}">
           <span class="bounty-guide-icon">${iconize(g.icon)}</span>
           <span class="bounty-guide-name">${g.name}</span>
-          <span class="bounty-guide-sub">${locked ? `<span class="bounty-lock">${iconize("🔒")}</span> Lv ${g.levelReq}` : g.title}</span>
+          <span class="bounty-guide-sub">${sub}</span>
         </button>`;
     }
     html += `</div>`;
@@ -202,7 +221,7 @@ export class BountyUI {
       html += `
         <div class="bounty-contract">
           <div class="bounty-task-name">Slay ${t.required} ${this.monsterName(t.monster)}</div>
-          <div class="bounty-task-from">Issued by ${guide?.name ?? "your guide"} · claim with any guide</div>
+          <div class="bounty-task-from">Issued by ${issuerGuide?.name ?? "your guide"} · claim with any guide</div>
           ${whereLine}
           <div class="bounty-progress"><div class="bounty-progress-fill" style="width:${pct}%"></div></div>
           <div class="bounty-task-count">${t.progress} / ${t.required}${done ? " — ready to claim" : ""}</div>
@@ -215,13 +234,13 @@ export class BountyUI {
           </div>
         </div>`;
     } else {
-      const canTake = guide && level >= guide.levelReq;
+      const canTake = focusGuide && level >= focusGuide.levelReq;
       html += `
         <div class="bounty-contract">
           <div class="bounty-empty">No active task. ${
             canTake
-              ? `${guide!.name} has work for you.`
-              : `Reach Bounty ${guide?.levelReq ?? 1} to take work from ${guide?.name ?? "this guide"}.`
+              ? `${focusGuide!.name} has work for you.`
+              : `Reach Bounty ${focusGuide?.levelReq ?? 1} to take work from ${focusGuide?.name ?? "this guide"}.`
           }</div>
           <div class="bounty-actions">
             <button class="bounty-btn bounty-take${canTake ? "" : " disabled"}" type="button">Take a task</button>
@@ -246,7 +265,7 @@ export class BountyUI {
     if (recent.length && b.blocked.length < blockCap) {
       html += `<div class="bounty-empty-mini">Recently assigned — block without re-rolling:</div><div class="bounty-blocked">`;
       for (const m of recent.slice(0, 6)) {
-        html += `<span class="bounty-block-chip">${this.monsterName(m)} <button class="bounty-histblock" data-monster="${m}" type="button" title="Block ${this.monsterName(m)} forever">🚫</button></span>`;
+        html += `<span class="bounty-block-chip">${this.monsterName(m)} <button class="bounty-histblock" data-monster="${m}" type="button" title="Block ${this.monsterName(m)} forever">${iconize("🚫")}</button></span>`;
       }
       html += `</div>`;
     }
@@ -311,7 +330,10 @@ export class BountyUI {
     const take = this.body.querySelector(".bounty-take:not(.disabled)") as HTMLElement | null;
     if (take) take.addEventListener("pointerdown", (e) => {
       e.stopPropagation();
-      const gid = this.state?.player.bounty.guideId ?? this.content.bountyGuides[0]?.id ?? "rook";
+      // Take from the guide in front of you (locked), else the board's focus.
+      const gid = this.lockedGuideId
+        ?? this.state?.player.bounty.guideId
+        ?? this.content.bountyGuides[0]?.id ?? "rook";
       this.act({ type: "BOUNTY_TASK", guideId: gid });
     });
     const claim = this.body.querySelector(".bounty-claim:not(.disabled)") as HTMLElement | null;

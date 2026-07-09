@@ -136,9 +136,17 @@ function snapSpawn(o: WorldObjectDef): WorldObjectDef {
  *  doubled map paints there. These overrides nudge that handful onto the nearest
  *  walkable tile (computed against the new map). Keyed by object id. */
 const SPAWN_FIXUP: Record<string, { x: number; y: number }> = {
-  rock_7: { x: 52, y: 27 },
-  rock_8: { x: 120, y: 31 },
-  rock_10: { x: 53, y: 34 },
+  // The Knucklestone Quarry, a few tiles from the opening spawn: all fifteen ore
+  // rocks pinned into two tidy veins (x=38 and x=40) with the x=39 mining aisle
+  // between them, so the pit reads as ONE compact quarry against the hillside
+  // instead of ore strewn across the early lands. The spawn tile and the ground
+  // east of the veins stay open to walk. Replaces the old remap, whose
+  // walkable-snap fallbacks scattered these rocks all over the map.
+  rock_1: { x: 38, y: 35 }, rock_2: { x: 38, y: 36 }, rock_3: { x: 38, y: 37 },
+  rock_4: { x: 38, y: 38 }, rock_5: { x: 38, y: 39 }, rock_6: { x: 38, y: 40 },
+  rock_7: { x: 38, y: 41 }, rock_8: { x: 38, y: 42 }, rock_9: { x: 40, y: 35 },
+  rock_10: { x: 40, y: 36 }, rock_11: { x: 40, y: 37 }, rock_12: { x: 40, y: 38 },
+  rock_13: { x: 40, y: 39 }, rock_14: { x: 40, y: 40 }, rock_15: { x: 40, y: 41 },
   spine_vault: { x: 62, y: 34 },
   md_golem_1: { x: 132, y: 37 },
   md_rock_2: { x: 131, y: 31 },
@@ -714,7 +722,12 @@ const rawObjects: WorldObjectDef[] = [
   { id: "tree_birch_1", kind: "tree", x: 57, y: 33, name: "Silverbirch Tree", resource: "fell_birch", species: "ashwood" },
   { id: "tree_birch_2", kind: "tree", x: 101, y: 30, name: "Silverbirch Tree", resource: "fell_birch", species: "ashwood" },
 
-  // --- Knucklestone rocks on the outcrop, north-east (Mining) ---
+  // --- The Knucklestone Quarry, by the opening spawn (Mining) ---
+  // OSRS-style: the ore sits in two neat veins with a central mining aisle, so
+  // the pit reads as one compact quarry and the ground around it stays clear to
+  // walk instead of ore-rocks strewn across the whole hillside. All fifteen are
+  // pinned to final quarry tiles in SPAWN_FIXUP (the authored coords below are
+  // legacy placeholders the fixup overrides).
   { id: "rock_1", kind: "rock", x: 84, y: 32, name: "Knucklestone Rock", resource: "mine_knucklestone" },
   { id: "rock_2", kind: "rock", x: 87, y: 30, name: "Knucklestone Rock", resource: "mine_knucklestone" },
   { id: "rock_3", kind: "rock", x: 90, y: 34, name: "Knucklestone Rock", resource: "mine_knucklestone" },
@@ -737,7 +750,8 @@ const rawObjects: WorldObjectDef[] = [
   { id: "tree_18", kind: "tree", x: 30, y: 41, name: "Ashwood Tree", resource: "fell_ashwood", species: "ashwood" },
   { id: "tree_19", kind: "tree", x: 97, y: 41, name: "Ashwood Tree", resource: "fell_ashwood", species: "ashwood" },
 
-  // --- More Knucklestone rocks scattered through the early lands (Mining) ---
+  // --- The rest of the Knucklestone Quarry veins (Mining) — see SPAWN_FIXUP for
+  //     their final quarry tiles; these legacy coords are placeholders. ---
   { id: "rock_4", kind: "rock", x: 38, y: 14, name: "Knucklestone Rock", resource: "mine_knucklestone" },
   { id: "rock_5", kind: "rock", x: 43, y: 14, name: "Knucklestone Rock", resource: "mine_knucklestone" },
   { id: "rock_6", kind: "rock", x: 38, y: 23, name: "Knucklestone Rock", resource: "mine_knucklestone" },

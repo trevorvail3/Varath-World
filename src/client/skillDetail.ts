@@ -113,9 +113,16 @@ export class SkillDetailModal {
       // into sensible sections instead of one long list.
       const cat = a.produces ? this.content.items[a.produces]?.cat : undefined;
       const act = a.group ? groupLabel(a.group) : cat || "Recipes";
+      // Smithing forges every tier in a dozen shapes (dagger, sword, plate,
+      // greaves…), so spelling out each recipe makes the ladder enormous.
+      // Collapse a tier's pieces into ONE entry per level by its material — the
+      // leading word of the recipe name ("Ashiron Longsword" → "Ashiron") — the
+      // same way the combat-gear ladders read. The group header (Weapons,
+      // Armour, Bars) already says what the shape is.
+      const shown = skill === "smithing" ? (a.name.split(" ")[0] ?? a.name) : a.name;
       const byLevel = activities.get(act) ?? new Map<number, string[]>();
       const list = byLevel.get(a.levelReq) ?? [];
-      if (!list.includes(a.name)) list.push(a.name);
+      if (!list.includes(shown)) list.push(shown);
       byLevel.set(a.levelReq, list);
       activities.set(act, byLevel);
     }

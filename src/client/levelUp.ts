@@ -23,6 +23,9 @@ export class LevelUp {
   private queue: Celebration[] = [];
   private showing = false;
   private timer: number | null = null;
+  // While a "sticky" card is up (a finished quest), this listener dismisses it
+  // on the first tap anywhere outside the card. Cleared whenever it dismisses.
+  private offClick: ((e: PointerEvent) => void) | null = null;
 
   constructor(root: HTMLElement, private content: Content) {
     this.el = document.createElement("div");
@@ -157,9 +160,22 @@ export class LevelUp {
     void this.el.offsetWidth;
     this.el.classList.add("show");
     if (this.timer !== null) window.clearTimeout(this.timer);
+    // A finished quest is a real milestone — it stays up until the player closes
+    // it (a tap on the card) or taps away from it, rather than timing out.
+    if (item.kind === "quest") {
+      this.offClick = (e: PointerEvent): void => {
+        if (!this.el.contains(e.target as Node)) this.dismiss();
+      };
+      // Listen on the next frame so the event that spawned the card can't
+      // immediately close it.
+      window.setTimeout(() => {
+        if (this.offClick) document.addEventListener("pointerdown", this.offClick, true);
+      }, 0);
+      return;
+    }
     const dwell =
       item.kind === "champion" ? 5200
-      : item.kind === "quest" || item.kind === "casket" || item.kind === "questStart" ? 4600
+      : item.kind === "casket" || item.kind === "questStart" ? 4600
       : 3000;
     this.timer = window.setTimeout(() => this.dismiss(), dwell);
   }
@@ -173,6 +189,10 @@ export class LevelUp {
 
   private dismiss(): void {
     if (this.timer !== null) { window.clearTimeout(this.timer); this.timer = null; }
+    if (this.offClick) {
+      document.removeEventListener("pointerdown", this.offClick, true);
+      this.offClick = null;
+    }
     this.el.classList.remove("show");
     this.el.classList.add("hidden");
     // brief gap before the next queued level, so they read as separate
