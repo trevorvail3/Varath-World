@@ -43,7 +43,7 @@ import { Dialogue } from "./dialogue.ts";
 import type { Guide } from "./guide.ts";
 import { Hud } from "./hud.ts";
 import { Minimap, WorldMapModal } from "./minimap.ts";
-import { biomeAt, Camera, drawWorld, interpTile, setCombatHits, setDrawDistance, setLootLabels, TILE, type HitFx } from "./render.ts";
+import { biomeAt, Camera, drawWorld, interpTile, stepProgress, setCombatHits, setDrawDistance, setLootLabels, TILE, type HitFx } from "./render.ts";
 import { CRIER_SHOUTS } from "./crier.ts";
 import { audio, type CreatureVoice, type Sfx } from "./audio.ts";
 import { currentGhosts, startPresence } from "./presence.ts";
@@ -726,11 +726,22 @@ export class Game {
     return [ox, oy];
   }
 
+  /** The player's smooth on-screen tile position (same interpolation the renderer
+   *  and camera use), so overlays like footstep puffs sit under the gliding
+   *  avatar instead of snapping to the sim tile. */
+  private renderPlayerPos(now: number): Vec2 {
+    const st = this.bridge.state;
+    const pl = st.player;
+    const alpha = Math.min(1, Math.max(0, (now - st.lastTickAt) / TICK_MS));
+    return interpTile(pl.prevPos, pl.pos, stepProgress(pl.stepStartTick, pl.stepDurTicks, st.tickCount, alpha));
+  }
+
   private followCamera(alpha: number, frameDt: number): void {
-    // Follow the INTERPOLATED player position (same smooth tile-hop the renderer
-    // draws) rather than the raw sim tile, so the camera doesn't jerk on each tick.
-    const pl = this.bridge.state.player;
-    const p = interpTile(pl.prevPos, pl.pos, alpha);
+    // Follow the INTERPOLATED player position (same smooth tile step the renderer
+    // draws) rather than the raw sim tile, so the camera doesn't jerk each step.
+    const st = this.bridge.state;
+    const pl = st.player;
+    const p = interpTile(pl.prevPos, pl.pos, stepProgress(pl.stepStartTick, pl.stepDurTicks, st.tickCount, alpha));
     const targetX = p.x * TILE + TILE / 2 - this.viewW / 2;
     const targetY = p.y * TILE + TILE / 2 - this.viewH / 2;
     if (!this.camInitialised) {
@@ -2018,7 +2029,9 @@ export class Game {
     const tx = Math.round(pl.pos.x), ty = Math.round(pl.pos.y);
     const tile = (tx >= 0 && ty >= 0 && tx < m.width && ty < m.height) ? m.tiles[ty * m.width + tx] : "grass";
     const wet = tile === "water" || tile === "deep" || tile === "bog";
-    this.puffs.push({ x: pl.pos.x, y: pl.pos.y + 0.32, born: now, kind: wet ? "splash" : "dust" });
+    // Drop the scuff under the avatar's interpolated (gliding) position.
+    const rp = this.renderPlayerPos(now);
+    this.puffs.push({ x: rp.x, y: rp.y + 0.32, born: now, kind: wet ? "splash" : "dust" });
   }
 
   /** Footstep puffs: a dust scuff that rises and fades, or a little splash. */

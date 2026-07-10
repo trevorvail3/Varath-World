@@ -22,7 +22,7 @@ import type {
   WorldObjectState,
   WorldState,
 } from "../core/types.ts";
-import { objectPos, objectHidden } from "../core/worldCore.ts";
+import { objectPos, objectHidden, NPC_STEP_TICKS } from "../core/worldCore.ts";
 import { type RoofStyle, type EnterableBuilding, INTERIOR_TOP, DUNGEON_TOP, homeLayout, HOMES, cityDoor, cityRoof, cityPalette, ENTERABLE, instanceRectAt, tileAt, REGIONS, CITY } from "../content/map.ts";
 import { type AvatarAnim, actionArmAngle, drawAvatar, drawTool, withDefaults } from "./avatar.ts";
 import type { Ghost } from "./presence.ts";
@@ -1508,6 +1508,17 @@ export function interpTile(prev: Vec2 | undefined, cur: Vec2, alpha: number): Ve
   return { x: prev.x + dx * alpha, y: prev.y + dy * alpha };
 }
 
+/**
+ * How far through a tile STEP we are, in [0,1]. A step spans `durTicks` base ticks
+ * starting at `startTick`; `tickCount`+`alpha` (the fraction of the current tick)
+ * give the live position within it. Once the window elapses this clamps to 1, so a
+ * creature that has stopped simply sits at its tile — no need to reset prevPos.
+ */
+export function stepProgress(startTick: number, durTicks: number, tickCount: number, alpha: number): number {
+  const dur = Math.max(1, durTicks);
+  return Math.min(1, Math.max(0, (tickCount - startTick + alpha) / dur));
+}
+
 export function drawWorld(
   g: CanvasRenderingContext2D,
   canvas: HTMLCanvasElement,
@@ -1739,10 +1750,12 @@ export function drawWorld(
     const obj = state.objects[def.id];
     if (!obj) continue;
     if (objectHidden(def, state.player)) continue; // story-gated: not revealed yet
-    // Creatures render at their live (wandering) position, interpolated between
-    // the tile they hopped FROM this tick and their current tile so they glide;
-    // fixed objects sit at their def tile.
-    const p = obj.pos ? interpTile(obj.prevPos, obj.pos, alpha) : objectPos(def, obj);
+    // Creatures render at their live (wandering) position, interpolated across
+    // their step (prevPos→pos over NPC_STEP_TICKS) so they glide; fixed objects
+    // sit at their def tile.
+    const p = obj.pos
+      ? interpTile(obj.prevPos, obj.pos, stepProgress(obj.moveStartTick ?? 0, NPC_STEP_TICKS, state.tickCount, alpha))
+      : objectPos(def, obj);
     if (!inRegion(Math.round(p.x), Math.round(p.y))) continue; // mask other instances
     if (outside(p.x, p.y)) continue; // past the draw distance
     const px = p.x * TILE - cam.x;
@@ -1953,10 +1966,10 @@ export function drawWorld(
   let playerGlow: [number, number] | null = null; // a carried light, added after bloom
   if (state.player.alive) {
     const pl = state.player;
-    // Render position: interpolate the discrete one-tile-per-tick hop toward the
-    // current tile so the avatar glides. `pl.pos` (the true tile) still drives
-    // facing, tile look-ups and effects; only the DRAWN position is interpolated.
-    const rp = interpTile(pl.prevPos, pl.pos, alpha);
+    // Render position: interpolate the tile step (prevPos→pos) across its
+    // duration so the avatar glides. `pl.pos` (the true tile) still drives facing,
+    // tile look-ups and effects; only the DRAWN position is interpolated.
+    const rp = interpTile(pl.prevPos, pl.pos, stepProgress(pl.stepStartTick, pl.stepDurTicks, state.tickCount, alpha));
     // Face the next step's dominant direction (4-way); keep the last facing when
     // idle. Horizontal wins ties so a diagonal reads as a side-step, not a turn.
     if (pl.path.length > 0) {

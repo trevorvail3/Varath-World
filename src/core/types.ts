@@ -1318,10 +1318,13 @@ export interface WorldObjectState {
    * fixed objects, which always render at their def coordinates.
    */
   pos?: Vec2;
-  /** The tile this creature occupied at the start of the current tick — the
-   *  client interpolates `prevPos`→`pos` so a stepping creature glides smoothly
-   *  between tiles instead of jumping. Undefined for fixed objects. */
+  /** The tile this creature stepped FROM — the client interpolates `prevPos`→`pos`
+   *  over NPC_STEP_TICKS so a stepping creature glides smoothly instead of
+   *  jumping. Undefined for fixed objects. */
   prevPos?: Vec2;
+  /** Game-tick count when this creature's current tile step began (paired with
+   *  the fixed NPC step duration for the client's glide). */
+  moveStartTick?: number;
   /** The tile this creature is currently stepping toward (null = standing). */
   wanderTarget?: Vec2 | null;
   /** Aggressive monster only: while `now < pursueUntil` it gives chase after a
@@ -1560,10 +1563,16 @@ export interface Player {
    * simulation stays tile-quantized while the render stays fluid.
    */
   pos: Vec2;
-  /** The tile occupied at the START of the current tick — the interpolation
-   *  origin the client eases FROM toward `pos`. Equals `pos` while standing
-   *  still (and after any teleport, so the avatar never streaks across the map). */
+  /** The tile the current move-step started FROM — the interpolation origin the
+   *  client eases toward `pos` over the step's duration. After a teleport it is
+   *  set equal to `pos` so the avatar never streaks across the map. */
   prevPos: Vec2;
+  /** Game-tick count when the current tile step began, and how many base ticks it
+   *  spans (walk/run/mount cadence). The client interpolates prevPos→pos across
+   *  `[stepStartTick, stepStartTick+stepDurTicks]`; the next step is taken once
+   *  that window elapses. */
+  stepStartTick: number;
+  stepDurTicks: number;
   /** Tiles still to be walked, in order. Empty when standing still. */
   path: Vec2[];
   hp: number;
