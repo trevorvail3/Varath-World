@@ -43,7 +43,7 @@ import { Dialogue } from "./dialogue.ts";
 import type { Guide } from "./guide.ts";
 import { Hud } from "./hud.ts";
 import { Minimap, WorldMapModal } from "./minimap.ts";
-import { biomeAt, Camera, drawWorld, setCombatHits, setDrawDistance, setLootLabels, TILE, type HitFx } from "./render.ts";
+import { biomeAt, Camera, drawWorld, interpTile, setCombatHits, setDrawDistance, setLootLabels, TILE, type HitFx } from "./render.ts";
 import { CRIER_SHOUTS } from "./crier.ts";
 import { audio, type CreatureVoice, type Sfx } from "./audio.ts";
 import { currentGhosts, startPresence } from "./presence.ts";
@@ -51,7 +51,7 @@ import { getTrackedQuest } from "./questTrack.ts";
 import { resolveGear } from "./gearLook.ts";
 import { DUNGEON_TOP, enterableAt, instanceRectAt, INTERIOR_TOP, OVERWORLD_HEIGHT } from "../content/map.ts";
 import { DecorateUI } from "./decorate.ts";
-import { objectPos, objectHidden, travelFare, equipRequirement, combatLevel } from "../core/worldCore.ts";
+import { objectPos, objectHidden, travelFare, equipRequirement, combatLevel, TICK_MS } from "../core/worldCore.ts";
 import { findPath, pathToAdjacent, pathToWithin } from "./pathfinding.ts";
 import { getSocial, submitCurrent } from "./social.ts";
 import { currentUser } from "./supabase.ts";
@@ -373,6 +373,8 @@ export class Game {
   private levelUp: LevelUp;
   private activeSkill: ActiveSkill;
   private camInitialised = false;
+  /** Real time of the previous rendered frame, for frame-rate-independent easing. */
+  private lastFrameNow = 0;
 
   private menu: ContextMenu;
   private minimap: Minimap;
@@ -653,8 +655,15 @@ export class Game {
       }
     }
 
-    // 2) Camera follows the player.
-    this.followCamera();
+    // 2) Camera follows the player. `alpha` is how far through the current game
+    // tick we are (0..1), so both the camera and the renderer interpolate the
+    // player's discrete tile-hop into smooth motion. `frameDt` makes the camera
+    // ease frame-rate-independent (same feel at 60Hz and 120Hz).
+    const st = this.bridge.state;
+    const alpha = Math.min(1, Math.max(0, (now - st.lastTickAt) / TICK_MS));
+    const frameDt = this.lastFrameNow === 0 ? 16 : Math.min(100, now - this.lastFrameNow);
+    this.lastFrameNow = now;
+    this.followCamera(alpha, frameDt);
 
     // 3) Paint the world (and its world-space overlays) under the zoom transform.
     //    The DPR is folded in here so one world pixel covers `zoom` CSS pixels at
@@ -669,7 +678,7 @@ export class Game {
     setLootLabels(this.lootLabels);
     drawWorld(
       this.g, this.canvas, this.bridge.state, this.bridge.content, this.cam, now,
-      this.viewW, this.viewH, currentGhosts(),
+      this.viewW, this.viewH, currentGhosts(), alpha,
     );
     this.drawMarker(now);
     this.drawHighlights(now);
@@ -717,8 +726,11 @@ export class Game {
     return [ox, oy];
   }
 
-  private followCamera(): void {
-    const p = this.bridge.state.player.pos;
+  private followCamera(alpha: number, frameDt: number): void {
+    // Follow the INTERPOLATED player position (same smooth tile-hop the renderer
+    // draws) rather than the raw sim tile, so the camera doesn't jerk on each tick.
+    const pl = this.bridge.state.player;
+    const p = interpTile(pl.prevPos, pl.pos, alpha);
     const targetX = p.x * TILE + TILE / 2 - this.viewW / 2;
     const targetY = p.y * TILE + TILE / 2 - this.viewH / 2;
     if (!this.camInitialised) {
@@ -726,8 +738,12 @@ export class Game {
       this.cam.y = targetY;
       this.camInitialised = true;
     } else {
-      this.cam.x += (targetX - this.cam.x) * 0.12;
-      this.cam.y += (targetY - this.cam.y) * 0.12;
+      // Frame-rate-independent exponential ease: the fraction moved per frame is
+      // derived from the elapsed time, so the camera has the same weight at any
+      // refresh rate (the old fixed 0.12/frame chased twice as fast at 120Hz).
+      const k = 1 - Math.exp(-frameDt / 90);
+      this.cam.x += (targetX - this.cam.x) * k;
+      this.cam.y += (targetY - this.cam.y) * k;
     }
     // Outdoors, keep the hidden instance band (homes / arenas, south of the
     // overworld) out of view by clamping the camera's bottom to the overworld.

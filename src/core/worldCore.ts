@@ -55,14 +55,25 @@ import type {
 // Times are in milliseconds.
 // ---------------------------------------------------------------------------
 
-const MOVE_SPEED = 1.8; // tiles per second — a deliberately slow walk
-const MOUNT_SPEED_MULT = 1.1; // a worn mount gives a modest travel boost on top of everything
+// The fixed game tick. The whole simulation advances in discrete steps of this
+// length (OSRS runs a 0.6s server tick, and the duel sim already uses 600ms —
+// see duelCore.DUEL_TICK_MS). Movement is one tile per tick (two running); the
+// client interpolates between tiles for smooth motion. Tunable in one place.
+export const TICK_MS = 600;
+// A single tick() call runs at most this many sub-ticks of catch-up after a long
+// frame (GC pause, backgrounded tab), so a stall can't trigger a spiral of death.
+const MAX_CATCHUP = 5;
 
-// Run/walk (OSRS-style): running moves SPRINT_MULT× faster but drains run energy
-// per tile travelled; energy recovers while walking or standing still. Walking is
-// slow on purpose; sprinting (~3.6 tiles/s) is the comfortable pace, so the run
-// bar — and Agility, which stretches it — actually matter.
-const SPRINT_MULT = 1.55;
+// Movement is measured in TILES PER TICK (OSRS: walk 1, run 2). At TICK_MS=600
+// that's a 1.67 tiles/s walk and a 3.33 tiles/s run. A mount grants run-speed
+// (2 tiles/tick) WITHOUT spending run energy — that's its travel perk now.
+const WALK_TILES_PER_TICK = 1;
+const RUN_TILES_PER_TICK = 2;
+
+// Run/walk (OSRS-style): running covers RUN_TILES_PER_TICK tiles per tick but
+// drains run energy per tile travelled; energy recovers while walking or standing
+// still. Walking is slow on purpose, so the run bar — and Agility, which stretches
+// it — actually matter.
 const ENERGY_MAX = 100;
 const ENERGY_DRAIN = 2.8; // base energy spent per tile sprinted
 const ENERGY_REGEN = 4; // base energy recovered per second when not sprinting
@@ -117,7 +128,6 @@ const FLEE_GRACE_MS = 2500; // after a move, aggressive monsters hold off this l
 // if you break far enough ahead, or if it strays too far from home — then it
 // walks back to its spawn.
 const PURSUE_MS = 8000;      // how long the chase lasts after you flee
-const PURSUE_SPEED = 1.7;    // tiles/sec while chasing (player walk is 1.8)
 const PURSUE_GIVEUP = 8;     // give up if the player gets this many tiles ahead
 const PURSUE_LEASH = 14;     // never chase further than this from its spawn tile
 // On death you drop a tenth of your coin (a real but gentle setback).
@@ -619,6 +629,7 @@ export function createWorld(
     // their first step so they don't all set off in lockstep.
     if (def.kind === "npc" || def.kind === "monster" || def.kind === "critter") {
       base.pos = { x: def.x, y: def.y };
+      base.prevPos = { x: def.x, y: def.y };
       base.wanderTarget = null;
       base.nextWanderAt = ctx.now + Math.floor(ctx.rng() * WANDER.pauseMax);
       // Only monsters block the player's pathing — you walk through townsfolk
@@ -640,6 +651,7 @@ export function createWorld(
   const respawn = content.respawnPoint ?? spawn;
   const player: Player = {
     pos: { x: spawn.x, y: spawn.y },
+    prevPos: { x: spawn.x, y: spawn.y },
     path: [],
     hp: maxHp,
     maxHp,
@@ -713,6 +725,10 @@ export function createWorld(
     ground: [],
     groundSeq: 1,
     lastTick: ctx.now,
+    tickNow: ctx.now,
+    tickAcc: 0,
+    tickCount: 0,
+    lastTickAt: ctx.now,
   };
 }
 
@@ -4650,6 +4666,15 @@ function checkAggro(
   }
 }
 
+/**
+ * The public tick: a FIXED-TIMESTEP accumulator. The client still calls this
+ * every animation frame with the real (monotonic) clock, but the simulation only
+ * advances in whole TICK_MS steps — so movement, combat and gathering all run on
+ * one shared OSRS-style beat regardless of the display's refresh rate. Between
+ * steps nothing changes; the client interpolates render position from
+ * `lastTickAt`. Purity (RULE 1) is preserved: each step gets a ctx whose `now` is
+ * the DISCRETE sim clock (`tickNow`), and rng/epoch pass straight through.
+ */
 export function tick(
   state: WorldState,
   content: Content,
@@ -4657,12 +4682,41 @@ export function tick(
 ): WorldEvent[] {
   activeContent = content;
   const events: WorldEvent[] = [];
-  // Clamp dt so a backgrounded tab doesn't teleport everything at once.
-  const dt = Math.min(Math.max(ctx.now - state.lastTick, 0), 250);
+  // First call of a session (or an old save without the tick fields): anchor the
+  // discrete clock to the real clock so schedules set by intents line up.
+  if (!state.tickNow) { state.tickNow = ctx.now; state.lastTick = ctx.now; state.tickAcc = 0; }
+  // Real time elapsed since the last call, clamped so a backgrounded tab doesn't
+  // dump minutes of catch-up at once.
+  const elapsed = Math.min(Math.max(ctx.now - state.lastTick, 0), 250);
   state.lastTick = ctx.now;
-  // Accumulate active play time. Because dt is clamped, a tab left in the
-  // background (where the loop pauses) never inflates the count — this only ever
-  // grows while the game is actually running in front of the player.
+  state.tickAcc += elapsed;
+  let steps = 0;
+  while (state.tickAcc >= TICK_MS && steps < MAX_CATCHUP) {
+    state.tickAcc -= TICK_MS;
+    steps++;
+    state.tickCount++;
+    state.tickNow += TICK_MS;
+    stepTick(state, content, { now: state.tickNow, rng: ctx.rng, epoch: ctx.epoch }, events);
+  }
+  // A long stall would leave a big backlog; drop it rather than fast-forward.
+  if (steps === MAX_CATCHUP && state.tickAcc >= TICK_MS) state.tickAcc = 0;
+  // Real wall time of the last discrete step, so the client can interpolate the
+  // render position as (now - lastTickAt) / TICK_MS within [0,1].
+  state.lastTickAt = ctx.now - state.tickAcc;
+  return events;
+}
+
+/** One discrete game tick. `ctx.now` here is the DISCRETE sim clock (a multiple
+ *  of TICK_MS), so every `now >= nextActionAt` comparison auto-quantizes to the
+ *  beat. `dt` is therefore always exactly TICK_MS. */
+function stepTick(
+  state: WorldState,
+  content: Content,
+  ctx: Ctx,
+  events: WorldEvent[],
+): void {
+  const dt = TICK_MS;
+  // Accumulate active play time (one tick's worth).
   state.player.playMs += dt;
 
   // Loot left on the floor too long fades away.
@@ -4743,9 +4797,12 @@ export function tick(
       }
     }
 
-    // 2) Movement. Sprinting drains run energy; otherwise it recovers.
+    // 2) Movement — one tile per tick (two running/mounted). Record the tile we
+    // START this tick on so the client can interpolate the hop; when standing
+    // still prevPos == pos, so there's no phantom glide.
     const wasMoving = player.path.length > 0;
-    const sprintTiles = wasMoving ? stepMovement(player, dt) : 0;
+    player.prevPos = { x: player.pos.x, y: player.pos.y };
+    const sprintTiles = wasMoving ? stepMovement(player) : 0;
     if (sprintTiles <= 0) {
       if (player.energy < ENERGY_MAX) {
         const regen = (ENERGY_REGEN * agilityRegenMult(player) * dt) / 1000;
@@ -4801,7 +4858,7 @@ export function tick(
   }
 
   // 5) Idle wandering: npcs + monsters amble within reach of their spawn.
-  wanderCreatures(state, content, ctx, dt);
+  wanderCreatures(state, content, ctx);
 
   // 5b) Fishing spots drift along the shoreline (OSRS-style) — they move on
   // every so often, so you follow them rather than stand on one tile forever.
@@ -4809,8 +4866,6 @@ export function tick(
 
   // 6) Light up any newly-earned achievements.
   checkAchievements(state, content, events);
-
-  return events;
 }
 
 /** OSRS-style: fishing spots periodically relocate to a nearby shore tile, near
@@ -4877,7 +4932,6 @@ function wanderCreatures(
   state: WorldState,
   content: Content,
   ctx: Ctx,
-  dt: number,
 ): void {
   const { player } = state;
   const walk = baseWalkable(content);
@@ -4908,22 +4962,23 @@ function wanderCreatures(
     if (def.kind !== "npc" && def.kind !== "monster" && def.kind !== "critter") continue;
     const obj = state.objects[def.id];
     if (!obj || !obj.pos || !obj.available) continue;
+    // Interpolation origin starts at the current tile every tick, so a creature
+    // that DOESN'T hop this tick has prevPos == pos and stays put (no rubber-band
+    // glide). A hop below overwrites pos, leaving prevPos as the tile hopped from.
+    obj.prevPos = { x: obj.pos.x, y: obj.pos.y };
     const isCritter = def.kind === "critter";
     // Chasing state — drives both the walk speed and the step logic below.
     if (obj.pursueUntil !== undefined && ctx.now >= obj.pursueUntil) delete obj.pursueUntil;
     const engaged = player.activity.kind === "combat" && player.activity.targetId === def.id;
     let pursuing = obj.pursueUntil !== undefined;
 
-    // Mid-step: keep walking toward the reserved target tile.
+    // Mid-step: hop one tile onto the reserved (always-adjacent) target tile —
+    // `prevPos` (set above) is the tile the hop began on, so the client
+    // interpolates the step smoothly instead of the creature jumping.
     if (obj.wanderTarget) {
-      const speed = isCritter ? WANDER.speed * 1.6
-        : (engaged || pursuing) ? PURSUE_SPEED : WANDER.speed; // chasers hustle
-      const reached = stepToward(obj.pos, obj.wanderTarget, (speed * dt) / 1000);
-      if (reached) {
-        obj.pos = { x: obj.wanderTarget.x, y: obj.wanderTarget.y };
-        obj.wanderTarget = null;
-        obj.nextWanderAt = ctx.now + randRange(ctx, WANDER.pauseMin, WANDER.pauseMax);
-      }
+      obj.pos = { x: obj.wanderTarget.x, y: obj.wanderTarget.y };
+      obj.wanderTarget = null;
+      obj.nextWanderAt = ctx.now + randRange(ctx, WANDER.pauseMin, WANDER.pauseMax);
       continue;
     }
 
@@ -5020,17 +5075,6 @@ function wanderCreatures(
   }
 }
 
-/** Move `pos` toward `target` by up to `budget` tiles; true if it arrives. */
-function stepToward(pos: Vec2, target: Vec2, budget: number): boolean {
-  const dx = target.x - pos.x;
-  const dy = target.y - pos.y;
-  const dist = Math.hypot(dx, dy);
-  if (dist <= budget || dist < 1e-6) return true;
-  pos.x += (dx / dist) * budget;
-  pos.y += (dy / dist) * budget;
-  return false;
-}
-
 /** Terrain + fixed-object walkability only (ignores creatures), for wandering. */
 const baseWalkCache = new WeakMap<Content, (x: number, y: number) => boolean>();
 function baseWalkable(content: Content): (x: number, y: number) => boolean {
@@ -5111,32 +5155,24 @@ function agilityRegenMult(player: Player): number {
   return base * (1 + boost);
 }
 
-/** Advance the player along their path; returns the tiles travelled while sprinting. */
-function stepMovement(player: Player, dt: number): number {
+/**
+ * Advance the player ONE tile along their path per tick — two while running with
+ * energy to spare (OSRS run), or two energy-free while mounted. Snaps to whole
+ * tiles; the client interpolates `prevPos`→`pos` for smooth motion. Returns the
+ * tiles travelled *on foot while sprinting*, for run-energy drain.
+ */
+function stepMovement(player: Player): number {
   const sprinting = player.running && player.energy > 0 && !player.winded;
-  const speed =
-    MOVE_SPEED * (player.equipment.mount ? MOUNT_SPEED_MULT : 1) * (sprinting ? SPRINT_MULT : 1);
-  const startBudget = (speed * dt) / 1000; // tiles of travel allowed this tick
-  let budget = startBudget;
-  while (budget > 0 && player.path.length > 0) {
-    const target = player.path[0]!;
-    const dx = target.x - player.pos.x;
-    const dy = target.y - player.pos.y;
-    const dist = Math.hypot(dx, dy);
-    if (dist <= budget || dist < 1e-6) {
-      player.pos = { x: target.x, y: target.y };
-      player.path.shift();
-      budget -= dist;
-    } else {
-      player.pos = {
-        x: player.pos.x + (dx / dist) * budget,
-        y: player.pos.y + (dy / dist) * budget,
-      };
-      budget = 0;
-    }
+  const mounted = !!player.equipment.mount;
+  const tilesThisTick = (sprinting || mounted) ? RUN_TILES_PER_TICK : WALK_TILES_PER_TICK;
+  let moved = 0;
+  for (let i = 0; i < tilesThisTick && player.path.length > 0; i++) {
+    const target = player.path.shift()!;
+    player.pos = { x: target.x, y: target.y };
+    moved++;
   }
-  const moved = startBudget - budget; // tiles actually walked this tick
-  if (sprinting && moved > 0) {
+  // Mount travel is free; only on-foot sprinting spends run energy.
+  if (sprinting && !mounted && moved > 0) {
     // The Herald's Storm-Mantle (Skyreach unique): the wind carries some of
     // your weight — running drains 30% less energy.
     const mantle = player.equipment.cape === "storm_mantle" ? 0.7 : 1;

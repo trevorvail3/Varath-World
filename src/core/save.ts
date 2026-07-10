@@ -714,6 +714,7 @@ export function hydratePlayer(
     const inBounds = x >= 0 && y >= 0 && x < m.width && y < m.height;
     if (inBounds && m.tiles[y * m.width + x] !== "water") {
       player.pos = { x, y };
+      player.prevPos = { x, y }; // load in place — never glide from the spawn seed
     }
   }
 

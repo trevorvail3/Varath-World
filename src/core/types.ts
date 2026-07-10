@@ -1318,6 +1318,10 @@ export interface WorldObjectState {
    * fixed objects, which always render at their def coordinates.
    */
   pos?: Vec2;
+  /** The tile this creature occupied at the start of the current tick — the
+   *  client interpolates `prevPos`→`pos` so a stepping creature glides smoothly
+   *  between tiles instead of jumping. Undefined for fixed objects. */
+  prevPos?: Vec2;
   /** The tile this creature is currently stepping toward (null = standing). */
   wanderTarget?: Vec2 | null;
   /** Aggressive monster only: while `now < pursueUntil` it gives chase after a
@@ -1550,11 +1554,16 @@ export interface BountyUnlock {
 
 export interface Player {
   /**
-   * Smooth position in *tile units* (e.g. {x: 4.5, y: 7} is halfway across
-   * tile 4 on row 7). The core advances this a little each tick so movement
-   * looks smooth; the client just draws wherever the player currently is.
+   * Position in *tile units*. Under the fixed game tick this is a WHOLE tile —
+   * the sim hops one tile per tick (two while running), OSRS-style. The client
+   * interpolates between `prevPos` and `pos` for smooth on-screen motion, so the
+   * simulation stays tile-quantized while the render stays fluid.
    */
   pos: Vec2;
+  /** The tile occupied at the START of the current tick — the interpolation
+   *  origin the client eases FROM toward `pos`. Equals `pos` while standing
+   *  still (and after any teleport, so the avatar never streaks across the map). */
+  prevPos: Vec2;
   /** Tiles still to be walked, in order. Empty when standing still. */
   path: Vec2[];
   hp: number;
@@ -1803,8 +1812,20 @@ export interface WorldState {
    * player's pathfinding — routes around creatures wherever they've drifted to.
    */
   creatureTiles: Set<string>;
-  /** The last time tick() ran, so we can measure elapsed time. */
+  /** The last real (wall/perf) time tick() ran, so we can measure elapsed time
+   *  and feed the fixed-tick accumulator below. */
   lastTick: number;
+  /** --- Fixed game tick (OSRS-style ~0.6s cadence) ---
+   *  The sim advances in discrete TICK_MS steps. `tickNow` is the DISCRETE sim
+   *  clock (advances by exactly TICK_MS per step) that every `now >= nextAt`
+   *  schedule is compared against, so combat/gathering/respawns all land on the
+   *  shared beat. `tickAcc` is the leftover real time not yet consumed into a
+   *  step; `tickCount` counts steps; `lastTickAt` is the real time of the last
+   *  step, which the client uses to interpolate render position within a tick. */
+  tickNow: number;
+  tickAcc: number;
+  tickCount: number;
+  lastTickAt: number;
 }
 
 // ---------------------------------------------------------------------------

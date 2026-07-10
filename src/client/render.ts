@@ -1493,6 +1493,21 @@ function drawGroundItem(
   g.restore();
 }
 
+/**
+ * Interpolate a tile position between the tile occupied last game tick (`prev`)
+ * and this tick (`cur`) by `alpha` in [0,1] — the fraction of the current tick
+ * elapsed in real time. This is what turns the sim's discrete one-tile hops into
+ * smooth on-screen motion. A large `prev`→`cur` gap is a TELEPORT (waystone,
+ * portal, respawn, knockback), so snap to `cur` rather than streak the sprite
+ * across the map. Standing still ⇒ prev == cur ⇒ returns `cur` (no drift).
+ */
+export function interpTile(prev: Vec2 | undefined, cur: Vec2, alpha: number): Vec2 {
+  if (!prev) return cur;
+  const dx = cur.x - prev.x, dy = cur.y - prev.y;
+  if (dx * dx + dy * dy > 12.25) return cur; // > 3.5 tiles apart → teleport, snap
+  return { x: prev.x + dx * alpha, y: prev.y + dy * alpha };
+}
+
 export function drawWorld(
   g: CanvasRenderingContext2D,
   canvas: HTMLCanvasElement,
@@ -1503,6 +1518,9 @@ export function drawWorld(
   viewW = canvas.width,
   viewH = canvas.height,
   ghosts: Ghost[] = [],
+  /** Fraction [0,1] of the current game tick elapsed — drives tile interpolation
+   *  so movement glides between the sim's discrete tile hops. */
+  alpha = 1,
 ): void {
   // Visible span in world pixels. Under a zoom transform this is the device size
   // over the zoom, so tile culling and the night veil cover exactly the view.
@@ -1721,8 +1739,10 @@ export function drawWorld(
     const obj = state.objects[def.id];
     if (!obj) continue;
     if (objectHidden(def, state.player)) continue; // story-gated: not revealed yet
-    // Creatures render at their live (wandering) position; fixed objects at def.
-    const p = objectPos(def, obj);
+    // Creatures render at their live (wandering) position, interpolated between
+    // the tile they hopped FROM this tick and their current tile so they glide;
+    // fixed objects sit at their def tile.
+    const p = obj.pos ? interpTile(obj.prevPos, obj.pos, alpha) : objectPos(def, obj);
     if (!inRegion(Math.round(p.x), Math.round(p.y))) continue; // mask other instances
     if (outside(p.x, p.y)) continue; // past the draw distance
     const px = p.x * TILE - cam.x;
@@ -1933,6 +1953,10 @@ export function drawWorld(
   let playerGlow: [number, number] | null = null; // a carried light, added after bloom
   if (state.player.alive) {
     const pl = state.player;
+    // Render position: interpolate the discrete one-tile-per-tick hop toward the
+    // current tile so the avatar glides. `pl.pos` (the true tile) still drives
+    // facing, tile look-ups and effects; only the DRAWN position is interpolated.
+    const rp = interpTile(pl.prevPos, pl.pos, alpha);
     // Face the next step's dominant direction (4-way); keep the last facing when
     // idle. Horizontal wins ties so a diagonal reads as a side-step, not a turn.
     if (pl.path.length > 0) {
@@ -1950,8 +1974,8 @@ export function drawWorld(
     // A summoned companion trails a half-step behind the player (boss pets show
     // as a mini version of their boss). Drawn before the player so it sits behind.
     if (pl.equipment.companion) {
-      const pwx = pl.pos.x * TILE + TILE / 2;
-      const pwy = pl.pos.y * TILE + TILE / 2;
+      const pwx = rp.x * TILE + TILE / 2;
+      const pwy = rp.y * TILE + TILE / 2;
       const tx = pwx + (playerFaceLeft ? 13 : -13); // hang back, opposite the facing
       const ty = pwy + 8;
       if (petWx === null) { petWx = tx; petWy = ty; }
@@ -1959,12 +1983,12 @@ export function drawWorld(
       petWy += (ty - petWy) * 0.16;
       drawCompanion(g, content, pl.equipment.companion, petWx - cam.x, petWy - cam.y, now, pl.path.length > 0);
     }
-    const plCx = pl.pos.x * TILE + TILE / 2 - cam.x;
-    const plCy = pl.pos.y * TILE + TILE / 2 - cam.y;
-    castShadow(g, plCx, pl.pos.y * TILE + TILE - 4 - cam.y, sv); // sun-cast shadow
+    const plCx = rp.x * TILE + TILE / 2 - cam.x;
+    const plCy = rp.y * TILE + TILE / 2 - cam.y;
+    castShadow(g, plCx, rp.y * TILE + TILE - 4 - cam.y, sv); // sun-cast shadow
     const php = hitPop("player", now);
     if (php) {
-      const cx = plCx, cy = pl.pos.y * TILE + TILE * 0.6 - cam.y;
+      const cx = plCx, cy = rp.y * TILE + TILE * 0.6 - cam.y;
       g.save();
       g.translate(php.ox, php.oy);
       g.translate(cx, cy); g.scale(php.s, php.s); g.translate(-cx, -cy);
@@ -1973,7 +1997,7 @@ export function drawWorld(
     const ownsCosmetic = (iid: string): boolean =>
       ((pl.bank as Record<string, number>)[iid] ?? 0) > 0 || pl.inventory.some((s) => s?.item === (iid as ItemId));
     drawPlayer(
-      g, pl.pos, cam, now, pl.appearance,
+      g, rp, cam, now, pl.appearance,
       pl.path.length > 0, playerAction(pl, content, now),
       resolveGear(pl.equipment, content), playerFacing,
       mountId ? {
