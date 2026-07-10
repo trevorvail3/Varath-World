@@ -7,8 +7,9 @@
  * no new core tracking. They reference each region's signature skills and its
  * real quests, so working a region naturally ticks its diary off.
  *
- * (Display-only for now — a tracker of regional goals; rewards can be wired in
- * later by gating an item/flag on a diary's completion.)
+ * `reward` is an XP lamp: completing every task lets the player claim it (the
+ * CLAIM_DIARY intent → claimDiary in worldCore), pouring that XP into a skill of
+ * their choice via the World-tab claim button and skill picker.
  */
 
 import type { DiaryDef } from "../core/types.ts";

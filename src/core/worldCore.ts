@@ -5298,9 +5298,17 @@ function gatherStep(
     return;
   }
   // Fishing lands a catch every (tier-scaled) reel; everything else rolls a
-  // success chance on a fixed tick.
+  // success chance on a fixed tick. OSRS-style, that chance now SCALES WITH
+  // LEVEL: a node yields at its base rate the moment you can work it and climbs
+  // toward near-certain as you master the skill — so a level-99 miner visibly
+  // out-gathers a level-40 one on the same rock, instead of both rolling the flat
+  // base rate. (Tool tier still drives swing SPEED separately.)
   const fishing = action.skill === "fishing";
-  if (fishing || ctx.rng() < beh.success) {
+  const lvl = skillLvl(player, action.skill);
+  const req = action.levelReq ?? 1;
+  const t = Math.min(1, Math.max(0, (lvl - req) / Math.max(1, LEVEL_CAP - req)));
+  const success = Math.min(0.95, beh.success + (0.95 - beh.success) * t);
+  if (fishing || ctx.rng() < success) {
     // A fishing spot with a catch pool rolls one fish you meet the level for
     // (weighted) on each catch — OSRS-style mixed spots. Other nodes (and spots
     // with no pool) just yield their single action.
