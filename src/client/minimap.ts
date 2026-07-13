@@ -7,7 +7,8 @@
  */
 
 import type { Content, ObjKind, TileType, Vec2, WorldState } from "../core/types.ts";
-import { objectPos, objectHidden } from "../core/worldCore.ts";
+import { objectPos, objectHidden, NPC_STEP_TICKS } from "../core/worldCore.ts";
+import { interpTile, stepProgress } from "./render.ts";
 import { OVERWORLD_HEIGHT, instanceRectAt, REGIONS, CITY } from "../content/map.ts";
 import type { InstanceRect } from "../content/map.ts";
 import { Camera, TILE } from "./render.ts";
@@ -318,6 +319,7 @@ export class Minimap {
   draw(
     state: WorldState,
     content: Content,
+    alpha = 1,
   ): void {
     const g = this.g;
     const m = state.map;
@@ -337,7 +339,10 @@ export class Minimap {
     // A constant window of tiles, centred on the player (not the camera), so the
     // character sits dead-centre and you always see the same distance around them.
     const cell = S / MINIMAP_SPAN;
-    const p = state.player.pos;
+    // Centre on the INTERPOLATED player position so the whole minimap scrolls
+    // smoothly with the avatar's glide instead of jumping a tile each step.
+    const pl = state.player;
+    const p = interpTile(pl.prevPos, pl.pos, stepProgress(pl.stepStartTick, pl.stepDurTicks, state.tickCount, alpha));
     const originX = p.x + 0.5 - MINIMAP_SPAN / 2; // tile at the minimap's left edge
     const originY = p.y + 0.5 - MINIMAP_SPAN / 2;
     this.view = { originX, originY, cell, offX: 0, offY: 0 };
@@ -370,7 +375,9 @@ export class Minimap {
       if (!color) continue;
       if (objectHidden(def, state.player)) continue; // story-gated: not revealed yet
       const obj = state.objects[def.id];
-      const p = objectPos(def, obj);
+      const p = obj?.pos
+        ? interpTile(obj.prevPos, obj.pos, stepProgress(obj.moveStartTick ?? 0, NPC_STEP_TICKS, state.tickCount, alpha))
+        : objectPos(def, obj);
       if (p.x < x0 - 1 || p.x > x1 + 1 || p.y < y0 - 1 || p.y > y1 + 1) continue;
       if (!inRegion(Math.round(p.x), Math.round(p.y))) continue;
       // A bounty guide reads as a hunt mark — a ringed gold dot — not a plain

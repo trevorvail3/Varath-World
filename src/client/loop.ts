@@ -51,7 +51,7 @@ import { getTrackedQuest } from "./questTrack.ts";
 import { resolveGear } from "./gearLook.ts";
 import { DUNGEON_TOP, enterableAt, instanceRectAt, INTERIOR_TOP, OVERWORLD_HEIGHT } from "../content/map.ts";
 import { DecorateUI } from "./decorate.ts";
-import { objectPos, objectHidden, travelFare, equipRequirement, combatLevel, TICK_MS } from "../core/worldCore.ts";
+import { objectPos, objectHidden, travelFare, equipRequirement, combatLevel, TICK_MS, NPC_STEP_TICKS } from "../core/worldCore.ts";
 import { findPath, pathToAdjacent, pathToWithin } from "./pathfinding.ts";
 import { getSocial, submitCurrent } from "./social.ts";
 import { currentUser } from "./supabase.ts";
@@ -375,6 +375,11 @@ export class Game {
   private camInitialised = false;
   /** Real time of the previous rendered frame, for frame-rate-independent easing. */
   private lastFrameNow = 0;
+  /** Fraction [0,1] through the current game tick, refreshed once per frame in
+   *  update(). Every overlay that pins to a moving entity interpolates with this
+   *  (via playerRenderPos / objRenderPos) so the whole scene glides together
+   *  instead of the avatar sliding while its bars/markers snap to the tile. */
+  private frameAlpha = 0;
 
   private menu: ContextMenu;
   private minimap: Minimap;
@@ -661,6 +666,7 @@ export class Game {
     // ease frame-rate-independent (same feel at 60Hz and 120Hz).
     const st = this.bridge.state;
     const alpha = Math.min(1, Math.max(0, (now - st.lastTickAt) / TICK_MS));
+    this.frameAlpha = alpha;
     const frameDt = this.lastFrameNow === 0 ? 16 : Math.min(100, now - this.lastFrameNow);
     this.lastFrameNow = now;
     this.followCamera(alpha, frameDt);
@@ -701,7 +707,7 @@ export class Game {
     this.hud.update(this.bridge.state);
     this.activeSkill.update(this.bridge.state, now);
     this.duel.tick(); // pop the ring window when a challenge lands + drain fight events
-    this.minimap.draw(this.bridge.state, this.bridge.content);
+    this.minimap.draw(this.bridge.state, this.bridge.content, this.frameAlpha);
     if (this.worldMap.isOpen()) {
       this.worldMap.draw(
         this.bridge.state,
@@ -727,13 +733,23 @@ export class Game {
   }
 
   /** The player's smooth on-screen tile position (same interpolation the renderer
-   *  and camera use), so overlays like footstep puffs sit under the gliding
-   *  avatar instead of snapping to the sim tile. */
-  private renderPlayerPos(now: number): Vec2 {
+   *  and camera use), so every player-pinned overlay glides with the avatar. */
+  private renderPlayerPos(): Vec2 {
     const st = this.bridge.state;
     const pl = st.player;
-    const alpha = Math.min(1, Math.max(0, (now - st.lastTickAt) / TICK_MS));
-    return interpTile(pl.prevPos, pl.pos, stepProgress(pl.stepStartTick, pl.stepDurTicks, st.tickCount, alpha));
+    return interpTile(pl.prevPos, pl.pos, stepProgress(pl.stepStartTick, pl.stepDurTicks, st.tickCount, this.frameAlpha));
+  }
+
+  /** The smooth on-screen tile position of a world object — interpolated for a
+   *  wandering creature (so its HP bar / highlight tracks the gliding body), or
+   *  the fixed def tile for anything that doesn't move. */
+  private objRenderPos(def: WorldObjectDef): Vec2 {
+    const st = this.bridge.state;
+    const obj = st.objects[def.id];
+    if (obj?.pos) {
+      return interpTile(obj.prevPos, obj.pos, stepProgress(obj.moveStartTick ?? 0, NPC_STEP_TICKS, st.tickCount, this.frameAlpha));
+    }
+    return objectPos(def, obj);
   }
 
   private followCamera(alpha: number, frameDt: number): void {
@@ -1016,7 +1032,7 @@ export class Game {
           break;
         }
         case "HEALED": {
-          const p = this.bridge.state.player.pos;
+          const p = this.renderPlayerPos();
           this.floats.push({ x: p.x, y: p.y - 0.3, text: `+${ev.amount}`, color: "#5fd06a", born: now, size: 15 });
           this.sparks.push({ x: p.x, y: p.y, born: now, color: "#5fd06a", n: 6 });
           audio.play("heal");
@@ -1458,11 +1474,14 @@ export class Game {
     return def?.kind === "monster" && def.monster ? def.monster : null;
   }
 
+  /** Interpolated render position of a target (player or object), so any overlay
+   *  pinned to it — highlight box, tap ring, combat reticle, projectile end —
+   *  glides with the body instead of snapping to the tile. */
   private positionOf(targetId: string): Vec2 | null {
-    if (targetId === "player") return this.bridge.state.player.pos;
+    if (targetId === "player") return this.renderPlayerPos();
     const def = this.bridge.content.objects.find((o) => o.id === targetId);
     if (!def) return null;
-    return objectPos(def, this.bridge.state.objects[def.id]);
+    return this.objRenderPos(def);
   }
 
   // --- Drawing overlays --------------------------------------------------
@@ -1507,7 +1526,8 @@ export class Game {
     if (this.speech) {
       if (now >= this.speech.until) this.speech = null;
       else if (p.alive) {
-        const s = this.toScreen(p.pos.x, p.pos.y);
+        const rp = this.renderPlayerPos();
+        const s = this.toScreen(rp.x, rp.y);
         this.drawSpeechBubble(this.speech.text, s.x, s.y, Math.min(1, (this.speech.until - now) / 700));
       }
     }
@@ -1650,7 +1670,7 @@ export class Game {
     if (act.kind === "idle" || !act.targetId) return;
     const def = this.bridge.content.objects.find((o) => o.id === act.targetId);
     if (!def) return;
-    const ap = objectPos(def, this.bridge.state.objects[def.id]);
+    const ap = this.objRenderPos(def); // interpolated so a stepping foe's bar tracks it
     const { x: cx, y: cy } = this.toScreen(ap.x, ap.y);
 
     if (act.kind === "combat") {
@@ -1672,7 +1692,8 @@ export class Game {
       // The player's own HP bar over their head while fighting, so you can watch
       // your health without glancing to the HUD.
       const pl = this.bridge.state.player;
-      const { x: px, y: py } = this.toScreen(pl.pos.x, pl.pos.y);
+      const prp = this.renderPlayerPos();
+      const { x: px, y: py } = this.toScreen(prp.x, prp.y);
       const pw = TILE * 0.7, ph = 4;
       const ppct = pl.maxHp > 0 ? Math.max(0, Math.min(1, pl.hp / pl.maxHp)) : 1;
       const pbx = px - pw / 2, pby = py - TILE * 0.62;
@@ -1784,7 +1805,7 @@ export class Game {
 
   private objTile(id: string): { x: number; y: number } | null {
     const def = this.bridge.content.objects.find((o) => o.id === id);
-    return def ? objectPos(def, this.bridge.state.objects[id]) : null;
+    return def ? this.objRenderPos(def) : null; // interpolated (guide arrow target may wander)
   }
 
   private nearestMonster(monster: string): { x: number; y: number } | null {
@@ -1891,7 +1912,7 @@ export class Game {
       }
       if (!mark) continue;
 
-      const mp = objectPos(obj, this.bridge.state.objects[obj.id]);
+      const mp = this.objRenderPos(obj); // interpolated so the "!" tracks a wandering NPC
       const { x: cx, y: cy } = this.toScreen(mp.x, mp.y);
       const bob = Math.sin(now / 280) * 3;
       const my = cy - TILE * 0.85 + bob;
@@ -1925,7 +1946,7 @@ export class Game {
       } else {
         const targetId = step?.npc ?? step?.from;
         const tobj = targetId ? this.bridge.content.objects.find((o) => o.id === targetId) : undefined;
-        if (tobj) tp = objectPos(tobj, this.bridge.state.objects[tobj.id]);
+        if (tobj) tp = this.objRenderPos(tobj); // interpolated (the giver may wander)
       }
       if (tp) {
         const { x: sx, y: sy } = this.toScreen(tp.x, tp.y);
@@ -2030,7 +2051,7 @@ export class Game {
     const tile = (tx >= 0 && ty >= 0 && tx < m.width && ty < m.height) ? m.tiles[ty * m.width + tx] : "grass";
     const wet = tile === "water" || tile === "deep" || tile === "bog";
     // Drop the scuff under the avatar's interpolated (gliding) position.
-    const rp = this.renderPlayerPos(now);
+    const rp = this.renderPlayerPos();
     this.puffs.push({ x: rp.x, y: rp.y + 0.32, born: now, kind: wet ? "splash" : "dust" });
   }
 

@@ -2035,7 +2035,10 @@ export function drawWorld(
         const tdef = content.objects.find((o) => o.id === act.targetId);
         const tobj = tdef ? state.objects[tdef.id] : undefined;
         if (tdef && tobj) {
-          const tp = objectPos(tdef, tobj);
+          // Interpolated so a strike spark on a stepping foe tracks its body.
+          const tp = tobj.pos
+            ? interpTile(tobj.prevPos, tobj.pos, stepProgress(tobj.moveStartTick ?? 0, NPC_STEP_TICKS, state.tickCount, alpha))
+            : objectPos(tdef, tobj);
           const tx = tp.x * TILE + TILE / 2 - cam.x;
           const ty = tp.y * TILE + TILE / 2 - cam.y;
           const fade = 1 - age / 320;
