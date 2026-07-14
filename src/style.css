@@ -133,6 +133,29 @@ body {
   pointer-events: none;
 }
 .hud-buffs { display: flex; gap: 5px; flex-wrap: wrap; max-width: 250px; }
+
+/* Session XP counter — a small pill that pops on a gain and fades when XP stops. */
+.hud-xp {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: rgba(20, 16, 11, 0.72);
+  border: 1px solid rgba(226, 181, 74, 0.5);
+  color: #f0d59a;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  pointer-events: auto;
+  cursor: pointer;
+  transition: opacity 900ms ease;
+  opacity: 1;
+}
+.hud-xp.hidden { display: none; }
+.hud-xp.fading { opacity: 0; }
+.hud-xp .hud-xp-ic { display: inline-flex; width: 13px; height: 13px; color: #e2b54a; }
+.hud-xp .hud-xp-ic svg { width: 100%; height: 100%; }
+.hud-xp .hud-xp-n { font-weight: 600; }
 .buff-chip {
   display: flex;
   align-items: center;

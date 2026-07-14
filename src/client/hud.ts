@@ -193,6 +193,12 @@ export class Hud {
   private runToggle!: HTMLElement;
   private buffStrip!: HTMLElement;
   private skillFills = new Map<SkillId, HTMLElement>();
+  /** OSRS-style session XP counter: total XP earned since it was last reset,
+   *  popped up on each gain and faded when XP stops. */
+  private xpCounterEl!: HTMLElement;
+  private xpCountEl!: HTMLElement;
+  private xpSession = 0;
+  private xpFadeTimer = 0;
   private logEl!: HTMLElement;
   private logLines: { type: "game" | "chat"; html: string }[] = [];
   private chatInput!: HTMLInputElement;
@@ -463,6 +469,19 @@ export class Hud {
     this.buffStrip = document.createElement("div");
     this.buffStrip.className = "hud-buffs";
     topLeft.appendChild(this.buffStrip);
+    // Session XP counter (OSRS-style): pops on each gain, fades when XP stops,
+    // tap to reset the running total.
+    this.xpCounterEl = document.createElement("div");
+    this.xpCounterEl.className = "hud-xp hidden";
+    this.xpCounterEl.title = "XP gained this session — tap to reset";
+    this.xpCounterEl.innerHTML = `<span class="hud-xp-ic">${iconize("✨")}</span><span class="hud-xp-n">0</span> XP`;
+    this.xpCountEl = this.xpCounterEl.querySelector(".hud-xp-n") as HTMLElement;
+    this.xpCounterEl.addEventListener("pointerdown", (e) => {
+      e.stopPropagation();
+      this.xpSession = 0;
+      this.xpCountEl.textContent = "0";
+    });
+    topLeft.appendChild(this.xpCounterEl);
     root.appendChild(topLeft);
 
     // --- Game log + world chat (bottom-left), OSRS-style: game messages and
@@ -1197,6 +1216,18 @@ export class Hud {
 
   log(message: string): void {
     this.pushLine(`<div class="log-line">${escapeHtml(message)}</div>`, "game");
+  }
+
+  /** Add to the running session XP total and pop the counter into view; it fades
+   *  again a few seconds after XP stops flowing. Fed by the loop's per-skill XP
+   *  drops. */
+  addXp(amount: number, _now: number): void {
+    if (amount <= 0) return;
+    this.xpSession += amount;
+    this.xpCountEl.textContent = Math.round(this.xpSession).toLocaleString();
+    this.xpCounterEl.classList.remove("hidden", "fading");
+    if (this.xpFadeTimer) clearTimeout(this.xpFadeTimer);
+    this.xpFadeTimer = window.setTimeout(() => this.xpCounterEl.classList.add("fading"), 4500);
   }
 
   /** A world-wide broadcast (e.g. a new pier champion): shown in the chat feed

@@ -131,6 +131,10 @@ const SPARK_COLOR: Record<string, string> = {
   construction: "#a59a8c",
   woodcraft: "#9a7a4a",
   farming: "#7fae6a",
+  // Combat + support skills — used to tint their XP drops (the gather-spark burst
+  // never fires for these, so the extra keys are harmless there).
+  edge: "#d8574a", vigour: "#e08a3a", ward: "#6f9ac0", draw: "#8fbf6a",
+  faith: "#b98cd8", vitality: "#7fae6a", agility: "#6fc0b0", bounty: "#e2b54a",
 };
 
 /** Which throat a monster speaks with, from its id (see audio.creature). */
@@ -815,14 +819,14 @@ export class Game {
   }
 
   private handleEvents(events: WorldEvent[], now: number): void {
-    let xpSum = 0;
+    const xpBySkill = new Map<SkillId, number>();
     for (const ev of events) {
       switch (ev.type) {
         case "LOG":
           this.hud.log(ev.message);
           break;
         case "XP_GAINED": {
-          xpSum += ev.amount;
+          xpBySkill.set(ev.skill, (xpBySkill.get(ev.skill) ?? 0) + ev.amount);
           // Surface the gain on the active-skill bar so it rises for whatever
           // you're training — including bursty skills like agility that aren't
           // a standing activity.
@@ -1102,16 +1106,29 @@ export class Game {
           break;
       }
     }
-    // One tidy "+N XP" rising off the player per tick, not one per skill.
-    if (xpSum > 0) {
-      const p = this.bridge.state.player.pos;
-      this.floats.push({
-        x: p.x,
-        y: p.y,
-        text: `+${Math.round(xpSum)} XP`,
-        color: "#e0b54a",
-        born: now,
-      });
+    // OSRS-style XP drops: ONE per skill this tick, tinted by the skill and
+    // stacked so training two skills at once (e.g. combat + Vitality) reads as two
+    // lines, not a mush. Spawned at the avatar's interpolated position so they
+    // rise with the gliding body, and fed to the live XP counter in the HUD.
+    if (xpBySkill.size > 0) {
+      const rp = this.renderPlayerPos();
+      let total = 0;
+      let row = 0;
+      for (const [skill, amount] of xpBySkill) {
+        if (amount <= 0) continue;
+        total += amount;
+        const nm = this.bridge.content.skills[skill]?.name ?? skill;
+        this.floats.push({
+          x: rp.x,
+          y: rp.y - row * 0.42, // stack upward so multiple skills don't overlap
+          text: `+${Math.round(amount)} ${nm}`,
+          color: SPARK_COLOR[skill] ?? "#e0b54a",
+          born: now,
+          size: 13,
+        });
+        row++;
+      }
+      if (total > 0) this.hud.addXp(total, now);
     }
   }
 
