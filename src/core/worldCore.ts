@@ -716,6 +716,8 @@ export function createWorld(
     activity: { kind: "idle", targetId: null, actionId: null, nextActionAt: 0, actionInterval: 0 },
     pendingInteractId: null,
     pendingInteractMode: null,
+    pendingPickup: null,
+    pendingCook: null,
     station: null,
     hooked: null,
     // The pier records board starts seeded with rival anglers to beat; the
@@ -868,6 +870,7 @@ function pickupGround(
   const here = state.ground.filter((g) => g.x === x && g.y === y && (onlyId === undefined || g.id === onlyId));
   if (here.length === 0) return;
   let anyFull = false;
+  let tookAny = false;
   for (const g of here) {
     const hasEmpty = player.inventory.some((s) => s === null);
     const cap = isStackable(g.item)
@@ -879,10 +882,13 @@ function pickupGround(
     if (take <= 0) { anyFull = true; continue; }
     addItem(player, g.item, take, events);
     g.qty -= take;
+    tookAny = true;
     const name = content.items[g.item].name;
     events.push({ type: "LOG", message: `You pick up ${take > 1 ? `${take}× ` : ""}${name}.` });
   }
   state.ground = state.ground.filter((g) => g.qty > 0); // drop empty piles
+  // A little glint where the pile was — the pocketing made visible.
+  if (tookAny) events.push({ type: "PICKED_UP", x, y });
   if (anyFull) events.push({ type: "INVENTORY_FULL" });
 }
 
@@ -2042,6 +2048,8 @@ export function applyIntent(
       player.path = intent.path.map((p) => ({ x: p.x, y: p.y }));
       player.pendingInteractId = null;
       player.pendingInteractMode = null;
+      player.pendingPickup = null;
+      player.pendingCook = null;
       player.station = null; // walking away leaves the counter
       clearActivity(player);
       // Deliberately walking = you're fleeing/moving on; give a grace so an
@@ -2053,6 +2061,8 @@ export function applyIntent(
       player.path = intent.path.map((p) => ({ x: p.x, y: p.y }));
       player.pendingInteractId = intent.objId;
       player.pendingInteractMode = intent.mode ?? null;
+      player.pendingPickup = null;
+      player.pendingCook = null;
       player.station = null; // a fresh interaction; startInteraction re-sets it
       clearActivity(player);
       // If we're already standing next to it, act immediately.
@@ -2064,6 +2074,8 @@ export function applyIntent(
     case "CANCEL": {
       player.path = [];
       player.pendingInteractId = null;
+      player.pendingPickup = null;
+      player.pendingCook = null;
       player.station = null;
       clearActivity(player);
       break;
@@ -2074,7 +2086,35 @@ export function applyIntent(
       break;
     }
     case "PICKUP": {
-      pickupGround(state, content, intent.x, intent.y, events, intent.id, intent.qty);
+      // Walking to the loot? Queue the grab; the core fires it on arrival
+      // (mirroring pendingInteractId) instead of the client polling each frame.
+      if (intent.path && intent.path.length > 0) {
+        player.path = intent.path.map((p) => ({ x: p.x, y: p.y }));
+        player.pendingInteractId = null;
+        player.pendingCook = null;
+        const pp: { x: number; y: number; id?: number; qty?: number } = { x: intent.x, y: intent.y };
+        if (intent.id !== undefined) pp.id = intent.id;
+        if (intent.qty !== undefined) pp.qty = intent.qty;
+        player.pendingPickup = pp;
+        clearActivity(player);
+      } else {
+        pickupGround(state, content, intent.x, intent.y, events, intent.id, intent.qty);
+      }
+      break;
+    }
+    case "COOK": {
+      // Walking to the campfire? Queue it; on arrival the core emits OPEN_CRAFT.
+      if (intent.path && intent.path.length > 0) {
+        player.path = intent.path.map((p) => ({ x: p.x, y: p.y }));
+        player.pendingInteractId = null;
+        player.pendingPickup = null;
+        player.pendingCook = { x: intent.x, y: intent.y };
+        clearActivity(player);
+      } else if (
+        state.campfire && state.campfire.x === intent.x && state.campfire.y === intent.y
+      ) {
+        events.push({ type: "OPEN_CRAFT", station: "fire", objId: "campfire" });
+      }
       break;
     }
     case "OPEN_NEST": {
@@ -4842,6 +4882,17 @@ function stepTick(
     const arrived = wasMoving && player.path.length === 0;
     if (arrived && player.pendingInteractId) {
       startInteraction(state, content, player.pendingInteractId, ctx, events);
+    } else if (arrived && player.pendingPickup) {
+      const pp = player.pendingPickup;
+      player.pendingPickup = null;
+      pickupGround(state, content, pp.x, pp.y, events, pp.id, pp.qty);
+    } else if (arrived && player.pendingCook) {
+      const c = player.pendingCook;
+      player.pendingCook = null;
+      // The fire may have burned out while we walked — only cook if it's still lit.
+      if (state.campfire && state.campfire.x === c.x && state.campfire.y === c.y) {
+        events.push({ type: "OPEN_CRAFT", station: "fire", objId: "campfire" });
+      }
     }
 
     // 3) Whatever the player is busy doing (only when standing still).

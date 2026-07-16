@@ -416,10 +416,6 @@ export class Game {
   private crierIdx = 0;
   private crierShout: { text: string; until: number } | null = null;
   private crierLogged = false;
-  /** A loot tile the player is walking toward to pick up, polled each frame. */
-  private pickupTarget: (Vec2 & { id?: number; qty?: number }) | null = null;
-  /** A campfire the player is walking toward to cook at, polled each frame. */
-  private cookTarget: Vec2 | null = null;
   /** Timestamp of the last hit the player took — drives a red screen flash. */
   private hurtFlash = 0;
   /** Active screen-shake: when it started, how strong (px), and how long. */
@@ -645,8 +641,6 @@ export class Game {
       }
       this.combatTargetId = curTarget;
     }
-    this.checkPickup();
-    this.checkCampfire();
     // "Cook all": once the current dish finishes (activity idle), start the next
     // cookable recipe, until nothing's left to cook.
     if (this.cookAll && this.bridge.state.player.activity.kind !== "crafting") {
@@ -939,6 +933,10 @@ export class Game {
         case "WORLD_BOSS_MOVED":
           // A live-world event: the crier calls the sighting to everyone.
           this.hud.worldAnnounce(`${ev.name} has been sighted in ${ev.hint} — hunters wanted!`);
+          break;
+        case "PICKED_UP":
+          // A little glint where the pile was — the pocketing made visible.
+          this.sparks.push({ x: ev.x, y: ev.y, born: performance.now(), color: "#e8c76a", n: 6 });
           break;
         case "OPEN_CRAFT":
           this.openCraft(ev.station, ev.objId);
@@ -2463,22 +2461,17 @@ export class Game {
     const player = this.bridge.state.player;
     const near =
       Math.max(Math.abs(Math.round(player.pos.x) - tile.x), Math.abs(Math.round(player.pos.y) - tile.y)) <= 1;
-    if (near) {
-      const intent: Intent = { type: "PICKUP", x: tile.x, y: tile.y };
-      if (opts?.id !== undefined) intent.id = opts.id;
-      if (opts?.qty !== undefined) intent.qty = opts.qty;
-      this.dispatch(intent);
-      this.pickupTarget = null;
-      return;
-    }
+    const intent: Intent = { type: "PICKUP", x: tile.x, y: tile.y };
+    if (opts?.id !== undefined) intent.id = opts.id;
+    if (opts?.qty !== undefined) intent.qty = opts.qty;
+    if (near) { this.dispatch(intent); return; }
+    // Walk to it and let the core grab it on arrival (it fires the PICKED_UP
+    // glint too) — no more per-frame arrival polling on the client.
     const { path, reachable } = pathToAdjacent(this.bridge.walkable, player.pos, tile);
     if (!reachable) { this.hud.log("You can't reach that."); return; }
     this.setMarker(tile);
-    const target: Vec2 & { id?: number; qty?: number } = { x: tile.x, y: tile.y };
-    if (opts?.id !== undefined) target.id = opts.id;
-    if (opts?.qty !== undefined) target.qty = opts.qty;
-    this.pickupTarget = target;
-    if (path.length) this.dispatch({ type: "MOVE", path });
+    intent.path = path;
+    this.dispatch(intent);
   }
 
   /** The Trail billboard: every runner on the shared board ranked by laps —
@@ -2591,49 +2584,18 @@ export class Game {
     }
   }
 
-  /** Walk beside the campfire (if not already) and open its cook menu on arrival. */
+  /** Walk beside the campfire (if not already) and cook there. The core owns the
+   *  walk-then-act: on arrival it emits OPEN_CRAFT (see the COOK intent). */
   private approachCampfire(tile: Vec2): void {
     const p = this.bridge.state.player;
     const near = Math.max(Math.abs(Math.round(p.pos.x) - tile.x), Math.abs(Math.round(p.pos.y) - tile.y)) <= 1;
-    if (near) { this.openCraft("fire", "campfire"); return; }
-    this.walkBeside(tile);
-    this.cookTarget = { x: tile.x, y: tile.y };
-  }
-
-  /** Each frame: if we're walking to a campfire and have arrived, open its menu. */
-  private checkCampfire(): void {
-    const t = this.cookTarget;
-    if (!t) return;
-    // The fire went out from under us — abandon the trip.
-    if (!this.campfireAt(t)) { this.cookTarget = null; return; }
-    const p = this.bridge.state.player;
-    const near = Math.max(Math.abs(Math.round(p.pos.x) - t.x), Math.abs(Math.round(p.pos.y) - t.y)) <= 1;
-    if (near) {
-      this.openCraft("fire", "campfire");
-      this.cookTarget = null;
-    } else if (p.path.length === 0) {
-      this.cookTarget = null; // stopped short — give up
-    }
-  }
-
-  /** Each frame: if we're walking to loot and have arrived, grab it. */
-  private checkPickup(): void {
-    const t = this.pickupTarget;
-    if (!t) return;
-    const p = this.bridge.state.player;
-    const near = Math.max(Math.abs(Math.round(p.pos.x) - t.x), Math.abs(Math.round(p.pos.y) - t.y)) <= 1;
-    if (near) {
-      const intent: Intent = { type: "PICKUP", x: t.x, y: t.y };
-      if (t.id !== undefined) intent.id = t.id;
-      if (t.qty !== undefined) intent.qty = t.qty;
-      this.dispatch(intent);
-      // A little glint where the pile was — the pocketing made visible.
-      const taken = t.id === undefined || !this.bridge.state.ground.some((gi) => gi.id === t.id);
-      if (taken) this.sparks.push({ x: t.x, y: t.y, born: performance.now(), color: "#e8c76a", n: 6 });
-      this.pickupTarget = null;
-    } else if (p.path.length === 0) {
-      this.pickupTarget = null; // stopped short — give up
-    }
+    const intent: Intent = { type: "COOK", x: tile.x, y: tile.y };
+    if (near) { this.dispatch(intent); return; }
+    const { path, reachable } = pathToAdjacent(this.bridge.walkable, p.pos, tile);
+    if (!reachable) { this.hud.log("You can't reach that."); return; }
+    this.setMarker(path[path.length - 1] ?? tile);
+    intent.path = path;
+    this.dispatch(intent);
   }
 
   private openMenu(screenX: number, screenY: number, tile: Vec2): void {

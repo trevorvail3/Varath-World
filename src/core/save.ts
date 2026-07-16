@@ -745,6 +745,8 @@ export function hydratePlayer(
   player.path = [];
   player.pendingInteractId = null;
   player.pendingInteractMode = null;
+  player.pendingPickup = null;
+  player.pendingCook = null;
   player.station = null;
   player.activity = { kind: "idle", targetId: null, actionId: null, nextActionAt: 0, actionInterval: 0 };
   player.respawnAt = 0;

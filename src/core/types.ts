@@ -1748,6 +1748,17 @@ export interface Player {
   /** Talk/shop mode queued alongside pendingInteractId (shopkeepers). Transient. */
   pendingInteractMode: "talk" | "shop" | null;
   /**
+   * A loot pile the player is walking toward: once the path finishes, the core
+   * grabs it (mirroring pendingInteractId). Null when not walking to loot.
+   * Transient — never persisted.
+   */
+  pendingPickup: { x: number; y: number; id?: number; qty?: number } | null;
+  /**
+   * A campfire the player is walking toward to cook at: on arrival the core
+   * emits OPEN_CRAFT and the client opens the cook menu. Transient.
+   */
+  pendingCook: { x: number; y: number } | null;
+  /**
    * The shop/bank/board the player currently stands at (set on interaction,
    * cleared when they walk away). Trade/bank/bounty intents are only honoured
    * while it matches — so the core, not just the UI, enforces "be at the
@@ -2230,6 +2241,18 @@ export interface PickupIntent {
   id?: number;
   /** How many of that pile to take (stackables). Omitted = the whole pile. */
   qty?: number;
+  /** Walk this path first, then grab it on arrival. Omitted = act immediately. */
+  path?: Vec2[];
+}
+
+/** "Walk to this campfire and open its cook menu on arrival" — the core owns the
+ *  walk-then-act so the client no longer polls arrival each frame. */
+export interface CookIntent {
+  type: "COOK";
+  x: number;
+  y: number;
+  /** Walk this path first, then open the cook menu. Omitted = act immediately. */
+  path?: Vec2[];
 }
 
 /** "Open this bird nest in my pack" — rolls a random farming seed. */
@@ -2350,6 +2373,7 @@ export type Intent =
   | UseFurnitureIntent
   | BuildRoomIntent
   | PickupIntent
+  | CookIntent
   | DropIntent
   | ClaimDiaryIntent
   | ClaimBossMilestoneIntent
@@ -2409,6 +2433,8 @@ export type WorldEvent =
    *  didn't make the board), and whether this catch made the player a NEW pier
    *  champion (took #1 from someone else — worth a world broadcast). */
   | { type: "FISH_LANDED"; species: string; weight: number; length: number; rank: number; newChampion: boolean }
+  /** Loot was pocketed off a tile — the client glints where the pile was. */
+  | { type: "PICKED_UP"; x: number; y: number }
   /** Open the recipe menu for a station (fire/furnace/anvil). */
   | { type: "OPEN_CRAFT"; station: ObjKind; objId: string }
   /** Open the furniture build/replace menu for a housing hotspot. */
