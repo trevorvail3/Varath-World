@@ -3876,6 +3876,42 @@ export const items: Record<ItemId, ItemDef> = {
       "skill": "max"
     }
   },
+  "cape_ashforge": {
+    "id": "cape_ashforge",
+    "name": "Ashforge Mantle",
+    "description": "The Brotherhood's own cloak, given only to those the smiths call Allied. Worn ash-grey and ember-lined — a cosmetic mark of standing at the anvil.",
+    "icon": "⚒️",
+    "cat": "Capes",
+    "slot": "cape",
+    "sell": 0
+  },
+  "cape_lodge": {
+    "id": "cape_lodge",
+    "name": "Warden's Greatcloak",
+    "description": "The deep-green cloak of the Warden's Lodge, cut for those who keep Greyoak. A cosmetic mark that the wardens count you one of their own.",
+    "icon": "🌲",
+    "cat": "Capes",
+    "slot": "cape",
+    "sell": 0
+  },
+  "cape_pale_record": {
+    "id": "cape_pale_record",
+    "name": "Pale Record Shroud",
+    "description": "The bone-white shroud of the Order that remembers. Worn by those the Pale Record trusts with what the world forgets — a cosmetic mark of allegiance.",
+    "icon": "📜",
+    "cat": "Capes",
+    "slot": "cape",
+    "sell": 0
+  },
+  "cape_heartmoor": {
+    "id": "cape_heartmoor",
+    "name": "Heartmoor Veil",
+    "description": "The candle-warm veil of the Heartmoor faithful, given to allies of the warm stone. It carries no power — only the standing of the road it keeps.",
+    "icon": "🕯️",
+    "cat": "Capes",
+    "slot": "cape",
+    "sell": 0
+  },
   "cape_ironvale": {
     "id": "cape_ironvale",
     "name": "Ironvale's Cape",

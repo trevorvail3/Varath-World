@@ -2570,6 +2570,10 @@ button.inv-slot {
 .shop-card:hover { border-color: var(--ember); background: rgba(210, 116, 44, 0.1); }
 .shop-card.disabled { opacity: 0.55; cursor: default; }
 .shop-card.disabled:hover { border-color: var(--panel-edge); background: rgba(28, 23, 16, 0.55); }
+/* Rep-locked wares read as "earn it" (gold), not "can't afford" (red). */
+.shop-card.rep-locked { opacity: 0.8; border-color: rgba(201, 162, 74, 0.55); }
+.shop-card.rep-locked .shop-card-price,
+.shop-card.rep-locked .shop-card-stock.out { color: var(--gold); background: none; }
 .shop-card-icon {
   position: relative;
   width: 40px;

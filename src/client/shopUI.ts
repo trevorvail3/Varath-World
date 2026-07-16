@@ -170,19 +170,29 @@ export class ShopUI {
       const costLabel = payItem
         ? `${payQty} ${this.content.items[payItem]?.name ?? "Mark"}${payQty === 1 ? "" : "s"}`
         : `${line.price.toLocaleString()}g`;
-      const afford = (payItem ? have >= payQty : player.gold >= line.price) && inStock;
+      // Reputation-gated wares: shown, but locked until you've earned the
+      // faction's trust — so a newcomer SEES the allied reward to work toward.
+      const repReq = line.requiresRep;
+      const repLocked = !!repReq && (player.reputation[repReq.faction] ?? 0) < repReq.amount;
+      const repRank = repReq && repReq.amount >= 50 ? "Allied" : "Friendly";
+      const facName = repReq ? (this.content.factions.find((f) => f.id === repReq.faction)?.name ?? "them") : "";
+      const afford = (payItem ? have >= payQty : player.gold >= line.price) && inStock && !repLocked;
       const bundle = line.qty > 1 ? `<span class="shop-card-bundle">×${line.qty}</span>` : "";
-      const stockTag = stocked
-        ? `<span class="shop-card-stock${inStock ? "" : " out"}">${inStock ? `${left} left` : "Sold out"}</span>`
-        : `<span class="shop-card-stock">In stock</span>`;
+      const stockTag = repLocked
+        ? `<span class="shop-card-stock out">${repRank} req.</span>`
+        : stocked
+          ? `<span class="shop-card-stock${inStock ? "" : " out"}">${inStock ? `${left} left` : "Sold out"}</span>`
+          : `<span class="shop-card-stock">In stock</span>`;
       const card = document.createElement("button");
       card.type = "button";
-      card.className = "shop-card" + (afford ? "" : " disabled");
-      card.title = inStock ? def.description : "Out of stock — the keeper will restock soon.";
+      card.className = "shop-card" + (afford ? "" : " disabled") + (repLocked ? " rep-locked" : "");
+      card.title = repLocked
+        ? `Reach ${repRank} with ${facName} to buy the ${def.name}.`
+        : inStock ? def.description : "Out of stock — the keeper will restock soon.";
       card.innerHTML = `
         <span class="shop-card-icon">${itemIconSVG(def)}${bundle}</span>
         <span class="shop-card-name">${def.name}</span>
-        <span class="shop-card-price${afford ? "" : " short"}">${costLabel}</span>
+        <span class="shop-card-price${afford ? "" : " short"}">${repLocked ? `${repRank} · ${facName}` : costLabel}</span>
         ${stockTag}`;
       // Tap = the buy quantity picker (when affordable & in stock); hold =
       // inspect what you're buying.

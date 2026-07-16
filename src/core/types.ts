@@ -455,6 +455,10 @@ export type ItemId =
   | "cape_agility"
   | "cape_max"
   | "cape_ironvale"
+  | "cape_ashforge"
+  | "cape_lodge"
+  | "cape_pale_record"
+  | "cape_heartmoor"
   | "cape_founder"
   | "charcoal"
   | "raw_hide"
@@ -2689,6 +2693,9 @@ export interface ShopStock {
    *  Devotion Potion — one on the table, one back every 15 minutes. */
   max?: number;
   restockMs?: number;
+  /** A reputation gate: only sold once standing with `faction` reaches `amount`
+   *  (25 = Friendly, 50 = Allied). Gives faction rep a mechanical payoff. */
+  requiresRep?: { faction: FactionId; amount: number };
 }
 
 /** One crop (a plant or a tree) the player can farm. growthMs is REAL ms. */

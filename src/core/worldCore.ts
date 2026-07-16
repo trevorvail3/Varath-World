@@ -1767,6 +1767,17 @@ function buyFromShop(
   if (!line) return;
   // Ending-gated wares: only sold once the story flag is set.
   if (line.requiresFlag && !player.flags.includes(line.requiresFlag)) return;
+  // Reputation-gated wares: a faction only sells its finest to those it trusts.
+  if (line.requiresRep && (player.reputation[line.requiresRep.faction] ?? 0) < line.requiresRep.amount) {
+    const fac = content.factions.find((f) => f.id === line.requiresRep!.faction);
+    const rank = line.requiresRep.amount >= 50 ? "Allied" : "Friendly";
+    events.push({
+      type: "LOG",
+      message: `${fac?.name ?? "They"} won't part with that until you're ${rank} with them.`,
+      tone: "err",
+    });
+    return;
+  }
   const def = content.items[item];
   // Capes are earned one-offs (level-gated below), so they're never stock-limited.
   const stocked = def.cat !== "Capes";

@@ -223,6 +223,13 @@ export const shops: ShopDef[] = [
       { item: "cape_draw", price: 1000000, qty: 1 },
       { item: "cape_faith", price: 1000000, qty: 1 },
       { item: "cape_max", price: 1000000, qty: 1 },
+      // Allegiance capes: earned not by mastery but by STANDING — the cape master
+      // keeps one for each faction, released only to their Allied. A cosmetic
+      // trophy that finally makes maxing a faction's reputation pay off.
+      { item: "cape_ashforge", price: 20000, qty: 1, requiresRep: { faction: "ashforge", amount: 50 } },
+      { item: "cape_lodge", price: 20000, qty: 1, requiresRep: { faction: "lodge", amount: 50 } },
+      { item: "cape_pale_record", price: 20000, qty: 1, requiresRep: { faction: "pale_record", amount: 50 } },
+      { item: "cape_heartmoor", price: 20000, qty: 1, requiresRep: { faction: "heartmoor_cult", amount: 50 } },
     ],
   },
   {
