@@ -414,10 +414,13 @@ const COMBAT = {
 // The acc/dmg legs only touch MELEE (ranged/magic have their own ratings); the
 // def leg applies to whatever you're doing, so Ward tanks for any build. The
 // duel snapshot reads the same functions, so PvP inherits the tradeoff for free.
+//   Controlled — a balanced stance: a little of everything, master of none. Its
+//     kill XP is split evenly across all three melee skills (OSRS "Controlled").
 const STYLE_MODS: Record<CombatStyle, { acc: number; dmg: number; def: number }> = {
   edge: { acc: 1.15, dmg: 0.92, def: 1.0 },
   vigour: { acc: 1.0, dmg: 1.12, def: 1.0 },
   ward: { acc: 0.9, dmg: 0.82, def: 1.25 },
+  controlled: { acc: 1.05, dmg: 1.02, def: 1.08 },
 };
 
 /** Human names for attack styles, for combat-log lines. */
@@ -2403,6 +2406,15 @@ export function applyIntent(
         type: "LOG",
         message: `Combat style: ${intent.style[0]!.toUpperCase()}${intent.style.slice(1)}.`,
       });
+      break;
+    }
+    case "SET_ATTACK_TYPE": {
+      // Pick the melee damage type to attack with (to hit a foe's weakness), or
+      // clear it to follow the worn weapon's own type.
+      if (intent.attackType) player.attackType = intent.attackType;
+      else delete player.attackType;
+      const t = intent.attackType ?? weaponStyle(player, content) ?? "the weapon's";
+      events.push({ type: "LOG", message: `Attack type: ${t}.` });
       break;
     }
     case "TOGGLE_RUN": {
@@ -6403,8 +6415,12 @@ function skillLvl(player: Player, skill: SkillId): number {
   return player.skills[skill]?.level ?? 1;
 }
 
-/** The attack style of the worn main-hand weapon (slash/stab/crush), if any. */
+/** The melee damage type a blow lands as: the player's chosen attack type
+ *  (slash/stab/crush) if set, else the worn main-hand weapon's own `attackStyle`.
+ *  This is what the weakness triangle matches, so switching type in the
+ *  attack-style menu lets any melee weapon target a monster's weakness. */
 function weaponStyle(player: Player, content: Content): string | undefined {
+  if (player.attackType) return player.attackType;
   const id = player.equipment.mainhand;
   return id ? content.items[id].attackStyle : undefined;
 }
@@ -6879,7 +6895,19 @@ function playerSwing(
     // playtest measured 450–700k xp/hr with real weapons — damage-based XP is
     // invariant to monster-HP scaling, so the rate itself had to come down for
     // combat to sit alongside the gathering skills instead of lapping them.
-    grantXp(state, content, ranged ? "draw" : magic ? "faith" : player.combatStyle, dmg * 1.5, events);
+    if (ranged) {
+      grantXp(state, content, "draw", dmg * 1.5, events);
+    } else if (magic) {
+      grantXp(state, content, "faith", dmg * 1.5, events);
+    } else if (player.combatStyle === "controlled") {
+      // Controlled shares the kill XP evenly across all three melee skills.
+      const each = (dmg * 1.5) / 3;
+      grantXp(state, content, "edge", each, events);
+      grantXp(state, content, "vigour", each, events);
+      grantXp(state, content, "ward", each, events);
+    } else {
+      grantXp(state, content, player.combatStyle, dmg * 1.5, events);
+    }
     grantXp(state, content, "vitality", dmg * 0.5, events);
     // Searing hide (recoil): a melee blow burns you back. Never lethal on its
     // own — it can't drop you below 1 — but it forces you to keep healing.

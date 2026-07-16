@@ -55,6 +55,8 @@ export interface SavedProgress {
   autocastSpell?: string | null;
   /** Selected melee combat style. */
   combatStyle: string;
+  /** Chosen melee attack type (slash/stab/crush), or absent for the weapon default. */
+  attackType?: string;
   /** Active quests: id -> { step, killCount }. */
   quests: Record<string, { step: number; killCount: number }>;
   /** Completed quest ids. */
@@ -169,6 +171,7 @@ export function serializePlayer(state: WorldState): SavedProgress {
     grace: player.grace,
     autocastSpell: player.autocastSpell ?? null,
     combatStyle: player.combatStyle,
+    ...(player.attackType ? { attackType: player.attackType } : {}),
     quests: JSON.parse(JSON.stringify(player.quests)) as SavedProgress["quests"],
     questsDone: [...player.questsDone],
     lore: [...player.lore],
@@ -386,11 +389,13 @@ export function hydratePlayer(
     if (empty !== -1) player.inventory[empty] = { item: id, qty: 1 };
   }
 
-  // --- Combat style (preference) ---
+  // --- Combat style + attack type (preferences) ---
   const style = raw["combatStyle"];
-  if (style === "edge" || style === "vigour" || style === "ward") {
+  if (style === "edge" || style === "vigour" || style === "ward" || style === "controlled") {
     player.combatStyle = style;
   }
+  const atk = raw["attackType"];
+  if (atk === "slash" || atk === "stab" || atk === "crush") player.attackType = atk;
 
   // --- Quests (only ids this build knows; clamp step into range) ---
   const savedDone = raw["questsDone"];

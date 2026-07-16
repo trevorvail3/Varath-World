@@ -715,6 +715,10 @@ body {
   font-weight: 600;
 }
 
+/* The Attack-type row sits below the stance row; its buttons are text-only. */
+.style-row + .style-label { margin-top: 10px; }
+.style-type-btn { flex-direction: row; padding: 6px 2px; font-size: 10.5px; }
+
 .style-ic {
   font-size: 13px;
 }
