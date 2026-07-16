@@ -44,6 +44,7 @@ import { CharacterCreator, type CreatedCharacter } from "./client/characterCreat
 import { isNameAvailable, reserveName } from "./client/nameRegistry.ts";
 import { LoginUI } from "./client/loginUI.ts";
 import { currentUser, signOut } from "./client/supabase.ts";
+import { submitCurrent } from "./client/social.ts";
 import { audio } from "./client/audio.ts";
 import { ping, setStateProvider } from "./client/ops.ts";
 import { founderEntitled, loadFounderEntitlement, maybeShowFounderClaim } from "./client/founder.ts";
@@ -309,7 +310,12 @@ function boot(newChar: CreatedCharacter | null, cloudReady: boolean): void {
   const cloudPersist = async (): Promise<void> => {
     if (!cloudReady || wiped || cloudInFlight) return;
     cloudInFlight = true;
-    try { await saveCloud(serializePlayer(state), state.player.appearance.name); }
+    try {
+      await saveCloud(serializePlayer(state), state.player.appearance.name);
+      // Keep the shared hiscores board live as you play — not only when you
+      // happen to open it. No-ops when signed out (reads stay public).
+      await submitCurrent(content);
+    }
     finally { cloudInFlight = false; }
   };
 
