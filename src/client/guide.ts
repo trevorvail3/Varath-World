@@ -401,6 +401,16 @@ export class Guide {
 
   // --- Shared banner ---------------------------------------------------------
 
+  /** Briefly pulse the objective banner — the visible half of a quest step
+   *  advancing (the client also plays a chime). No-op if the banner is hidden. */
+  flashObjective(): void {
+    if (this.banner.classList.contains("hidden")) return;
+    this.banner.classList.remove("guide-flash");
+    void this.banner.offsetWidth; // restart the animation
+    this.banner.classList.add("guide-flash");
+    window.setTimeout(() => this.banner.classList.remove("guide-flash"), 900);
+  }
+
   private show(text: string): void {
     this.banner.textContent = text;
     this.banner.classList.remove("hidden");

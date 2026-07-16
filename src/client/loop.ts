@@ -1032,7 +1032,39 @@ export class Game {
           break;
         }
         case "QUEST_ADVANCED":
+          // Progressing a step is a small win — a soft chime and a flash of the
+          // pinned objective, so it never passes by silently.
+          audio.play("achieve");
+          this.guide.flashObjective();
           break;
+        case "OBJECT_DEPLETED": {
+          // A node worked out (tree felled / rock exhausted) shouldn't just swap
+          // sprites — scatter a poof and a matching sound so it reads as an event.
+          const dp = this.positionOf(ev.objId);
+          const ddef = this.bridge.content.objects.find((o) => o.id === ev.objId);
+          if (dp && ddef) {
+            if (ddef.kind === "tree") {
+              this.sparks.push({ x: dp.x, y: dp.y - 0.3, born: now, color: "#6f8f3f", n: 12 });
+              this.sparks.push({ x: dp.x, y: dp.y - 0.1, born: now + 60, color: "#4f6a2c", n: 8 });
+              audio.play("rustle"); // leaves settling as it comes down
+            } else {
+              this.puffs.push({ x: dp.x, y: dp.y + 0.2, born: now, kind: "dust" });
+              this.sparks.push({ x: dp.x, y: dp.y, born: now, color: "#b9bcc4", n: 8 });
+              audio.play("dig"); // stone crumbling to grit
+            }
+          }
+          break;
+        }
+        case "OBJECT_RESPAWNED": {
+          // A resource growing back gets a faint "here again" sparkle (culled if
+          // off-screen). Monster respawns stay silent — they happen constantly.
+          const rdef = this.bridge.content.objects.find((o) => o.id === ev.objId);
+          if (rdef && rdef.kind !== "monster") {
+            const rp2 = this.positionOf(ev.objId);
+            if (rp2) this.sparks.push({ x: rp2.x, y: rp2.y - 0.2, born: now, color: "#cfe0b0", n: 5 });
+          }
+          break;
+        }
         case "COMPANION_FOUND": {
           // The rarest thing in the game — a full card + fanfare, not a float.
           audio.play("levelup");

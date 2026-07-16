@@ -1835,6 +1835,20 @@ body {
   display: none;
 }
 
+/* A quest step just advanced — pulse the pinned objective gold for a beat. */
+.guide-banner.guide-flash {
+  animation: guide-flash 0.9s ease-out;
+}
+@keyframes guide-flash {
+  0% { border-color: var(--gold); box-shadow: 0 4px 16px rgba(0, 0, 0, 0.55); }
+  25% {
+    border-color: #f4d98b;
+    box-shadow: 0 4px 22px rgba(0, 0, 0, 0.55), 0 0 18px rgba(244, 217, 139, 0.65),
+      inset 0 0 18px rgba(244, 217, 139, 0.3);
+  }
+  100% { border-color: var(--gold); box-shadow: 0 4px 16px rgba(0, 0, 0, 0.55); }
+}
+
 /* --- Denial toast (hud.error): unmissable "no" feedback, top-centre --- */
 .err-toast {
   position: absolute;
