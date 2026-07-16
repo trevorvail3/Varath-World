@@ -199,11 +199,28 @@ export class LevelUp {
           </div>
         </div>`;
     } else {
-      this.el.classList.remove("levelup-champion");
       const meta = this.content.skills[item.skill];
+      // The long grind past 80 was flat — gear unlocks stop at 78 and the last
+      // levels are half the total XP. Give the milestones real peaks: 90/95/99
+      // are called out, and 100 is MASTERED (with its cape as the reward to
+      // claim), so the climb to the top always has something to show for it.
+      const lv = item.level;
+      const milestone = lv >= 90;
+      if (lv >= 100) this.el.classList.add("levelup-boss");
+      const eyebrow = lv >= 100 ? "★ Mastered ★" : milestone ? "★ Milestone ★" : "✦ Level Up ✦";
       const unlock = this.unlockedAt(item.skill, item.level);
+      // At the peak, point the way to the reward; on a dry milestone, mark it.
+      const extra = lv >= 100
+        ? `<div class="levelup-unlock">Mastery! The <b>${esc(meta.name)} Cape</b> awaits at the Hall of Capes.</div>`
+        : unlock
+          ? `<div class="levelup-unlock">${unlock}</div>`
+          : lv === 99
+            ? `<div class="levelup-unlock">One level from mastery — the cape is nearly yours.</div>`
+            : milestone
+              ? `<div class="levelup-unlock">A rare height — few train this far.</div>`
+              : "";
       this.el.innerHTML = `
-        <div class="levelup-eyebrow">✦ Level Up ✦</div>
+        <div class="levelup-eyebrow">${eyebrow}</div>
         <div class="levelup-row">
           <span class="levelup-icon">${iconize(meta.icon)}</span>
           <div>
@@ -211,7 +228,7 @@ export class LevelUp {
             <div class="levelup-level">Level ${item.level}</div>
           </div>
         </div>
-        ${unlock ? `<div class="levelup-unlock">${unlock}</div>` : ""}`;
+        ${extra}`;
     }
     this.el.classList.remove("hidden");
     // restart the entry animation
@@ -236,6 +253,7 @@ export class LevelUp {
       item.kind === "champion" || item.kind === "pet" ? 5200
       : item.kind === "boss" || item.kind === "unique" ? 4600
       : item.kind === "casket" || item.kind === "questStart" ? 4600
+      : item.kind === "level" && item.level >= 90 ? 4600 // milestones linger
       : 3000;
     this.timer = window.setTimeout(() => this.dismiss(), dwell);
   }
