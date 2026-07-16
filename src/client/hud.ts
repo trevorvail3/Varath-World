@@ -254,6 +254,10 @@ export class Hud {
   private ddSlider: HTMLInputElement | null = null;
   private ddReadout: HTMLElement | null = null;
   private rootEl: HTMLElement | null = null;
+  /** The denial toast (see error()): one element, re-used for every denial. */
+  private toastEl: HTMLElement | null = null;
+  private toastTimer: number | null = null;
+  private lastErrSfx = 0;
 
   constructor(
     root: HTMLElement,
@@ -662,9 +666,12 @@ export class Hud {
           this.attachLongPress(
             cell,
             (x, y) => this.showSpellInfo(spell, x, y),
-            () => this.dispatch(blessing
-              ? { type: "TOGGLE_BLESSING", spell: spell.id }
-              : { type: "CAST_SPELL", spell: spell.id }),
+            () => {
+              if (blessing) audio.play("pray"); // holding/releasing a blessing chimes
+              this.dispatch(blessing
+                ? { type: "TOGGLE_BLESSING", spell: spell.id }
+                : { type: "CAST_SPELL", spell: spell.id });
+            },
           );
           this.spellRows.set(spell.id, { row: cell, btn: cell });
           grid.appendChild(cell);
@@ -751,7 +758,7 @@ export class Hud {
           this.attachLongPress(
             icon,
             (x, y) => this.inspectEquip(slot, x, y),
-            () => this.dispatch({ type: "UNEQUIP", equipSlot: slot }),
+            () => { audio.play("equip"); this.dispatch({ type: "UNEQUIP", equipSlot: slot }); },
           );
           this.equipCells.set(slot, icon);
           grid.appendChild(cell);
@@ -1110,6 +1117,7 @@ export class Hud {
   }
 
   private setTab(id: TabId): void {
+    audio.play("ui"); // every tab press answers with a soft tick
     // Tapping the already-open tab collapses the dock to just its tab column —
     // BUT not for the first few opens, when a newcomer reads that as "my content
     // vanished." Only after they've opened the dock several times does the
@@ -1220,6 +1228,38 @@ export class Hud {
 
   log(message: string): void {
     this.pushLine(`<div class="log-line">${escapeHtml(message)}</div>`, "game");
+  }
+
+  /** Surface a DENIAL so it can't be missed: a red-edged toast near the top of
+   *  the screen plus a short error sound — and the usual log line for history.
+   *  One toast at a time; a fresh denial replaces the text and restarts the
+   *  clock, so spam-tapping a locked thing never stacks a pile of toasts. */
+  error(message: string): void {
+    this.log(message);
+    const now = performance.now();
+    if (now - this.lastErrSfx > 350) { audio.play("error"); this.lastErrSfx = now; }
+    if (!this.toastEl) {
+      this.toastEl = document.createElement("div");
+      this.toastEl.className = "err-toast hidden";
+      this.toastEl.addEventListener("pointerdown", () => this.hideToast());
+      this.rootEl?.appendChild(this.toastEl);
+    }
+    this.toastEl.textContent = message;
+    this.toastEl.classList.remove("hidden", "leaving");
+    void this.toastEl.offsetWidth; // restart the pop-in transition
+    this.toastEl.classList.add("show");
+    if (this.toastTimer) clearTimeout(this.toastTimer);
+    this.toastTimer = window.setTimeout(() => this.hideToast(), 2600);
+  }
+
+  private hideToast(): void {
+    if (!this.toastEl) return;
+    this.toastEl.classList.add("leaving");
+    if (this.toastTimer) clearTimeout(this.toastTimer);
+    this.toastTimer = window.setTimeout(() => {
+      this.toastEl?.classList.add("hidden");
+      this.toastEl?.classList.remove("show", "leaving");
+    }, 220);
   }
 
   /** Add to the running session XP total and pop the counter into view; it fades
@@ -1403,9 +1443,12 @@ export class Hud {
     const blessing = spell.kind === "blessing";
     const items: MenuItem[] = [{
       label: blessing ? "Hold / release" : "Cast", target: spell.name, tone: "action",
-      onSelect: () => this.dispatch(blessing
-        ? { type: "TOGGLE_BLESSING", spell: spell.id }
-        : { type: "CAST_SPELL", spell: spell.id }),
+      onSelect: () => {
+        if (blessing) audio.play("pray");
+        this.dispatch(blessing
+          ? { type: "TOGGLE_BLESSING", spell: spell.id }
+          : { type: "CAST_SPELL", spell: spell.id });
+      },
     }];
     if (spell.kind === "attack") {
       items.push({
@@ -1517,7 +1560,7 @@ export class Hud {
       if (def.cat === "Potions" || def.doseNext || def.graceRestore || def.energyRestore) audio.play("drink");
       this.dispatch({ type: "EAT", slot: index });
     } else if (def.slot && WEARABLE.has(def.slot)) {
-      audio.play("ui");
+      audio.play("equip"); // gear going on deserves a clunk, not a menu tick
       this.dispatch({ type: "EQUIP", slot: index });
     } else if (def.buryXp) {
       // Bones: a tap buries them on the spot (the common action); crushing,
@@ -1609,7 +1652,7 @@ export class Hud {
         label: "Equip",
         target: def.name,
         tone: "action",
-        onSelect: () => this.dispatch({ type: "EQUIP", slot: index }),
+        onSelect: () => { audio.play("equip"); this.dispatch({ type: "EQUIP", slot: index }); },
       });
     }
     // "Use" arms the item to be used on a target — a station or another item
@@ -1664,7 +1707,7 @@ export class Hud {
           label: "Unequip",
           target: def.name,
           tone: "action",
-          onSelect: () => this.dispatch({ type: "UNEQUIP", equipSlot: slot }),
+          onSelect: () => { audio.play("equip"); this.dispatch({ type: "UNEQUIP", equipSlot: slot }); },
         },
       ],
       this.gearDesc(id),

@@ -17,6 +17,7 @@ import type {
   Intent,
   ItemId,
   ShopDef,
+  ShopStock,
   WorldState,
 } from "../core/types.ts";
 import { itemIconSVG } from "./itemIcon.ts";
@@ -183,14 +184,15 @@ export class ShopUI {
         <span class="shop-card-name">${def.name}</span>
         <span class="shop-card-price${afford ? "" : " short"}">${costLabel}</span>
         ${stockTag}`;
-      // Tap = buy (when affordable & in stock); hold = inspect what you're buying.
+      // Tap = the buy quantity picker (when affordable & in stock); hold =
+      // inspect what you're buying.
       const cost = payItem ? { item: payItem as ItemId, qty: payQty } : undefined;
       const inspect = (): void => this.showInspect(line.item, line.qty, "buy", line.price, cost);
       this.attachPress(
         card,
         inspect,
         () => {
-          if (afford) this.dispatchAndRender({ type: "BUY", shop: this.shop!.id, item: line.item });
+          if (afford) this.showBuyPicker(line, left, have);
           else inspect();
         },
       );
@@ -237,6 +239,65 @@ export class ShopUI {
       grid.appendChild(slot);
     }
     this.contentEl.appendChild(grid);
+  }
+
+  // --- The buy quantity picker: stock up on arrows/food without tap-tap-tap. --
+  private showBuyPicker(line: ShopStock, left: number, have: number): void {
+    const def = this.content.items[line.item];
+    if (!def || !this.state || !this.shop) return;
+    const player = this.state.player;
+    const payItem = line.costItem;
+    const payQty = line.costQty ?? 0;
+    // The most bundles the player could take right now — stock and funds both cap it.
+    const maxAfford = payItem
+      ? (payQty > 0 ? Math.floor(have / payQty) : left)
+      : Math.floor(player.gold / Math.max(1, line.price));
+    const maxN = Math.max(1, Math.min(50, Math.min(left, maxAfford)));
+    // One-offs (capes, or when you can only take one) keep the instant single buy.
+    if (maxN <= 1 || def.cat === "Capes") {
+      this.dispatchAndRender({ type: "BUY", shop: this.shop.id, item: line.item });
+      return;
+    }
+    const unit = line.qty > 1 ? ` (bundles of ${line.qty})` : "";
+    const costOf = (n: number): string => payItem
+      ? `${payQty * n} ${this.content.items[payItem]?.name ?? "Mark"}${payQty * n === 1 ? "" : "s"}`
+      : `${(line.price * n).toLocaleString()}g`;
+    const amounts = [1, 5, 10].filter((n) => n < maxN);
+    const rows = [...amounts, maxN]; // always offer the most you can take
+    const btns = rows.map((n) => {
+      const label = n === maxN ? `Max (${maxN})` : String(n);
+      return `<button class="shop-pick-btn" data-qty="${n}" type="button">
+          <span class="shop-pick-n">Buy ${label}</span>
+          <span class="shop-pick-g">${costOf(n)}</span>
+        </button>`;
+    }).join("");
+    this.infoEl.innerHTML = `
+      <div class="shop-info-box shop-pick-box">
+        <button class="shop-info-x" type="button">✕</button>
+        <div class="shop-info-icon">${itemIconSVG(def)}</div>
+        <div class="shop-info-name">Buy ${def.name}?</div>
+        <div class="shop-info-desc">${costOf(1)} each${unit}${Number.isFinite(left) ? ` · ${left} on the shelf` : ""}</div>
+        <div class="shop-pick-btns">${btns}</div>
+        <button class="shop-pick-inspect" type="button">Inspect first</button>
+      </div>`;
+    (this.infoEl.querySelector(".shop-info-x") as HTMLElement).addEventListener(
+      "pointerdown", (e) => { e.stopPropagation(); this.hideInfo(); },
+    );
+    (this.infoEl.querySelector(".shop-pick-inspect") as HTMLElement).addEventListener(
+      "pointerdown", (e) => {
+        e.stopPropagation();
+        this.showInspect(line.item, line.qty, "buy", line.price, payItem ? { item: payItem, qty: payQty } : undefined);
+      },
+    );
+    for (const b of Array.from(this.infoEl.querySelectorAll<HTMLElement>(".shop-pick-btn"))) {
+      b.addEventListener("pointerdown", (e) => {
+        e.stopPropagation();
+        const qty = Number(b.dataset["qty"]) || 1;
+        this.hideInfo();
+        this.dispatchAndRender({ type: "BUY", shop: this.shop!.id, item: line.item, qty });
+      });
+    }
+    this.infoEl.classList.remove("hidden");
   }
 
   // --- The sell quantity picker: the buffer against accidental sales. ---------

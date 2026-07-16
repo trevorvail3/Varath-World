@@ -42,7 +42,7 @@ const TEXT: Record<Exclude<Phase, "off" | "graduate">, string> = {
 
 // Graduation is a short two-beat sequence: first the chrome, then combat.
 const GRAD_UI =
-  "Well done — XP and a reward earned. The tabs at the lower-right hold your Skills, Pack and Gear; the boot by the map toggles running.";
+  "Well done — XP and a reward earned. The tabs at the lower-right hold your Pack, Skills and Character; the boot by the map toggles running.";
 const GRAD_COMBAT =
   "The moor's beasts carry rarer things. Hold a creature to study it, then tap to strike — and eat food if your Hitpoints run low.";
 
@@ -108,7 +108,7 @@ const TIPS: Tip[] = [
       const slot = c.items[id as keyof typeof c.items]?.slot;
       return !!slot && WEARABLE_SLOTS.has(slot);
     }),
-    text: "Carrying gear isn't wearing it. Open the Gear tab and tap a weapon or armour piece to equip it — your stats only count what you've put ON.",
+    text: "Carrying gear isn't wearing it. Open the Character tab and tap a weapon or armour piece to equip it — your stats only count what you've put ON.",
   },
   {
     // T7·05 — shopping: fires the first time you stand by a keeper's stall.
@@ -132,7 +132,7 @@ const TIPS: Tip[] = [
     test: (s, c) =>
       packHas(s.player, (id) => !!c.items[id as keyof typeof c.items]?.magic) ||
       !!(s.player.equipment.mainhand && c.items[s.player.equipment.mainhand]?.magic),
-    text: "A staff casts Devotion spells. Wield it, open the Devotion tab and pick a spell to autocast — the basic bolt costs no Grace. Higher staves hit harder.",
+    text: "A staff casts Devotion spells. Wield it, open the Spells tab and pick a spell to autocast — the basic bolt costs no Grace. Higher staves hit harder.",
   },
   {
     id: "grace_empty",
@@ -144,7 +144,7 @@ const TIPS: Tip[] = [
     test: (s, c) =>
       packHas(s.player, (id) => !!c.items[id as keyof typeof c.items]?.ranged) ||
       !!s.player.equipment.ranged,
-    text: "A bow! Equip it, then stock arrows in the Ammo slot (Gear tab) — you'll fight from range and train Draw. Enemies weak to ranged take extra damage.",
+    text: "A bow! Equip it, then stock arrows in the Ammo slot (Character tab) — you'll fight from range and train Draw. Enemies weak to ranged take extra damage.",
   },
   {
     id: "farming_seed",
@@ -159,7 +159,7 @@ const TIPS: Tip[] = [
   {
     id: "combat_style",
     test: (s) => (s.player.stats?.monstersSlain ?? 0) >= 3,
-    text: "Tip: your combat style in the Gear tab is a live tradeoff — Edge lands more but softer hits, Vigour hits hardest, Ward trades damage for a real guard. Switch it mid-fight to match the foe. Each kill also trains that style.",
+    text: "Tip: your combat style in the Character tab is a live tradeoff — Edge lands more but softer hits, Vigour hits hardest, Ward trades damage for a real guard. Switch it mid-fight to match the foe. Each kill also trains that style.",
   },
   {
     id: "pack_full",

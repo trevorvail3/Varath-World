@@ -1323,7 +1323,7 @@ function claimDiary(
   const diary = content.diaries.find((d) => d.id === diaryId);
   if (!diary) return;
   if (player.diariesClaimed.includes(diaryId)) {
-    events.push({ type: "LOG", message: "You've already claimed that diary's reward." });
+    events.push({ type: "LOG", message: "You've already claimed that diary's reward.", tone: "err" });
     return;
   }
   if (!player.skills[skill]) {
@@ -1393,7 +1393,7 @@ function claimBossMilestone(
   }
   const key = `${bossId}:${kills}`;
   if (player.bossMilestonesClaimed.includes(key)) {
-    events.push({ type: "LOG", message: "You've already claimed that milestone." });
+    events.push({ type: "LOG", message: "You've already claimed that milestone.", tone: "err" });
     return;
   }
   if ((player.bossKills[bossId] ?? 0) < kills) {
@@ -1486,6 +1486,7 @@ function beginGather(
     events.push({
       type: "LOG",
       message: `You need ${content.skills[action.skill].name} level ${action.levelReq} for that.`,
+      tone: "err",
     });
     return false;
   }
@@ -1498,7 +1499,7 @@ function beginGather(
   if (toolKind) {
     const tier = wieldGatherTool(player, content, toolKind, events);
     if (tier === null) {
-      events.push({ type: "LOG", message: TOOL_MISSING[toolKind] ?? "You need the right tool for that." });
+      events.push({ type: "LOG", message: TOOL_MISSING[toolKind] ?? "You need the right tool for that.", tone: "err" });
       return false;
     }
     speedMult = TOOL_TIER_SPEED[tier] ?? 1;
@@ -1731,7 +1732,7 @@ function hasItem(player: Player, item: ItemId): boolean {
  *  directly (eaten, worn, buried, crushed). Bank or deposit it to un-note. */
 function notedGuard(player: Player, slot: number, events: WorldEvent[]): boolean {
   if (!player.inventory[slot]?.noted) return false;
-  events.push({ type: "LOG", message: "That's a note — bank it to turn it back into the item first." });
+  events.push({ type: "LOG", message: "That's a note — bank it to turn it back into the item first.", tone: "err" });
   return true;
 }
 
@@ -1753,6 +1754,7 @@ function buyFromShop(
   item: ItemId,
   events: WorldEvent[],
   ctx: Ctx,
+  wantQty = 1,
 ): void {
   const shop = content.shops.find((s) => s.id === shopId);
   const line = shop?.stock.find((s) => s.item === item);
@@ -1774,12 +1776,12 @@ function buyFromShop(
   const capeSkill = def.cat === "Capes" ? def.meta?.skill : undefined;
   if (capeSkill && capeSkill !== "max" && capeSkill !== "ironvale") {
     if (skillLvl(player, capeSkill as SkillId) < 100) {
-      events.push({ type: "LOG", message: `You need ${content.skills[capeSkill as SkillId].name} level 100 to claim the ${def.name}.` });
+      events.push({ type: "LOG", message: `You need ${content.skills[capeSkill as SkillId].name} level 100 to claim the ${def.name}.`, tone: "err" });
       return;
     }
   }
   if (item === "cape_max" && !allSkillsMaxed(player)) {
-    events.push({ type: "LOG", message: "The Cape of Varath is earned only by mastering every skill to 100." });
+    events.push({ type: "LOG", message: "The Cape of Varath is earned only by mastering every skill to 100.", tone: "err" });
     return;
   }
   // A listing may be priced in an alternate currency (e.g. Agility Marks) rather
@@ -1789,28 +1791,44 @@ function buyFromShop(
   if (payWith) {
     if (countItem(player, payWith) < payQty) {
       const cur = content.items[payWith].name;
-      events.push({ type: "LOG", message: `You need ${payQty} ${cur}${payQty === 1 ? "" : "s"} for that.` });
+      events.push({ type: "LOG", message: `You need ${payQty} ${cur}${payQty === 1 ? "" : "s"} for that.`, tone: "err" });
       return;
     }
   } else if (player.gold < line.price) {
-    events.push({ type: "LOG", message: "You can't afford that." });
+    events.push({ type: "LOG", message: "You can't afford that.", tone: "err" });
     return;
   }
   if (!canAddItem(player, item)) {
     events.push({ type: "INVENTORY_FULL" });
     return;
   }
-  if (payWith) removeItems(player, payWith, payQty);
-  else player.gold -= line.price;
-  addItem(player, item, line.qty, events);
-  if (stocked && state.shopStock?.[shopId]) {
-    state.shopStock[shopId]![item] = Math.max(0, shopStockLeft(state, shopId, item) - 1);
+  // Buy up to wantQty, re-checking stock / funds / pack room per unit and
+  // stopping quietly at whichever wall comes first (the FIRST unit's walls
+  // were already reported above). One summary line covers the whole trade.
+  let bought = 0;
+  let paidGold = 0;
+  let paidAlt = 0;
+  for (let i = 0; i < Math.max(1, wantQty); i++) {
+    if (stocked && shopStockLeft(state, shopId, item) <= 0) break;
+    if (payWith) {
+      if (countItem(player, payWith) < payQty) break;
+    } else if (player.gold < line.price) break;
+    if (!canAddItem(player, item)) { if (bought > 0) events.push({ type: "INVENTORY_FULL" }); break; }
+    if (payWith) { removeItems(player, payWith, payQty); paidAlt += payQty; }
+    else { player.gold -= line.price; paidGold += line.price; }
+    addItem(player, item, line.qty, events);
+    if (stocked && state.shopStock?.[shopId]) {
+      state.shopStock[shopId]![item] = Math.max(0, shopStockLeft(state, shopId, item) - 1);
+    }
+    bought++;
   }
+  if (bought === 0) return;
   const name = content.items[item].name;
-  const bundle = line.qty > 1 ? `${line.qty}× ` : "";
+  const totalItems = bought * line.qty;
+  const bundle = totalItems > 1 ? `${totalItems}× ` : "";
   const cost = payWith
-    ? `${payQty} ${content.items[payWith].name}${payQty === 1 ? "" : "s"}`
-    : `${line.price}g`;
+    ? `${paidAlt} ${content.items[payWith].name}${paidAlt === 1 ? "" : "s"}`
+    : `${paidGold}g`;
   events.push({ type: "LOG", message: `Bought ${bundle}${name} for ${cost}.` });
 }
 
@@ -1855,7 +1873,7 @@ function sellToMarket(
   const def = content.items[item];
   const value = marketValue(content, item);
   if (value <= 0) {
-    events.push({ type: "LOG", message: `No one will buy the ${def?.name ?? "item"}.` });
+    events.push({ type: "LOG", message: `No one will buy the ${def?.name ?? "item"}.`, tone: "err" });
     return;
   }
   const toSell = Math.min(Math.max(0, Math.floor(qty)), countItem(player, item));
@@ -1864,7 +1882,7 @@ function sellToMarket(
   // bundle's per-unit buy price), so selling can never out-earn buying.
   const total = Math.floor(value * toSell);
   if (total <= 0) {
-    events.push({ type: "LOG", message: `No one will pay for the ${def.name}.` });
+    events.push({ type: "LOG", message: `No one will pay for the ${def.name}.`, tone: "err" });
     return;
   }
   // A 2% market toll, taken off the top and DESTROYED (no counterparty — the
@@ -2257,7 +2275,7 @@ export function applyIntent(
       // Lock a duel wager into escrow: validate ownership, then move the gold
       // and items OUT of the pack onto player.duelStake. One stake at a time.
       if (player.duelStake) {
-        events.push({ type: "LOG", message: "You already have a wager locked in a duel." });
+        events.push({ type: "LOG", message: "You already have a wager locked in a duel.", tone: "err" });
         break;
       }
       const gold = Math.max(0, Math.floor(intent.gold));
@@ -2274,7 +2292,7 @@ export function applyIntent(
         items.push({ item: s.item, qty });
       }
       if (short) {
-        events.push({ type: "LOG", message: "You can't stake what you don't carry." });
+        events.push({ type: "LOG", message: "You can't stake what you don't carry.", tone: "err" });
         break;
       }
       player.gold -= gold;
@@ -2381,10 +2399,11 @@ export function applyIntent(
     }
     case "BUY": {
       if (player.station?.kind !== "shop" || player.station.id !== intent.shop) {
-        events.push({ type: "LOG", message: "You need to be at that shop to buy." });
+        events.push({ type: "LOG", message: "You need to be at that shop to buy.", tone: "err" });
         break;
       }
-      buyFromShop(state, player, content, intent.shop, intent.item, events, ctx);
+      const wantQty = Math.max(1, Math.min(50, Math.floor(intent.qty ?? 1)));
+      buyFromShop(state, player, content, intent.shop, intent.item, events, ctx, wantQty);
       break;
     }
     case "TRAVEL": {
@@ -2476,11 +2495,11 @@ export function applyIntent(
         break;
       }
       if (skillLvl(player, "faith") < sp.faithReq) {
-        events.push({ type: "LOG", message: `You need Devotion ${sp.faithReq} to hold ${sp.name}.` });
+        events.push({ type: "LOG", message: `You need Devotion ${sp.faithReq} to hold ${sp.name}.`, tone: "err" });
         break;
       }
       if (player.grace < 1) {
-        events.push({ type: "LOG", message: "You have no Grace to burn. Pray at a shrine first." });
+        events.push({ type: "LOG", message: "You have no Grace to burn. Pray at a shrine first.", tone: "err" });
         break;
       }
       player.blessing = sp.id; // switching replaces — one blessing at a time
@@ -2561,7 +2580,7 @@ export function applyIntent(
         player.specArmed = true;
         events.push({ type: "LOG", message: "You set yourself — your NEXT blow spends the whole bar." });
       } else {
-        events.push({ type: "LOG", message: `Not yet charged — landing blows builds the bar (${Math.floor(player.spec)}/${SPEC_MAX}).` });
+        events.push({ type: "LOG", message: `Not yet charged — landing blows builds the bar (${Math.floor(player.spec)}/${SPEC_MAX}).`, tone: "err" });
       }
       break;
     }
@@ -2614,7 +2633,7 @@ export function applyIntent(
       }
       const ws = player.lastWaystone ? findObjectDef(content, player.lastWaystone) : undefined;
       if (!ws || ws.kind !== "waystone" || !ws.target) {
-        events.push({ type: "LOG", message: "You've not ridden the Courier's stones yet — reach a waystone and travel from it once, and the Wayfare will bring you back to it." });
+        events.push({ type: "LOG", message: "You've not ridden the Courier's stones yet — reach a waystone and travel from it once, and the Wayfare will bring you back to it.", tone: "err" });
         break;
       }
       const tithe = Math.round(WAYFARE_TITHE_BASE + combatLevel(player) * WAYFARE_TITHE_PER_LVL);
@@ -2640,7 +2659,7 @@ export function applyIntent(
       const task = player.bounty.task;
       const ground = task ? content.huntingGrounds[task.monster] : undefined;
       if (!task || !ground) {
-        events.push({ type: "LOG", message: "The horn only answers a live contract — take a task from a guide first." });
+        events.push({ type: "LOG", message: "The horn only answers a live contract — take a task from a guide first.", tone: "err" });
         break;
       }
       // Warren contracts land at the Warrens' ENTRANCE, not inside a chamber:
@@ -2847,7 +2866,7 @@ function atStation(
   events: WorldEvent[],
 ): boolean {
   if (player.station?.kind === kind) return true;
-  events.push({ type: "LOG", message: `You need to be at ${what} to do that.` });
+  events.push({ type: "LOG", message: `You need to be at ${what} to do that.`, tone: "err" });
   return false;
 }
 
@@ -2893,7 +2912,7 @@ function equipSlot(
   const def = content.items[data.item];
   const eslot = def.slot;
   if (!eslot || !EQUIP_SLOTS.has(eslot)) {
-    events.push({ type: "LOG", message: `You can't wear the ${def.name}.` });
+    events.push({ type: "LOG", message: `You can't wear the ${def.name}.`, tone: "err" });
     return;
   }
   // Arrows are worn as a whole stack into the quiver, not one at a time.
@@ -2910,6 +2929,7 @@ function equipSlot(
       events.push({
         type: "LOG",
         message: `You need ${content.skills[req.skill].name} level ${req.level} to wield the ${def.name}.`,
+        tone: "err",
       });
       return;
     }
@@ -2944,7 +2964,7 @@ function equipSlot(
     const empty = sim.findIndex((s) => s === null);
     if (empty === -1) {
       events.push({ type: "INVENTORY_FULL" });
-      events.push({ type: "LOG", message: "You've no room to stow your old gear." });
+      events.push({ type: "LOG", message: "You've no room to stow your old gear.", tone: "err" });
       return;
     }
     sim[empty] = { item: it, qty: 1 };
@@ -3041,6 +3061,7 @@ function startCraft(
     events.push({
       type: "LOG",
       message: `You need ${content.skills[action.skill].name} level ${action.levelReq}.`,
+      tone: "err",
     });
     return;
   }
@@ -3073,22 +3094,22 @@ function eatSlot(
   const canGrace = !!def.graceRestore;
   const canEnergy = !!def.energyRestore;
   if (!canHeal && !canBuff && !canGrace && !canEnergy) {
-    events.push({ type: "LOG", message: `You can't use the ${def.name}.` });
+    events.push({ type: "LOG", message: `You can't use the ${def.name}.`, tone: "err" });
     return;
   }
   // Don't waste a pure energy restore (Runner's Blend) on full legs.
   if (canEnergy && !canHeal && !canBuff && !canGrace && player.energy >= ENERGY_MAX) {
-    events.push({ type: "LOG", message: "Your legs are already fresh." });
+    events.push({ type: "LOG", message: "Your legs are already fresh.", tone: "err" });
     return;
   }
   // Don't waste a pure-heal at full HP; a buffed/Grace item is still worth using.
   if (canHeal && !canBuff && !canGrace && player.hp >= player.maxHp) {
-    events.push({ type: "LOG", message: "You are already at full health." });
+    events.push({ type: "LOG", message: "You are already at full health.", tone: "err" });
     return;
   }
   // Don't waste a pure Grace potion at a full Grace pool.
   if (canGrace && !canHeal && !canBuff && player.grace >= graceMax(player)) {
-    events.push({ type: "LOG", message: "Your Grace is already full." });
+    events.push({ type: "LOG", message: "Your Grace is already full.", tone: "err" });
     return;
   }
 
@@ -3284,7 +3305,7 @@ function startInteraction(
       // the catch, and hand the fight to the client's tension minigame.
       const tier = wieldGatherTool(player, content, "rod", events);
       if (tier === null) {
-        events.push({ type: "LOG", message: "You need a fishing rod to cast into the deep." });
+        events.push({ type: "LOG", message: "You need a fishing rod to cast into the deep.", tone: "err" });
         return;
       }
       player.hooked = rollPierFish(player, content, tier, ctx);
@@ -3308,7 +3329,7 @@ function startInteraction(
     }
 
     case "pier_gate": {
-      events.push({ type: "LOG", message: "A rope bars the planks. Jacob the Pier-Warden hasn't given you leave — speak with him first." });
+      events.push({ type: "LOG", message: "A rope bars the planks. Jacob the Pier-Warden hasn't given you leave — speak with him first.", tone: "err" });
       break;
     }
 
@@ -3321,7 +3342,7 @@ function startInteraction(
         // no browsing a ledger you haven't earned.
         const guide = content.bountyGuides.find((g) => g.id === def.bountyGuide);
         if (guide && skillLvl(player, "bounty") < guide.levelReq) {
-          events.push({ type: "LOG", message: `${guide.name} looks you over once and goes back to their ledger. "Come back at Bounty ${guide.levelReq}. The work I post would eat you alive."` });
+          events.push({ type: "LOG", message: `${guide.name} looks you over once and goes back to their ledger. "Come back at Bounty ${guide.levelReq}. The work I post would eat you alive."`, tone: "err" });
           break;
         }
         // Opening a guide's ledger highlights them — but never while a task is
@@ -3419,14 +3440,14 @@ function startInteraction(
 
     case "monster": {
       if (!obj.available) {
-        events.push({ type: "LOG", message: "There is nothing here to fight." });
+        events.push({ type: "LOG", message: "There is nothing here to fight.", tone: "err" });
         return;
       }
       // Warren-bred creatures demand huntcraft, OSRS-Slayer style: without the
       // Bounty level you can't even read their movements well enough to fight.
       const gate = monsterFor(content, def)?.bountyReq;
       if (gate && skillLvl(player, "bounty") < gate) {
-        events.push({ type: "LOG", message: `You can't read this creature's movements — it takes Bounty ${gate} to hunt a ${def.name}.` });
+        events.push({ type: "LOG", message: `You can't read this creature's movements — it takes Bounty ${gate} to hunt a ${def.name}.`, tone: "err" });
         return;
       }
       // Tool gates, OSRS-style (broad arrows, leaf-bladed spears): some quarry
@@ -3492,7 +3513,7 @@ function startInteraction(
       // The outdoor door is gated on owning the plot; the interior door (no
       // plot) always lets you back out. Either way it just teleports you.
       if (def.plot && !state.objects[def.plot]?.owned) {
-        events.push({ type: "LOG", message: "You'd need to claim this homestead before you could go in." });
+        events.push({ type: "LOG", message: "You'd need to claim this homestead before you could go in.", tone: "err" });
         break;
       }
       // The Garden Door needs a house tier (the backyard unlocks at Manor).
@@ -3892,11 +3913,11 @@ function craftFurniture(state: WorldState, content: Content, furnitureId: string
   const f = content.furniture[furnitureId];
   if (!f) return;
   if (homeFloorSet(state).size === 0) {
-    events.push({ type: "LOG", message: "You can only build furniture inside your home." });
+    events.push({ type: "LOG", message: "You can only build furniture inside your home.", tone: "err" });
     return;
   }
   if (skillLvl(player, "construction") < f.levelReq) {
-    events.push({ type: "LOG", message: `You need Construction level ${f.levelReq} to build the ${f.name}.` });
+    events.push({ type: "LOG", message: `You need Construction level ${f.levelReq} to build the ${f.name}.`, tone: "err" });
     return;
   }
   for (const [item, qty] of Object.entries(f.materials)) {
@@ -3948,11 +3969,11 @@ function placeFurniture(state: WorldState, content: Content, furnitureId: string
   const f = content.furniture[furnitureId];
   if (!f) return;
   if ((player.home.storage[furnitureId] ?? 0) <= 0) {
-    events.push({ type: "LOG", message: `You have no ${f.name} to place.` });
+    events.push({ type: "LOG", message: `You have no ${f.name} to place.`, tone: "err" });
     return;
   }
   if (!canPlaceAt(state, content, f, x, y, rot & 3, -1)) {
-    events.push({ type: "LOG", message: "It won't fit there." });
+    events.push({ type: "LOG", message: "It won't fit there.", tone: "err" });
     return;
   }
   player.home.storage[furnitureId]! -= 1;
@@ -3970,7 +3991,7 @@ function moveFurniture(state: WorldState, content: Content, index: number, x: nu
   const f = content.furniture[p.item];
   if (!f) return;
   if (!canPlaceAt(state, content, f, x, y, rot & 3, index)) {
-    events.push({ type: "LOG", message: "It won't fit there." });
+    events.push({ type: "LOG", message: "It won't fit there.", tone: "err" });
     return;
   }
   p.x = x; p.y = y; p.rot = rot & 3;
@@ -4012,7 +4033,7 @@ function upgradeFurniture(state: WorldState, content: Content, index: number, ev
     .sort((a, b) => a.comfort - b.comfort || a.levelReq - b.levelReq)[0];
   if (!next) { events.push({ type: "LOG", message: `The ${cur.name} is already the finest of its kind.` }); return; }
   if (skillLvl(player, "construction") < next.levelReq) {
-    events.push({ type: "LOG", message: `You need Construction level ${next.levelReq} to upgrade to the ${next.name}.` });
+    events.push({ type: "LOG", message: `You need Construction level ${next.levelReq} to upgrade to the ${next.name}.`, tone: "err" });
     return;
   }
   for (const [item, qty] of Object.entries(next.materials)) {
@@ -4040,13 +4061,13 @@ function upgradeFurniture(state: WorldState, content: Content, index: number, ev
 function setSurface(state: WorldState, content: Content, surfaceId: string, events: WorldEvent[]): void {
   const { player } = state;
   if (homeFloorSet(state).size === 0) {
-    events.push({ type: "LOG", message: "You can only redecorate inside your own home." });
+    events.push({ type: "LOG", message: "You can only redecorate inside your own home.", tone: "err" });
     return;
   }
   const s = content.surfaces[surfaceId];
   if (!s) return;
   if (s.levelReq && skillLvl(player, "construction") < s.levelReq) {
-    events.push({ type: "LOG", message: `You need Construction level ${s.levelReq} to lay the ${s.name}.` });
+    events.push({ type: "LOG", message: `You need Construction level ${s.levelReq} to lay the ${s.name}.`, tone: "err" });
     return;
   }
   if (s.kind === "floor") player.home.floor = surfaceId;
@@ -4066,7 +4087,7 @@ function interactHotspot(
 ): void {
   const plot = def.plot ? state.objects[def.plot] : undefined;
   if (!plot?.owned) {
-    events.push({ type: "LOG", message: "You'd need to claim this homestead before building on it." });
+    events.push({ type: "LOG", message: "You'd need to claim this homestead before building on it.", tone: "err" });
     return;
   }
   events.push({
@@ -4104,7 +4125,7 @@ function buildFurniture(
     return;
   }
   if (skillLvl(player, "construction") < f.levelReq) {
-    events.push({ type: "LOG", message: `You need Construction level ${f.levelReq} to build the ${f.name}.` });
+    events.push({ type: "LOG", message: `You need Construction level ${f.levelReq} to build the ${f.name}.`, tone: "err" });
     return;
   }
   // Check, then consume, every required material.
@@ -4166,7 +4187,7 @@ function buildRoom(
     return;
   }
   const sealTier = def.tier ?? 1;
-  if (sealTier <= player.home.tier) { events.push({ type: "LOG", message: "That room is already part of your house." }); return; }
+  if (sealTier <= player.home.tier) { events.push({ type: "LOG", message: "That room is already part of your house.", tone: "err" }); return; }
   if (sealTier !== player.home.tier + 1) { events.push({ type: "LOG", message: "You must extend the house one room at a time." }); return; }
   const up = HOUSE_TIERS[sealTier];
   if (!up) return;
@@ -4204,7 +4225,7 @@ function useFurniture(
   const obj = state.objects[hotspotId];
   const f = obj?.furniture ? content.furniture[obj.furniture] : undefined;
   if (!obj || !f || !f.station) {
-    events.push({ type: "LOG", message: "There's nothing here to use." });
+    events.push({ type: "LOG", message: "There's nothing here to use.", tone: "err" });
     return;
   }
   if (f.station === "bank") {
@@ -4429,11 +4450,11 @@ function fertilizePatch(
   const obj = state.objects[patchId];
   const def = findObjectDef(content, patchId);
   if (!obj || !def || (def.kind !== "plant_patch" && def.kind !== "tree_patch")) {
-    events.push({ type: "LOG", message: "That's no place for fertilizer." });
+    events.push({ type: "LOG", message: "That's no place for fertilizer.", tone: "err" });
     return;
   }
   if ((obj.fert ?? 0) >= fert.tier) {
-    events.push({ type: "LOG", message: "This soil is already well fed." });
+    events.push({ type: "LOG", message: "This soil is already well fed.", tone: "err" });
     return;
   }
   obj.fert = fert.tier;
@@ -4467,15 +4488,15 @@ function plantSeed(
     return;
   }
   if (obj.crop) {
-    events.push({ type: "LOG", message: "Something is already growing here." });
+    events.push({ type: "LOG", message: "Something is already growing here.", tone: "err" });
     return;
   }
   if (skillLvl(player, "farming") < crop.levelReq) {
-    events.push({ type: "LOG", message: `You need Farming level ${crop.levelReq} to plant ${crop.name}.` });
+    events.push({ type: "LOG", message: `You need Farming level ${crop.levelReq} to plant ${crop.name}.`, tone: "err" });
     return;
   }
   if (countItem(player, crop.seed) < 1) {
-    events.push({ type: "LOG", message: `You have no ${content.items[crop.seed].name}.` });
+    events.push({ type: "LOG", message: `You have no ${content.items[crop.seed].name}.`, tone: "err" });
     return;
   }
   removeOneItem(player, crop.seed);
@@ -4540,7 +4561,7 @@ function traverseObstacle(
   if (!course) {
     const freeReq = def.levelReq ?? 1;
     if (skillLvl(player, "agility") < freeReq) {
-      events.push({ type: "LOG", message: `You need Agility level ${freeReq} to cross here.` });
+      events.push({ type: "LOG", message: `You need Agility level ${freeReq} to cross here.`, tone: "err" });
       return;
     }
     player.path = [];
@@ -4552,14 +4573,14 @@ function traverseObstacle(
   // The Varathian Trail is sealed until you've spoken with Cael the Trailkeeper
   // at the trail head and learned its story (mirrors the pier's warden gate).
   if (course === "course_varath_trail" && !player.flags.includes("trail_unlocked")) {
-    events.push({ type: "LOG", message: "The Varathian Trail is not yours to run yet — speak with Cael the Trailkeeper at the trail head first." });
+    events.push({ type: "LOG", message: "The Varathian Trail is not yours to run yet — speak with Cael the Trailkeeper at the trail head first.", tone: "err" });
     return;
   }
 
   // Course-wide level gate (every obstacle carries the requirement).
   const req = def.levelReq ?? 1;
   if (skillLvl(player, "agility") < req) {
-    events.push({ type: "LOG", message: `You need Agility level ${req} to train here.` });
+    events.push({ type: "LOG", message: `You need Agility level ${req} to train here.`, tone: "err" });
     return;
   }
 
@@ -6064,7 +6085,7 @@ function takeBountyTask(
   // pinned to whoever issued it, so switching the highlighted guide (or walking
   // up to a different guide's NPC) can never orphan an in-progress bounty.
   if (player.bounty.task) {
-    events.push({ type: "LOG", message: "Finish or abandon your current task first." });
+    events.push({ type: "LOG", message: "Finish or abandon your current task first.", tone: "err" });
     return;
   }
   player.bounty.guideId = guideId;
@@ -6072,7 +6093,7 @@ function takeBountyTask(
   if (!guide) return;
   const level = skillLvl(player, "bounty");
   if (level < guide.levelReq) {
-    events.push({ type: "LOG", message: `${guide.name} won't deal with you until Bounty ${guide.levelReq}.` });
+    events.push({ type: "LOG", message: `${guide.name} won't deal with you until Bounty ${guide.levelReq}.`, tone: "err" });
     return;
   }
   const pool: BountyTaskDef[] = [];
@@ -6100,6 +6121,7 @@ function takeBountyTask(
       message: heldByCombat > 0
         ? `${guide.name} closes the ledger. "Your rank's earned the work, but not the arm to do it — the quarry I post would kill you. Train your combat and come back."`
         : `${guide.name} has nothing at your Bounty rank — train it up, or see a lower-tier guide.`,
+      tone: "err",
     });
     return;
   }
@@ -6152,12 +6174,12 @@ function claimBountyTask(
   const { player } = state;
   const task = player.bounty.task;
   if (!task) {
-    events.push({ type: "LOG", message: "You have no bounty to claim." });
+    events.push({ type: "LOG", message: "You have no bounty to claim.", tone: "err" });
     return;
   }
   if (task.progress < task.required) {
     const name = content.monsters[task.monster]?.name ?? task.monster;
-    events.push({ type: "LOG", message: `Not yet — ${task.required - task.progress} more ${name} to go.` });
+    events.push({ type: "LOG", message: `Not yet — ${task.required - task.progress} more ${name} to go.`, tone: "err" });
     return;
   }
   // A Hunter's Kit in the pack sweetens the XP and is consumed on claim.
@@ -6221,7 +6243,7 @@ function buyBountyItem(
   const line = content.bountyShop.find((l) => l.item === item);
   if (!line) return;
   if (player.bounty.marks < line.cost) {
-    events.push({ type: "LOG", message: `You need ${line.cost} Hunt Marks for that.` });
+    events.push({ type: "LOG", message: `You need ${line.cost} Hunt Marks for that.`, tone: "err" });
     return;
   }
   if (!canAddItem(player, item)) {
@@ -6246,7 +6268,7 @@ function blockCap(player: Player): number {
  *  the hunt streak survives (unlike an abandon). */
 function skipBountyTask(player: Player, content: Content, events: WorldEvent[]): void {
   const task = player.bounty.task;
-  if (!task) { events.push({ type: "LOG", message: "You have no task to skip." }); return; }
+  if (!task) { events.push({ type: "LOG", message: "You have no task to skip.", tone: "err" }); return; }
   if (player.bounty.marks < BOUNTY_SKIP_COST) {
     events.push({ type: "LOG", message: `Skipping a task costs ${BOUNTY_SKIP_COST} Hunt Marks.` });
     return;
@@ -6267,7 +6289,7 @@ function blockBountyTask(player: Player, content: Content, monster: string | und
     if (!player.bounty.history.includes(monster)) return;
     if (player.bounty.blocked.includes(monster)) return;
     if (player.bounty.blocked.length >= blockCap(player)) {
-      events.push({ type: "LOG", message: `Your block list is full (${blockCap(player)}).` });
+      events.push({ type: "LOG", message: `Your block list is full (${blockCap(player)}).`, tone: "err" });
       return;
     }
     player.bounty.blocked.push(monster);
@@ -6275,10 +6297,10 @@ function blockBountyTask(player: Player, content: Content, monster: string | und
     events.push({ type: "LOG", message: `${content.monsters[monster]?.name ?? monster} blocked — you'll never be sent after them again.` });
     return;
   }
-  if (!task) { events.push({ type: "LOG", message: "You have no task to block." }); return; }
+  if (!task) { events.push({ type: "LOG", message: "You have no task to block.", tone: "err" }); return; }
   if (player.bounty.blocked.includes(task.monster)) { player.bounty.task = null; return; }
   if (player.bounty.blocked.length >= blockCap(player)) {
-    events.push({ type: "LOG", message: `Your block list is full (${blockCap(player)}). Un-block a monster first${player.bounty.unlocks.includes("wider_net") ? "" : ", or buy the Warden's Ledger for more slots"}.` });
+    events.push({ type: "LOG", message: `Your block list is full (${blockCap(player)}). Un-block a monster first${player.bounty.unlocks.includes("wider_net") ? "" : ", or buy the Warden's Ledger for more slots"}.`, tone: "err" });
     return;
   }
   const name = content.monsters[task.monster]?.name ?? task.monster;
@@ -6300,10 +6322,10 @@ function unblockBountyMonster(player: Player, content: Content, monster: string,
 function buyBountyUnlock(player: Player, content: Content, id: string, events: WorldEvent[]): void {
   const unlock = content.bountyUnlocks.find((u) => u.id === id);
   if (!unlock) return;
-  if (player.bounty.unlocks.includes(id)) { events.push({ type: "LOG", message: "You already own that unlock." }); return; }
+  if (player.bounty.unlocks.includes(id)) { events.push({ type: "LOG", message: "You already own that unlock.", tone: "err" }); return; }
   // The Hunter's Eye sharpens Superior odds — it's meaningless without Superiors.
   if (id === "keen_eye" && !player.bounty.unlocks.includes("superior")) {
-    events.push({ type: "LOG", message: "Unlock Bigger & Badder first — there are no Superiors to spot yet." });
+    events.push({ type: "LOG", message: "Unlock Bigger & Badder first — there are no Superiors to spot yet.", tone: "err" });
     return;
   }
   if (player.bounty.marks < unlock.cost) {
@@ -7099,15 +7121,15 @@ function castSpell(
   const spell = content.spells.find((s) => s.id === spellId);
   if (!spell) return;
   if (!isMagic(player, content)) {
-    events.push({ type: "LOG", message: "You need a staff in hand to cast." });
+    events.push({ type: "LOG", message: "You need a staff in hand to cast.", tone: "err" });
     return;
   }
   if (skillLvl(player, "faith") < spell.faithReq) {
-    events.push({ type: "LOG", message: `You need Faith ${spell.faithReq} to cast ${spell.name}.` });
+    events.push({ type: "LOG", message: `You need Faith ${spell.faithReq} to cast ${spell.name}.`, tone: "err" });
     return;
   }
   if (player.grace < spell.cost) {
-    events.push({ type: "LOG", message: `Not enough Grace for ${spell.name}. Pray at a shrine or drink a Faith Potion.` });
+    events.push({ type: "LOG", message: `Not enough Grace for ${spell.name}. Pray at a shrine or drink a Faith Potion.`, tone: "err" });
     return;
   }
 
@@ -7118,7 +7140,7 @@ function castSpell(
       const obj = targetId ? state.objects[targetId] : undefined;
       const stats = def ? monsterFor(content, def) : undefined;
       if (!def || !obj || !stats || obj.hp === undefined || !obj.available) {
-        events.push({ type: "LOG", message: "You have no target to strike." });
+        events.push({ type: "LOG", message: "You have no target to strike.", tone: "err" });
         return;
       }
       player.grace -= spell.cost;
@@ -7133,7 +7155,7 @@ function castSpell(
     }
     case "heal": {
       if (player.hp >= player.maxHp) {
-        events.push({ type: "LOG", message: "You are already at full health." });
+        events.push({ type: "LOG", message: "You are already at full health.", tone: "err" });
         return;
       }
       player.grace -= spell.cost;
@@ -7169,7 +7191,7 @@ function castSpell(
       const targetId = player.activity.kind === "combat" ? player.activity.targetId : null;
       const obj = targetId ? state.objects[targetId] : undefined;
       if (!targetId || !obj || obj.hp === undefined || !obj.available) {
-        events.push({ type: "LOG", message: "You have no target to curse." });
+        events.push({ type: "LOG", message: "You have no target to curse.", tone: "err" });
         return;
       }
       player.grace -= spell.cost;
@@ -7183,7 +7205,7 @@ function castSpell(
       const recipe = content.actions.find((a) =>
         a.skill === "smithing" && !!a.produces && a.produces.endsWith("_bar") && hasIngredients(player, a));
       if (!recipe || !recipe.produces) {
-        events.push({ type: "LOG", message: "You have no ore to superheat." });
+        events.push({ type: "LOG", message: "You have no ore to superheat.", tone: "err" });
         return;
       }
       if (!canAddItem(player, recipe.produces)) {
@@ -7203,7 +7225,7 @@ function castSpell(
       const RAW: ItemId[] = ["rough_gem", "uncut_sapphire", "uncut_emerald", "uncut_ruby"];
       const gem = RAW.find((g) => hasItem(player, g));
       if (!gem) {
-        events.push({ type: "LOG", message: "You have no rough or uncut gem to enchant." });
+        events.push({ type: "LOG", message: "You have no rough or uncut gem to enchant.", tone: "err" });
         return;
       }
       if (!canAddItem(player, "cut_gem")) {
@@ -7232,7 +7254,7 @@ function buryBones(
   if (!data) return;
   const def = content.items[data.item];
   if (!def.buryXp) {
-    events.push({ type: "LOG", message: `You can't bury the ${def.name}.` });
+    events.push({ type: "LOG", message: `You can't bury the ${def.name}.`, tone: "err" });
     return;
   }
   data.qty -= 1;
@@ -7254,11 +7276,11 @@ function grindBones(
   if (!data) return;
   const def = content.items[data.item];
   if (!def.buryXp) {
-    events.push({ type: "LOG", message: `You can't grind the ${def.name}.` });
+    events.push({ type: "LOG", message: `You can't grind the ${def.name}.`, tone: "err" });
     return;
   }
   if (!hasItem(player, "pestle")) {
-    events.push({ type: "LOG", message: "You need a Pestle & Mortar to crush bones." });
+    events.push({ type: "LOG", message: "You need a Pestle & Mortar to crush bones.", tone: "err" });
     return;
   }
   const yieldN = data.item === "big_bones" ? 2 : 1;
@@ -7302,19 +7324,19 @@ function lightFire(
   if (!data) return;
   const spec = FIRE_LOGS[data.item];
   if (!spec) {
-    events.push({ type: "LOG", message: `You can't set fire to the ${content.items[data.item].name}.` });
+    events.push({ type: "LOG", message: `You can't set fire to the ${content.items[data.item].name}.`, tone: "err" });
     return;
   }
   if (!hasItem(player, "flint")) {
-    events.push({ type: "LOG", message: "You need Flint & Steel to light a fire." });
+    events.push({ type: "LOG", message: "You need Flint & Steel to light a fire.", tone: "err" });
     return;
   }
   if (player.skills.survivalist.level < spec.level) {
-    events.push({ type: "LOG", message: `You need Survivalist level ${spec.level} to burn ${content.items[data.item].name}.` });
+    events.push({ type: "LOG", message: `You need Survivalist level ${spec.level} to burn ${content.items[data.item].name}.`, tone: "err" });
     return;
   }
   if (state.campfire) {
-    events.push({ type: "LOG", message: "There's already a fire burning here." });
+    events.push({ type: "LOG", message: "There's already a fire burning here.", tone: "err" });
     return;
   }
 

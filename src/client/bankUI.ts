@@ -10,6 +10,8 @@ import type { Content, Intent, ItemId, WorldState } from "../core/types.ts";
 import { itemIconSVG } from "./itemIcon.ts";
 import type { ContextMenu, MenuItem } from "./contextMenu.ts";
 import { equipRequirement } from "../core/worldCore.ts";
+import { audio } from "./audio.ts";
+import { askAmount, askText } from "./prompt.ts";
 
 export class BankUI {
   private backdrop: HTMLElement;
@@ -147,13 +149,13 @@ export class BankUI {
       add.className = "bank-tab bank-tab-add";
       add.textContent = "+";
       add.title = "New tab";
-      add.addEventListener("pointerdown", (e) => { e.stopPropagation(); this.newTab(); });
+      add.addEventListener("pointerdown", (e) => { e.stopPropagation(); void this.newTab(); });
       this.tabsEl.appendChild(add);
     }
   }
 
-  private newTab(): string | null {
-    const name = (window.prompt("Name the new tab:", "") ?? "").trim().slice(0, 14);
+  private async newTab(): Promise<string | null> {
+    const name = ((await askText("Name the new tab", "Up to 14 characters")) ?? "").trim().slice(0, 14);
     if (!name) return null;
     this.tabs.push({ name, items: [] });
     this.activeTab = this.tabs.length - 1;
@@ -163,10 +165,10 @@ export class BankUI {
   }
 
   /** Long-press a tab: rename or remove it (items just return to All). */
-  private tabOptions(i: number): void {
+  private async tabOptions(i: number): Promise<void> {
     const t = this.tabs[i];
     if (!t) return;
-    const choice = window.prompt(`Tab “${t.name}” — type a new name to rename it, or “delete” to remove it.`, t.name);
+    const choice = await askText(`Tab “${t.name}”`, "Type a new name to rename it, or “delete” to remove it.", t.name, 14);
     if (choice === null) return;
     const v = choice.trim();
     if (v.toLowerCase() === "delete") {
@@ -219,6 +221,7 @@ export class BankUI {
       if (slot) ids.add(slot.item);
     }
     for (const id of ids) this.dispatch({ type: "DEPOSIT", item: id });
+    if (ids.size > 0) audio.play("coin"); // one clink for the sweep, not N
     this.render();
   }
 
@@ -412,8 +415,7 @@ export class BankUI {
     const items: MenuItem[] = [
       { label: "Deposit", target: "1", tone: "action", onSelect: () => dep(1) },
       { label: "Deposit", target: "amount…", onSelect: () => {
-        const n = this.askAmount(name, held);
-        if (n > 0) dep(n);
+        void this.askAmount(name, held).then((n) => { if (n > 0) dep(n); });
       } },
       { label: "Deposit", target: `all (${held})`, onSelect: () => dep() },
     ];
@@ -430,14 +432,12 @@ export class BankUI {
     const items: MenuItem[] = [
       { label: "Withdraw", target: "1", tone: "action", onSelect: () => wd(1) },
       { label: "Withdraw", target: "amount…", onSelect: () => {
-        const n = this.askAmount(name, have);
-        if (n > 0) wd(n);
+        void this.askAmount(name, have).then((n) => { if (n > 0) wd(n); });
       } },
       { label: "Withdraw", target: `all (${have})`, onSelect: () => wd(have) },
       { label: "Withdraw", target: "as note — all", onSelect: () => wd(have, true) },
       { label: "Withdraw", target: "as note — amount…", onSelect: () => {
-        const n = this.askAmount(name, have);
-        if (n > 0) wd(n, true);
+        void this.askAmount(name, have).then((n) => { if (n > 0) wd(n, true); });
       } },
     ];
     // Filing: move the item between custom tabs (or into a brand-new one).
@@ -448,8 +448,9 @@ export class BankUI {
     }
     if (this.tabs.length < 6) {
       items.push({ label: "File under", target: "new tab…", onSelect: () => {
-        const made = this.newTab();
-        if (made !== null) this.assignToTab(item, this.tabs.length - 1);
+        void this.newTab().then((made) => {
+          if (made !== null) this.assignToTab(item, this.tabs.length - 1);
+        });
       } });
     }
     if (cur >= 0) {
@@ -458,13 +459,14 @@ export class BankUI {
     this.menu.show(x, y, name, items, "Take out of the bank chest. A note carries any amount in one slot.");
   }
 
-  private askAmount(name: string, max: number): number {
-    const ans = window.prompt(`How many ${name}? (1–${max})`, String(max));
-    if (ans === null) return 0;
-    return Math.max(0, Math.min(max, Math.floor(Number(ans)) || 0));
+  private async askAmount(name: string, max: number): Promise<number> {
+    const n = await askAmount(`How many ${name}?`, max);
+    return n ?? 0;
   }
 
   private dispatchAndRender(intent: Intent): void {
+    // Every stack moved in or out of the chest answers with a coin clink.
+    if (intent.type === "DEPOSIT" || intent.type === "WITHDRAW") audio.play("coin");
     this.dispatch(intent);
     this.render();
   }

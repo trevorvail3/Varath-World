@@ -820,7 +820,10 @@ export class Game {
     for (const ev of events) {
       switch (ev.type) {
         case "LOG":
-          this.hud.log(ev.message);
+          // Denials are toasted + sounded so they can't be missed; everything
+          // else stays a quiet log line.
+          if (ev.tone === "err") this.hud.error(ev.message);
+          else this.hud.log(ev.message);
           break;
         case "XP_GAINED": {
           xpBySkill.set(ev.skill, (xpBySkill.get(ev.skill) ?? 0) + ev.amount);
@@ -849,7 +852,7 @@ export class Game {
           break;
         }
         case "INVENTORY_FULL":
-          this.hud.log("Your pack is full.");
+          this.hud.error("Your pack is full.");
           this.cookAll = null; // a full pack stops a "Cook all" run
           break;
         case "DIALOGUE":
@@ -2058,7 +2061,9 @@ export class Game {
     g.restore();
   }
 
-  /** Kick up a little dust (or a splash on water/bog) under the moving player. */
+  /** Kick up a little dust (or a splash on water/bog) under the moving player —
+   *  and voice the footfall by surface (grass pat, stone scuff, plank knock,
+   *  shallow slosh), so walking is heard as well as seen. */
   private emitFootsteps(now: number): void {
     const pl = this.bridge.state.player;
     if (!pl.alive || pl.path.length === 0) return; // only while actually walking
@@ -2068,6 +2073,13 @@ export class Game {
     const tx = Math.round(pl.pos.x), ty = Math.round(pl.pos.y);
     const tile = (tx >= 0 && ty >= 0 && tx < m.width && ty < m.height) ? m.tiles[ty * m.width + tx] : "grass";
     const wet = tile === "water" || tile === "deep" || tile === "bog";
+    const surface =
+      wet ? "water"
+      : tile === "path" || tile === "stone" || tile === "mountain" || tile === "cave" || tile === "wall" ? "stone"
+      : tile === "plank" ? "wood"
+      : tile === "sand" || tile === "snow" ? "sand"
+      : "grass"; // grass / dirt / moss / ash — a soft pat
+    audio.step(surface);
     // Drop the scuff under the avatar's interpolated (gliding) position.
     const rp = this.renderPlayerPos();
     this.puffs.push({ x: rp.x, y: rp.y + 0.32, born: now, kind: wet ? "splash" : "dust" });
@@ -2371,7 +2383,8 @@ export class Game {
         this.resolveUseOn({ id: "campfire", kind: "fire", name: "Fire", x: tile.x, y: tile.y } as WorldObjectDef, sx, sy);
         return;
       }
-      this.resolveUseOn(obj ?? null, sx, sy);
+      // Fat-finger grace applies here too: a near-miss still picks the target.
+      this.resolveUseOn(obj ?? this.nearestObjectAt(sx, sy) ?? null, sx, sy);
       return;
     }
     // Tapping your campfire opens its cooking menu (walk beside it first).
@@ -2381,36 +2394,7 @@ export class Game {
     // re-attack it — let loot there be picked up instead.
     const deadMonster = obj?.kind === "monster" && !!st && !st.available;
     if (obj && !deadMonster) {
-      // A shopkeeper offers a choice — Talk or Shop — rather than one or the other.
-      if (obj.kind === "npc" && this.isShopkeeper(obj.id)) {
-        this.shopkeeperMenu(obj, sx, sy);
-        return;
-      }
-      // A bounty guide offers Get-bounty or Talk.
-      if (obj.kind === "npc" && this.isBountyGuide(obj.id)) {
-        this.guideMenu(obj, sx, sy);
-        return;
-      }
-      // The Delve Warden offers to open the way down (or Talk).
-      if (obj.id === "delve_warden") {
-        this.delveMenu(obj, sx, sy);
-        return;
-      }
-      // The Duel Ring — step up to it and the opt-in PvP window opens.
-      if (obj.id === "duel_board") {
-        this.setMarker(this.liveTile(obj));
-        this.walkBeside(this.liveTile(obj));
-        this.duel.show();
-        return;
-      }
-      // The public Wins Board beside the ring — read the realm's duel standings.
-      if (obj.id === "duel_wins_board") {
-        this.setMarker(this.liveTile(obj));
-        this.walkBeside(this.liveTile(obj));
-        void this.showDuelStandings();
-        return;
-      }
-      this.interactObject(obj.id, this.liveTile(obj));
+      this.actOnObject(obj, sx, sy);
       return;
     }
     // A placed home station (cooking hearth, oak chest, anvil, cauldron, bench)
@@ -2418,7 +2402,70 @@ export class Game {
     const station = this.placedStationAt(tile);
     if (station) { this.useHomeStation(station.station, station.item); return; }
     if (this.groundAt(tile)) { this.pickupTopAt(tile); return; }
+    // Forgiving taps: NOTHING sits on the exact tile — before turning the tap
+    // into a walk, snap to a live object whose centre is within a whisker of
+    // the precise tap point, so a near-miss on a 38px target still acts on it.
+    const near = this.nearestObjectAt(sx, sy);
+    if (near) { this.actOnObject(near, sx, sy); return; }
     this.walkTo(tile);
+  }
+
+  /** The default act-on-object flow shared by exact-tile taps and the
+   *  near-miss snap: special-case menus first, then plain interact. */
+  private actOnObject(obj: WorldObjectDef, sx: number, sy: number): void {
+    // A shopkeeper offers a choice — Talk or Shop — rather than one or the other.
+    if (obj.kind === "npc" && this.isShopkeeper(obj.id)) {
+      this.shopkeeperMenu(obj, sx, sy);
+      return;
+    }
+    // A bounty guide offers Get-bounty or Talk.
+    if (obj.kind === "npc" && this.isBountyGuide(obj.id)) {
+      this.guideMenu(obj, sx, sy);
+      return;
+    }
+    // The Delve Warden offers to open the way down (or Talk).
+    if (obj.id === "delve_warden") {
+      this.delveMenu(obj, sx, sy);
+      return;
+    }
+    // The Duel Ring — step up to it and the opt-in PvP window opens.
+    if (obj.id === "duel_board") {
+      this.setMarker(this.liveTile(obj));
+      this.walkBeside(this.liveTile(obj));
+      this.duel.show();
+      return;
+    }
+    // The public Wins Board beside the ring — read the realm's duel standings.
+    if (obj.id === "duel_wins_board") {
+      this.setMarker(this.liveTile(obj));
+      this.walkBeside(this.liveTile(obj));
+      void this.showDuelStandings();
+      return;
+    }
+    this.interactObject(obj.id, this.liveTile(obj));
+  }
+
+  /** Forgiving-tap lookup: the nearest LIVE object whose centre is within `r`
+   *  tiles of the precise (fractional) world point under the tap. Depleted
+   *  resources, dead monsters and story-hidden objects don't attract taps. */
+  private nearestObjectAt(clientX: number, clientY: number, r = 0.85): WorldObjectDef | undefined {
+    const rect = this.canvas.getBoundingClientRect();
+    const wx = ((clientX - rect.left) / this.zoom + this.cam.x) / TILE;
+    const wy = ((clientY - rect.top) / this.zoom + this.cam.y) / TILE;
+    const player = this.bridge.state.player;
+    let best: WorldObjectDef | undefined;
+    let bestD = r * r;
+    for (const o of this.bridge.content.objects) {
+      if (objectHidden(o, player)) continue;
+      const st = this.bridge.state.objects[o.id];
+      if (st && !st.available) continue; // nothing there to act on right now
+      const p = objectPos(o, st);
+      const dx = p.x + 0.5 - wx;
+      const dy = p.y + 0.5 - wy;
+      const d = dx * dx + dy * dy;
+      if (d < bestD) { bestD = d; best = o; }
+    }
+    return best;
   }
 
   /** A placed furniture piece with a `station` covering this tile, or null. */
@@ -2471,7 +2518,7 @@ export class Game {
     // Walk to it and let the core grab it on arrival (it fires the PICKED_UP
     // glint too) — no more per-frame arrival polling on the client.
     const { path, reachable } = pathToAdjacent(this.bridge.walkable, player.pos, tile);
-    if (!reachable) { this.hud.log("You can't reach that."); return; }
+    if (!reachable) { this.hud.error("You can't reach that."); return; }
     this.setMarker(tile);
     intent.path = path;
     this.dispatch(intent);
@@ -2595,7 +2642,7 @@ export class Game {
     const intent: Intent = { type: "COOK", x: tile.x, y: tile.y };
     if (near) { this.dispatch(intent); return; }
     const { path, reachable } = pathToAdjacent(this.bridge.walkable, p.pos, tile);
-    if (!reachable) { this.hud.log("You can't reach that."); return; }
+    if (!reachable) { this.hud.error("You can't reach that."); return; }
     this.setMarker(path[path.length - 1] ?? tile);
     intent.path = path;
     this.dispatch(intent);
@@ -2861,7 +2908,7 @@ export class Game {
     const reach = obj?.kind === "monster" ? this.bowReach() : 0;
     if (reach > 0) {
       const { path, reachable } = pathToWithin(this.bridge.walkable, player.pos, tile, reach);
-      if (!reachable) { this.hud.log("You can't reach that."); return; }
+      if (!reachable) { this.hud.error("You can't reach that."); return; }
       this.setMarker(tile);
       this.tapFlash = { objId, born: performance.now() };
       this.dispatch({ type: "INTERACT", objId, path });
@@ -2873,7 +2920,7 @@ export class Game {
       tile,
     );
     if (!reachable) {
-      this.hud.log("You can't reach that.");
+      this.hud.error("You can't reach that.");
       return;
     }
     this.setMarker(tile);

@@ -1835,6 +1835,33 @@ body {
   display: none;
 }
 
+/* --- Denial toast (hud.error): unmissable "no" feedback, top-centre --- */
+.err-toast {
+  position: absolute;
+  top: 58px;
+  left: 50%;
+  transform: translateX(-50%) translateY(-6px);
+  z-index: 26;
+  max-width: min(400px, 84vw);
+  text-align: center;
+  pointer-events: auto; /* tappable to dismiss (lives under #hud, which is none) */
+  cursor: pointer;
+  font-family: "EB Garamond", serif;
+  font-size: 14px;
+  line-height: 1.35;
+  color: #f0d9cd;
+  background: rgba(46, 18, 12, 0.94);
+  border: 1px solid #b8503a;
+  border-radius: 8px;
+  padding: 8px 14px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.55);
+  opacity: 0;
+  transition: opacity 0.18s ease, transform 0.18s ease;
+}
+.err-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+.err-toast.leaving { opacity: 0; }
+.err-toast.hidden { display: none; }
+
 /* --- First Steps tutorial (a one-time guided checklist, left side) --- */
 .tutorial-panel {
   position: absolute;
@@ -1920,6 +1947,81 @@ body {
 }
 .tutorial-grad-ic { display: inline-flex; vertical-align: -3px; color: var(--gold); }
 .tutorial-grad-ic .g-ico { width: 15px; height: 15px; }
+
+/* --- Themed prompt dialog (replaces window.prompt everywhere) --- */
+.prompt-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 120; /* above every panel/modal — a prompt is always the top ask */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(8, 6, 4, 0.55);
+  opacity: 0;
+  transition: opacity 0.16s ease;
+}
+.prompt-screen.show { opacity: 1; }
+.prompt-card {
+  width: min(300px, 86vw);
+  background: rgba(24, 19, 14, 0.97);
+  border: 1px solid var(--gold);
+  border-radius: 10px;
+  padding: 14px 16px 12px;
+  box-shadow: 0 10px 34px rgba(0, 0, 0, 0.6);
+  font-family: "EB Garamond", serif;
+  color: var(--ink);
+}
+.prompt-title {
+  font-family: "Cinzel", serif;
+  font-size: 14px;
+  color: var(--gold);
+  margin-bottom: 3px;
+}
+.prompt-sub { font-size: 12px; color: var(--ink-dim); margin-bottom: 9px; }
+.prompt-amount { display: flex; gap: 7px; }
+.prompt-input {
+  flex: 1;
+  min-width: 0;
+  background: rgba(12, 9, 6, 0.9);
+  border: 1px solid rgba(198, 156, 74, 0.5);
+  border-radius: 7px;
+  padding: 9px 10px;
+  font-family: "EB Garamond", serif;
+  font-size: 16px; /* ≥16px so iOS doesn't zoom the page on focus */
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+.prompt-input:focus { outline: none; border-color: var(--gold); }
+.prompt-input-text { width: 100%; }
+.prompt-max {
+  cursor: pointer;
+  background: rgba(198, 156, 74, 0.12);
+  border: 1px solid rgba(198, 156, 74, 0.5);
+  border-radius: 7px;
+  padding: 0 12px;
+  font-family: "Cinzel", serif;
+  font-size: 11px;
+  color: var(--gold);
+}
+.prompt-btns { display: flex; gap: 8px; margin-top: 11px; }
+.prompt-btns button {
+  flex: 1;
+  cursor: pointer;
+  border-radius: 7px;
+  padding: 10px 0; /* comfortably tappable */
+  font-family: "Cinzel", serif;
+  font-size: 12px;
+}
+.prompt-cancel {
+  background: none;
+  border: 1px solid rgba(156, 142, 118, 0.5);
+  color: var(--ink-dim);
+}
+.prompt-ok {
+  background: rgba(210, 116, 44, 0.18);
+  border: 1px solid var(--ember);
+  color: var(--gold);
+}
 
 /* --- Controls primer (one-time "How to Play" card, after the intro) --- */
 .primer-screen {

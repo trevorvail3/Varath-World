@@ -19,6 +19,7 @@ import {
   ackTrade, cancelTrade, confirmTrade, respondTrade, setOffer,
   type TradeItem, type TradeRow,
 } from "./trade.ts";
+import { askAmount } from "./prompt.ts";
 
 export class TradeUI {
   private backdrop: HTMLElement;
@@ -213,10 +214,9 @@ export class TradeUI {
     if (free <= 0) return;
     let add = 1;
     if (free > 1) {
-      const ans = window.prompt(`Offer how many ${this.content.items[item]?.name ?? item}? (1–${free})`, String(free));
-      if (ans === null) return;
-      add = Math.max(1, Math.min(free, Math.floor(Number(ans)) || 0));
-      if (!(add > 0)) return;
+      const n = await askAmount(`Offer how many ${this.content.items[item]?.name ?? item}?`, free);
+      if (n === null || n <= 0) return;
+      add = Math.min(free, n);
     }
     const items = mergeItem(row.mine.items, item, already + add);
     await this.act(() => setOffer(row.id, items, row.mine.gold));

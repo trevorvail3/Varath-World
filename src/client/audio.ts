@@ -54,9 +54,9 @@ export type Sfx =
   // moments
   | "levelup" | "quest" | "achieve" | "teleport"
   // items + shops
-  | "pickup" | "heal" | "drink" | "coin" | "bank"
+  | "pickup" | "heal" | "drink" | "coin" | "bank" | "equip"
   // interface
-  | "ui" | "open";
+  | "ui" | "open" | "error";
 
 /** Where the player is standing, for the ambient scene (render.ts's Biome +
  *  "menu" for the title screens). */
@@ -390,6 +390,11 @@ class AudioManager {
           this.tone({ f0: 95, f1: 60, type: "sine", dur: 0.22, peak: 0.3 });
           this.noise({ dur: 0.03, peak: 0.1, hp: 1800, delay: 0.16 });
           break;
+        case "equip": // gear settling on: a leather thump under a buckle tick
+          this.noise({ dur: 0.07, peak: 0.2, lp: 700 });
+          this.tone({ f0: 190, f1: 115, type: "triangle", dur: 0.1, peak: 0.26 });
+          this.tone({ f0: 1450, type: "triangle", dur: 0.1, peak: 0.06, delay: 0.04 });
+          break;
 
         // ---- interface ----
         case "ui": // a tiny soft click
@@ -399,6 +404,41 @@ class AudioManager {
         case "open": // a soft whoosh as a panel slides open
           this.noise({ dur: 0.16, peak: 0.11, hp: 500, lp: 2400 });
           this.tone({ f0: 300, f1: 440, type: "sine", dur: 0.12, peak: 0.08 });
+          break;
+        case "error": // a denial: two quick flat knocks, deliberately unmusical
+          this.tone({ f0: 210, f1: 185, type: "triangle", dur: 0.08, peak: 0.15, lp: 900 });
+          this.tone({ f0: 160, f1: 138, type: "triangle", dur: 0.12, peak: 0.15, lp: 800, delay: 0.09 });
+          break;
+      }
+    } catch { /* never let audio break the frame */ }
+  }
+
+  /** One footfall, voiced by surface. Deliberately quiet — it underpins every
+   *  minute of play, so it must sit below the SFX layer, never compete with it.
+   *  Slight random pitch/level variation keeps a walk from sounding mechanical. */
+  step(surface: "grass" | "stone" | "sand" | "wood" | "water"): void {
+    if (!this.unlocked || this.muted || !this.ctx) return;
+    try {
+      const v = 0.8 + Math.random() * 0.4;
+      switch (surface) {
+        case "stone": // a hard little scuff with a faint knock
+          this.noise({ dur: 0.045, peak: 0.075 * v, hp: 500, lp: 2600 });
+          this.tone({ f0: 185 * v, f1: 120, type: "sine", dur: 0.05, peak: 0.05 });
+          break;
+        case "sand": // a dry shuffle, all grain and no knock
+          this.noise({ dur: 0.08, peak: 0.06 * v, hp: 700, lp: 2000 });
+          break;
+        case "wood": // boards: a hollow knock
+          this.tone({ f0: 150 * v, f1: 95, type: "triangle", dur: 0.06, peak: 0.08 });
+          this.noise({ dur: 0.04, peak: 0.04 * v, lp: 900 });
+          break;
+        case "water": // a shallow slosh
+          this.tone({ f0: 420 * v, f1: 180, type: "sine", dur: 0.07, peak: 0.05 });
+          this.noise({ dur: 0.09, peak: 0.055 * v, hp: 600, lp: 2600 });
+          break;
+        default: // grass / soil: a soft pat
+          this.noise({ dur: 0.05, peak: 0.055 * v, lp: 900 });
+          this.tone({ f0: 120 * v, f1: 80, type: "sine", dur: 0.05, peak: 0.04 });
           break;
       }
     } catch { /* never let audio break the frame */ }

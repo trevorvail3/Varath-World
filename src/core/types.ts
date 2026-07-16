@@ -2071,6 +2071,9 @@ export interface BuyIntent {
   type: "BUY";
   shop: string;
   item: ItemId;
+  /** How many bundles to buy (default 1). The core stops early at whichever
+   *  wall comes first — stock, funds, or pack room. Capped at 50 per intent. */
+  qty?: number;
 }
 
 /** "Sell this many of an item from my pack for its gold value." */
@@ -2395,7 +2398,10 @@ export type Intent =
 // ---------------------------------------------------------------------------
 
 export type WorldEvent =
-  | { type: "LOG"; message: string }
+  /** A log line. `tone: "err"` marks a DENIAL (level too low, can't afford,
+   *  wrong place, missing materials) — the client surfaces those as an
+   *  unmissable toast + error sound, not just a quiet log line. */
+  | { type: "LOG"; message: string; tone?: "err" }
   | { type: "XP_GAINED"; skill: SkillId; amount: number }
   | { type: "LEVEL_UP"; skill: SkillId; level: number }
   | { type: "ITEM_GAINED"; item: ItemId; qty: number }

@@ -15,6 +15,7 @@ import { itemIconSVG } from "./itemIcon.ts";
 import { iconize } from "./glyph.ts";
 import { drawAvatar } from "./avatar.ts";
 import { resolveGear } from "./gearLook.ts";
+import { askAmount } from "./prompt.ts";
 
 interface Splat { side: "a" | "b"; text: string; color: string; born: number }
 
@@ -215,16 +216,18 @@ export class DuelUI {
       const id = (el as HTMLElement).dataset["item"] as ItemId;
       const free = rows.find((r) => r.item === id)?.qty ?? 0;
       if (free <= 0) return;
-      let add = 1;
+      const stake = (add: number): void => {
+        const already = v.mine.items.find((i) => i.item === id)?.qty ?? 0;
+        const items = v.mine.items.filter((i) => i.item !== id);
+        items.push({ item: id, qty: already + add });
+        this.session.setOffer(v.mine.gold, items);
+      };
       if (free > 1) {
-        const ans = window.prompt(`Stake how many ${this.content.items[id]?.name ?? id}? (1–${free})`, String(free));
-        if (ans === null) return;
-        add = Math.max(1, Math.min(free, Math.floor(Number(ans)) || 0));
+        void askAmount(`Stake how many ${this.content.items[id]?.name ?? id}?`, free)
+          .then((n) => { if (n !== null && n > 0) stake(Math.min(free, n)); });
+      } else {
+        stake(1);
       }
-      const already = v.mine.items.find((i) => i.item === id)?.qty ?? 0;
-      const items = v.mine.items.filter((i) => i.item !== id);
-      items.push({ item: id, qty: already + add });
-      this.session.setOffer(v.mine.gold, items);
     }));
 
     const goldEl = this.modal.querySelector(".trade-gold-input") as HTMLInputElement;
