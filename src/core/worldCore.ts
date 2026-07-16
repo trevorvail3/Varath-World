@@ -152,6 +152,12 @@ const DEATH_SPILL_TTL = 5 * 60_000;
 const SHARD_PITY = 250;
 const SHARD_ID = "shard_of_orun" as ItemId;
 
+// A "rich find" bumper on a successful gather (any gathering skill): the node
+// yields double, with a little celebration. ~1 in 140 successes — infrequent
+// enough to feel special, regular enough to look forward to (a rich find every
+// few minutes of steady gathering).
+const RICH_FIND_CHANCE = 1 / 140;
+
 // Playable level ceiling. The XP table (content) is built a little past this so
 // look-ups never fall off the end, but a skill never *reads* above the cap.
 // Keep in step with LEVEL_CAP in src/content/xpCurve.ts.
@@ -5424,6 +5430,14 @@ function gatherStep(
       message: `You get ${content.items[yieldAction.produces!].name}.`,
     });
     tryPetDrop(state, content, yieldAction.skill, ctx, events);
+    // A rich find: a rare bumper on ANY gather — the node gives double, with a
+    // little fanfare. Turns a long, flat skilling grind into something with the
+    // occasional jackpot to look forward to (OSRS's "clue/gem/bumper" thrill).
+    if (ctx.rng() < RICH_FIND_CHANCE && canAddItem(player, yieldAction.produces!)) {
+      addItem(player, yieldAction.produces!, yieldAction.produceQty ?? 1, events);
+      events.push({ type: "RICH_FIND", skill: yieldAction.skill, item: yieldAction.produces! });
+      events.push({ type: "LOG", message: `A rich find — the ${content.items[yieldAction.produces!].name} comes double!` });
+    }
     // A node's rare drop (bird nest, gem, etc.).
     if (
       yieldAction.rareDrop &&

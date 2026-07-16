@@ -1082,6 +1082,16 @@ export class Game {
           this.levelUp.unique(this.bridge.content.items[ev.item]?.name ?? "A rare item", ev.legendary);
           break;
         }
+        case "RICH_FIND": {
+          // A bumper gather: a gold burst on the worked node + a "Rich find!"
+          // float, so the jackpot lands as a moment, not just an extra log line.
+          const wp = this.positionOf(this.bridge.state.player.activity.targetId ?? "") ?? this.renderPlayerPos();
+          this.sparks.push({ x: wp.x, y: wp.y - 0.2, born: now, color: "#f2cf6b", n: 12 });
+          this.rings.push({ x: wp.x, y: wp.y - 0.2, born: now, color: "rgba(242,207,107,0.7)" });
+          this.floats.push({ x: wp.x, y: wp.y - 0.7, text: "Rich find!", color: "#f4d98b", born: now, size: 16 });
+          audio.play("achieve");
+          break;
+        }
         case "ACHIEVEMENT": {
           audio.play("achieve");
           const p = this.bridge.state.player.pos;

@@ -2443,6 +2443,9 @@ export type WorldEvent =
   | { type: "PICKED_UP"; x: number; y: number }
   /** A rare/legendary monster drop hit the ground — worth a celebration card. */
   | { type: "RARE_DROP"; item: ItemId; legendary: boolean }
+  /** A "rich find" — a rare bumper gather that came up double; the client
+   *  sparkles the worked node and floats a little fanfare. */
+  | { type: "RICH_FIND"; skill: SkillId; item: ItemId }
   /** Open the recipe menu for a station (fire/furnace/anvil). */
   | { type: "OPEN_CRAFT"; station: ObjKind; objId: string }
   /** Open the furniture build/replace menu for a housing hotspot. */
