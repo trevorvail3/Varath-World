@@ -3350,6 +3350,9 @@ button.inv-slot {
 .ge-quote { margin-top: 6px; }
 .ge-quote-row { display: flex; gap: 12px; font-family: "EB Garamond", serif; font-size: 13px; color: var(--ink); }
 .ge-q b { color: var(--gold); font-weight: 600; }
+/* The guide (reference) price reads dimmer than a live quote — it's a hint. */
+.ge-q.ge-guide { color: var(--ink-dim); }
+.ge-q.ge-guide b { color: #b8935a; }
 .ge-trades { display: flex; flex-wrap: wrap; gap: 4px 10px; margin-top: 5px; }
 .ge-trade { font-family: "EB Garamond", serif; font-size: 11px; color: var(--ink-dim); }
 .ge-total { margin-top: 2px; }

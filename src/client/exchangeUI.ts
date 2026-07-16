@@ -8,6 +8,7 @@
  */
 
 import { audio } from "./audio.ts";
+import { marketValue } from "../core/worldCore.ts";
 import type { Content, Intent, ItemId, WorldState } from "../core/types.ts";
 import {
   allOrders, cancelOrder, depositGold, depositItem, items as geItems, myOrders,
@@ -436,13 +437,22 @@ export class ExchangeUI {
       const [q, trades] = await Promise.all([quote(id), recentTrades(id)]);
       const line = (label: string, v: number | null): string =>
         `<span class="ge-q"><b>${label}</b> ${v != null ? fmt(v) : "—"}</span>`;
+      // Guide price — the item's standing market value (what NPC counters pay).
+      // With a thin or empty order book the live bid/ask/last are blank, which
+      // made the Exchange look broken and left new sellers guessing; the guide
+      // gives every item a sensible reference so the GE always works, and real
+      // player orders take over as the book fills.
+      const guide = marketValue(this.content, id);
+      const guideLine = guide > 0
+        ? `<span class="ge-q ge-guide"><b>Guide</b> ${fmt(guide)}</span>`
+        : "";
       box.innerHTML = `
-        <div class="ge-quote-row">${line("Buy", q.bid)}${line("Sell", q.ask)}${line("Last", q.last)}</div>
+        <div class="ge-quote-row">${line("Buy", q.bid)}${line("Sell", q.ask)}${line("Last", q.last)}${guideLine}</div>
         <div class="ge-trades">${trades.length
           ? trades.map((t) => `<span class="ge-trade">${t.qty}× @ ${fmt(t.price)}</span>`).join("")
-          : `<span class="ge-dim">No trades yet — set the price.</span>`}</div>`;
+          : `<span class="ge-dim">No live trades — the guide price is a fair start.</span>`}</div>`;
       if (!priceEl.value) {
-        const hint = q.ask ?? q.last ?? q.bid;
+        const hint = q.ask ?? q.last ?? q.bid ?? (guide > 0 ? guide : null);
         if (hint) priceEl.value = String(hint);
       }
     } catch { box.innerHTML = `<span class="ge-dim">Prices unavailable.</span>`; }
