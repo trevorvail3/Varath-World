@@ -862,18 +862,33 @@ export class Game {
           void this.showTrailStandings();
           break;
         case "MONSTER_KILLED": {
+          const mkey = this.monsterKeyOf(ev.objId);
+          const isBoss = mkey ? !!this.bridge.content.monsters[mkey]?.boss : false;
           // A death poof: a shockwave ring and a scatter of dark debris.
           const kp = this.positionOf(ev.objId);
           if (kp) {
             this.rings.push({ x: kp.x, y: kp.y, born: now, color: "rgba(226,72,58,0.7)" });
             this.sparks.push({ x: kp.x, y: kp.y, born: now, color: "#b8453a", n: 10 });
             this.sparks.push({ x: kp.x, y: kp.y, born: now + 40, color: "#5a4038", n: 7 });
+            if (isBoss) {
+              // An apex kill blows up bigger and golder, with a heavy jolt.
+              this.rings.push({ x: kp.x, y: kp.y, born: now + 80, color: "rgba(242,207,107,0.85)" });
+              this.sparks.push({ x: kp.x, y: kp.y, born: now + 120, color: "#f2cf6b", n: 18 });
+              this.sparks.push({ x: kp.x, y: kp.y, born: now + 220, color: "#fff2c8", n: 10 });
+              this.shake = { born: now, mag: 6, dur: 440 };
+            }
           }
           audio.play("kill");
-          const mkey = this.monsterKeyOf(ev.objId);
           if (mkey) {
             audio.creature(voiceFor(mkey), "die");
             if (this.bridge.content.monsters[mkey]?.boss) audio.bossEnd(true);
+          }
+          // The game's biggest fights get a card — a boss death no longer looks
+          // identical to a rat's. The first kill of each boss is called out.
+          if (isBoss && mkey) {
+            const name = this.bridge.content.monsters[mkey]?.name ?? "A great foe";
+            const kills = this.bridge.state.player.bossKills[mkey] ?? 1;
+            this.levelUp.boss(name, kills);
           }
           break;
         }
@@ -1019,10 +1034,20 @@ export class Game {
         case "QUEST_ADVANCED":
           break;
         case "COMPANION_FOUND": {
+          // The rarest thing in the game — a full card + fanfare, not a float.
+          audio.play("levelup");
+          const p = this.renderPlayerPos();
+          this.sparks.push({ x: p.x, y: p.y, born: now, color: "#9fd07a", n: 14 });
+          this.rings.push({ x: p.x, y: p.y - 0.3, born: now, color: "rgba(159,208,122,0.7)" });
+          this.levelUp.pet(this.bridge.content.items[ev.item]?.name ?? "A companion");
+          break;
+        }
+        case "RARE_DROP": {
+          // A rare/legendary drop earns a card + a gold glint where it fell.
           audio.play("achieve");
-          const p = this.bridge.state.player.pos;
-          const name = this.bridge.content.items[ev.item]?.name ?? "A companion";
-          this.floats.push({ x: p.x, y: p.y - 0.7, text: `${name} joins you!`, color: "#9fd07a", born: now, size: 17 });
+          const rp = this.positionOf(this.combatTargetId ?? "") ?? this.renderPlayerPos();
+          this.sparks.push({ x: rp.x, y: rp.y, born: now, color: ev.legendary ? "#f2cf6b" : "#8fd0d8", n: ev.legendary ? 14 : 10 });
+          this.levelUp.unique(this.bridge.content.items[ev.item]?.name ?? "A rare item", ev.legendary);
           break;
         }
         case "ACHIEVEMENT": {

@@ -16,7 +16,10 @@ type Celebration =
   | { kind: "catch"; species: string; weight: number; length: number }
   | { kind: "quest"; name: string; blurb: string; rewards: string[] }
   | { kind: "questStart"; name: string; objective: string; recLevel: number | null }
-  | { kind: "casket"; title: string; rewards: string[] };
+  | { kind: "casket"; title: string; rewards: string[] }
+  | { kind: "boss"; name: string; kills: number }
+  | { kind: "unique"; item: string; legendary: boolean }
+  | { kind: "pet"; item: string };
 
 export class LevelUp {
   private el: HTMLElement;
@@ -73,10 +76,32 @@ export class LevelUp {
     if (!this.showing) this.next();
   }
 
+  /** A slain boss — the game's biggest fights deserve more than a rat's poof.
+   *  The first kill of each boss gets its own flourish. */
+  boss(name: string, kills: number): void {
+    this.queue.push({ kind: "boss", name, kills });
+    if (!this.showing) this.next();
+  }
+
+  /** A rare or legendary drop hit the ground — the rarity payoff a head-float
+   *  never delivered. */
+  unique(item: string, legendary: boolean): void {
+    this.queue.push({ kind: "unique", item, legendary });
+    if (!this.showing) this.next();
+  }
+
+  /** A companion pet — the rarest thing in the game — joins you. */
+  pet(item: string): void {
+    this.queue.push({ kind: "pet", item });
+    if (!this.showing) this.next();
+  }
+
   private next(): void {
     const item = this.queue.shift();
     if (!item) { this.showing = false; return; }
     this.showing = true;
+    // Clear any theme from the previous card, so each kind starts neutral.
+    this.el.classList.remove("levelup-champion", "levelup-boss");
     if (item.kind === "champion") {
       this.el.classList.add("levelup-champion");
       this.el.innerHTML = `
@@ -139,6 +164,40 @@ export class LevelUp {
           </div>
         </div>
         ${this.rewardList(item.rewards)}`;
+    } else if (item.kind === "boss") {
+      const first = item.kills <= 1;
+      this.el.classList.add("levelup-boss");
+      this.el.innerHTML = `
+        <div class="levelup-eyebrow">${first ? "★ First Kill ★" : "☠ Boss Defeated ☠"}</div>
+        <div class="levelup-row">
+          <span class="levelup-icon">${iconize("💀")}</span>
+          <div>
+            <div class="levelup-skill">${esc(item.name)}</div>
+            <div class="levelup-level">${first ? "Slain for the first time!" : `Slain — kill #${item.kills}`}</div>
+          </div>
+        </div>`;
+    } else if (item.kind === "unique") {
+      this.el.classList.add("levelup-boss");
+      this.el.innerHTML = `
+        <div class="levelup-eyebrow">${item.legendary ? "★ Legendary Drop ★" : "✦ Rare Drop ✦"}</div>
+        <div class="levelup-row">
+          <span class="levelup-icon">${iconize(item.legendary ? "⭐" : "💎")}</span>
+          <div>
+            <div class="levelup-skill">${esc(item.item)}</div>
+            <div class="levelup-level">${item.legendary ? "A legendary find!" : "A rare find!"}</div>
+          </div>
+        </div>`;
+    } else if (item.kind === "pet") {
+      this.el.classList.add("levelup-boss");
+      this.el.innerHTML = `
+        <div class="levelup-eyebrow">✦ A Loyal Companion ✦</div>
+        <div class="levelup-row">
+          <span class="levelup-icon">${iconize("🐾")}</span>
+          <div>
+            <div class="levelup-skill">${esc(item.item)}</div>
+            <div class="levelup-level">A pet joins you — the rarest of finds!</div>
+          </div>
+        </div>`;
     } else {
       this.el.classList.remove("levelup-champion");
       const meta = this.content.skills[item.skill];
@@ -174,7 +233,8 @@ export class LevelUp {
       return;
     }
     const dwell =
-      item.kind === "champion" ? 5200
+      item.kind === "champion" || item.kind === "pet" ? 5200
+      : item.kind === "boss" || item.kind === "unique" ? 4600
       : item.kind === "casket" || item.kind === "questStart" ? 4600
       : 3000;
     this.timer = window.setTimeout(() => this.dismiss(), dwell);

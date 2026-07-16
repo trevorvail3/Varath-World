@@ -4129,6 +4129,25 @@ button.inv-slot {
   50% { box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6), inset 0 0 38px rgba(243, 207, 82, 0.34); }
 }
 
+/* Boss defeats, rare/legendary drops and pets — a bolder, ember-lit card so the
+   game's rarest moments read as bigger than a routine level-up. */
+.levelup-boss {
+  min-width: 256px;
+  padding: 16px 24px 17px;
+  background: linear-gradient(180deg, rgba(58, 26, 18, 0.98), rgba(26, 14, 10, 0.98));
+  border-color: var(--ember);
+  box-shadow: 0 10px 34px rgba(0, 0, 0, 0.62), inset 0 0 30px rgba(210, 116, 44, 0.22);
+  animation: boss-glow 1.5s ease-in-out infinite;
+}
+.levelup-boss .levelup-eyebrow { color: #f0a860; letter-spacing: 0.26em; font-size: 11px; text-shadow: 0 0 12px rgba(210, 116, 44, 0.7); }
+.levelup-boss .levelup-icon { font-size: 32px; filter: drop-shadow(0 0 10px rgba(240, 168, 96, 0.8)); }
+.levelup-boss .levelup-skill { font-size: 18px; color: #f6dcc2; }
+.levelup-boss .levelup-level { color: #e0a04a; }
+@keyframes boss-glow {
+  0%, 100% { box-shadow: 0 10px 34px rgba(0, 0, 0, 0.62), inset 0 0 30px rgba(210, 116, 44, 0.18); }
+  50% { box-shadow: 0 10px 40px rgba(0, 0, 0, 0.62), inset 0 0 40px rgba(210, 116, 44, 0.36); }
+}
+
 /* ── Procedural UI glyphs (replace emoji across the chrome) ───────────────────
    One inline SVG style; size set per context, colour inherited via currentColor
    so each spot tints its own glyph (gold skill icons, ink tabs, etc.). */

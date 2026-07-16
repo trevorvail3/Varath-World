@@ -2441,6 +2441,8 @@ export type WorldEvent =
   | { type: "FISH_LANDED"; species: string; weight: number; length: number; rank: number; newChampion: boolean }
   /** Loot was pocketed off a tile — the client glints where the pile was. */
   | { type: "PICKED_UP"; x: number; y: number }
+  /** A rare/legendary monster drop hit the ground — worth a celebration card. */
+  | { type: "RARE_DROP"; item: ItemId; legendary: boolean }
   /** Open the recipe menu for a station (fire/furnace/anvil). */
   | { type: "OPEN_CRAFT"; station: ObjKind; objId: string }
   /** Open the furniture build/replace menu for a housing hotspot. */

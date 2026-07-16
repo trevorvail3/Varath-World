@@ -7833,6 +7833,11 @@ function rollDrops(
       continue;
     }
     dropToGround(state, drop.item, qty, x, y, ctx, false); // each kill = its own pile
+    // The apex payoff: a rare or legendary drop is worth an on-screen moment,
+    // not just another pile in the loot feed.
+    if (drop.tier === "rare" || drop.tier === "legendary") {
+      events.push({ type: "RARE_DROP", item: drop.item, legendary: drop.tier === "legendary" });
+    }
     if (drop.item === "shard_of_orun") {
       state.player.killsSinceShard = 0; // a natural drop re-arms the pity timer
       events.push({
