@@ -158,6 +158,11 @@ const SHARD_ID = "shard_of_orun" as ItemId;
 // few minutes of steady gathering).
 const RICH_FIND_CHANCE = 1 / 140;
 
+// At/above this combat level, a regular monster WITH a weakness starts caring
+// which style you bring (a mild off-style penalty). Below it, early trash stays
+// forgiving — you can farm it with anything while you learn the ropes.
+const ELITE_LEVEL = 40;
+
 // Playable level ceiling. The XP table (content) is built a little past this so
 // look-ups never fall off the end, but a skill never *reads* above the cap.
 // Keep in step with LEVEL_CAP in src/content/xpCurve.ts.
@@ -387,9 +392,13 @@ const COMBAT = {
   weaknessAcc: 1.5,
   weaknessDmg: 1.4,
   /** Bosses shrug off attacks that don't exploit a weakness: off-style damage
-   *  is multiplied by this. Regular monsters are spared (any style farms trash;
-   *  the triangle decides bosses — matching each boss's hint text). */
+   *  is multiplied by this. */
   bossOffStyleDmg: 0.6,
+  /** ELITE regular monsters (level >= ELITE_LEVEL) that HAVE a weakness apply a
+   *  MILDER off-style penalty, so mid/late leveling + bounty grinding rewards
+   *  matching the triangle instead of pure auto-swing — without punishing early
+   *  trash (below the threshold) or weakness-less foes (no way to match). */
+  eliteOffStyleDmg: 0.85,
   /** Ward soaks floor(defence / this) flat damage per hit. */
   wardDivisor: 15,
   /** How long a slain monster stays down before respawning (ms). */
@@ -6899,7 +6908,8 @@ function playerSwing(
   // "magic", the ratings come off Faith + the staff, and the XP trains Faith.
   const magic = isMagic(player, content);
   const wStyle = ranged ? "ranged" : magic ? "magic" : weaponStyle(player, content);
-  const exploits = wStyle !== undefined && activeWeakness(stats, obj).includes(wStyle);
+  const weak = activeWeakness(stats, obj);
+  const exploits = wStyle !== undefined && weak.includes(wStyle);
   const baseAcc = ranged ? rangedAccuracy(player, content)
     : magic ? magicAccuracy(player, content) : playerAccuracy(player, content);
   const acc = exploits ? Math.round(baseAcc * COMBAT.weaknessAcc) : baseAcc;
@@ -6963,6 +6973,11 @@ function playerSwing(
       // with the weakness multipliers this makes the triangle decide boss
       // fights (right style ≈ 2× wrong style), as every bossHint promises.
       dmg = Math.max(1, Math.round(dmg * COMBAT.bossOffStyleDmg));
+    } else if (!stats.boss && !exploits && !puncture && weak.length > 0 && stats.level >= ELITE_LEVEL) {
+      // An elite regular foe with a known weakness: a mild penalty for the wrong
+      // style, so mid-game leveling + bounty grinding rewards matching the
+      // triangle. Weakness-less foes and low-level trash are untouched.
+      dmg = Math.max(1, Math.round(dmg * COMBAT.eliteOffStyleDmg));
     }
     // Bounty Helm: a tracker's edge. While worn it adds damage against the
     // exact creature your active bounty names — so it speeds the task you're
