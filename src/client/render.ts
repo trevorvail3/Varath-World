@@ -58,6 +58,14 @@ let petWy = 0;
 
 export const TILE = 40; // pixels per tile
 
+/** Object kinds that lie flat on the ground: in the depth pass they sort under
+ *  every standing sprite (and the player) so they never paint over a body that
+ *  stands a tile in front of them. */
+const FLAT_SORT_KINDS = new Set([
+  "plant_patch", "tree_patch", "housing_plot", "build_hotspot", "room_seal",
+  "dungeon_gate", "puzzle_lever", "fishing_spot",
+]);
+
 /** Draw distance in TILES from the player — anything past this isn't painted, so
  *  wide screens don't drag (OSRS-style circular view). Infinity = unlimited. Set
  *  by the loop each frame from the player's Settings slider. */
@@ -1745,6 +1753,13 @@ export function drawWorld(
     drawRemains(g, px + TILE / 2, py + TILE / 2, def, now);
     if (def.variant === "brazier") lights.push([px + TILE / 2, py + TILE / 2 - 6]);
   }
+  // Depth (y-sort) pass: every standing thing — objects, creatures, NPCs and the
+  // player — is COLLECTED here rather than drawn inline, then drawn in baseline
+  // order so a nearer thing paints over a farther one. Without this the player
+  // (drawn last) floated on top of every tree and wall it stood behind. Name
+  // labels are collected too and drawn last, on top of the sorted sprites.
+  const sprites: { y: number; draw: () => void }[] = [];
+  const nameLabels: { text: string; cx: number; yb: number; color: string }[] = [];
   for (const def of content.objects) {
     if (def.kind === "remains") continue; // drawn in the floor pass above
     const obj = state.objects[def.id];
@@ -1761,6 +1776,12 @@ export function drawWorld(
     const px = p.x * TILE - cam.x;
     const py = p.y * TILE - cam.y;
     if (px < -TILE || py < -TILE || px > w + TILE || py > h + TILE) continue;
+    // Collect this object's draw, keyed by its foot (baseline) for the y-sort.
+    // Flat, ground-hugging things (crop patches, fishing ripples, plots, boarded
+    // doorways) get a floor-level key so they always sort UNDER the standing
+    // sprites and never paint over the player who stands a tile in front of them.
+    const flat = FLAT_SORT_KINDS.has(def.kind);
+    sprites.push({ y: flat ? -1e6 + py : py + TILE, draw: () => {
     if (def.kind === "plant_patch" || def.kind === "tree_patch") {
       drawPatch(g, obj.crop, obj.plantedAt, content, px, py);
     } else if (def.kind === "housing_plot") {
@@ -1835,6 +1856,7 @@ export function drawWorld(
       if (breathing) g.restore();
       if (hp) g.restore();
     }
+    } }); // end sprite draw closure
     if (def.kind === "fire" || def.kind === "furnace" || def.kind === "cauldron") {
       lights.push([px + TILE / 2, py + TILE / 2]);
     } else if (def.kind === "lamppost") {
@@ -1845,12 +1867,13 @@ export function drawWorld(
       lights.push([px + TILE / 2, py + TILE / 2 - 4]); // a cold seam of light under the last door
     }
     // Name label — monsters show their combat level (OSRS-style). A slain
-    // monster (respawning) drops its label until it's back.
+    // monster (respawning) drops its label until it's back. Deferred (drawn on
+    // top of the sorted sprites) so a name is never hidden behind a nearer body.
     if (def.kind === "npc" || (def.kind === "monster" && obj.available)) {
       const lvl = def.kind === "monster" && def.monster ? content.monsters[def.monster]?.level : undefined;
       const text = lvl !== undefined ? `${def.name} (lvl ${lvl})` : def.name;
       const cx = px + TILE / 2, yb = py - 6;
-      label(g, text, cx, yb, def.kind === "monster" ? "#c98" : "#cdbf9a");
+      nameLabels.push({ text, cx, yb, color: def.kind === "monster" ? "#c98" : "#cdbf9a" });
       labelBoxes.push(labelBox(text, cx, yb)); // fishing labels steer clear of names
     }
     // Fishing spots name their catch above the water (OSRS-style). Collected and
@@ -1911,17 +1934,6 @@ export function drawWorld(
     }
   }
 
-  // Fishing-spot labels, de-cluttered: the ones you can fish come first, then the
-  // nearest, and each is skipped if it would overlap a label already placed — so a
-  // packed estuary shows a handful of clean labels rather than a bleeding stack.
-  fishLabels.sort((a, b) => (a.locked ? 1 : 0) - (b.locked ? 1 : 0) || a.dist - b.dist);
-  for (const fl of fishLabels) {
-    const box = labelBox(fl.text, fl.cx, fl.yb);
-    if (labelHits(box)) continue;
-    label(g, fl.text, fl.cx, fl.yb, fl.color);
-    labelBoxes.push(box);
-  }
-
   // Agility: pulsing marker over the next obstacle to take.
   drawAgilityMarkers(g, state, content, cam, w, h, now, inRegion);
 
@@ -1962,7 +1974,7 @@ export function drawWorld(
     drawGhost(g, gh, cam, now);
   }
 
-  // --- Player ---
+  // --- Player --- collected as a sprite so it sorts by depth with the world.
   let playerGlow: [number, number] | null = null; // a carried light, added after bloom
   if (state.player.alive) {
     const pl = state.player;
@@ -1970,6 +1982,9 @@ export function drawWorld(
     // duration so the avatar glides. `pl.pos` (the true tile) still drives facing,
     // tile look-ups and effects; only the DRAWN position is interpolated.
     const rp = interpTile(pl.prevPos, pl.pos, stepProgress(pl.stepStartTick, pl.stepDurTicks, state.tickCount, alpha));
+    // Baseline at the feet, matching the object sprites, so the player slots into
+    // the depth order — occluded by anything whose feet are lower on the screen.
+    sprites.push({ y: rp.y * TILE + TILE - cam.y, draw: () => {
     // Face the next step's dominant direction (4-way); keep the last facing when
     // idle. Horizontal wins ties so a diagonal reads as a side-step, not a turn.
     if (pl.path.length > 0) {
@@ -2068,6 +2083,25 @@ export function drawWorld(
     const lantern = state.player.equipment.offhand === "delvers_lantern";
     if (!region || (dungeon && lantern)) playerGlow = [plCx, plCy - 4];
     if (dungeon && lantern) lights.push([plCx, plCy - 4]);
+    } }); // end player sprite closure
+  }
+
+  // Depth-sorted world pass: objects, creatures and the player, drawn back-to-
+  // front by their feet so nearer things paint over farther ones (and the player
+  // is occluded by whatever it stands behind). A stable sort keeps content order
+  // as the tiebreak for things on the same row.
+  sprites.sort((a, b) => a.y - b.y);
+  for (const s of sprites) s.draw();
+
+  // Name labels, then de-cluttered fishing-spot labels — all drawn last so text
+  // always sits on top of the bodies it belongs to, never behind a nearer one.
+  for (const nl of nameLabels) label(g, nl.text, nl.cx, nl.yb, nl.color);
+  fishLabels.sort((a, b) => (a.locked ? 1 : 0) - (b.locked ? 1 : 0) || a.dist - b.dist);
+  for (const fl of fishLabels) {
+    const box = labelBox(fl.text, fl.cx, fl.yb);
+    if (labelHits(box)) continue;
+    label(g, fl.text, fl.cx, fl.yb, fl.color);
+    labelBoxes.push(box);
   }
 
   // --- Roof canopies (OSRS-style roof-lift): draw each enterable building's
