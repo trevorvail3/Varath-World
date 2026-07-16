@@ -549,8 +549,8 @@ body {
 }
 
 .dock-tab {
-  width: 31px;
-  height: 31px;
+  width: 34px;
+  height: 34px;
   font-size: 16px;
   line-height: 1;
   background: transparent;
@@ -2392,17 +2392,17 @@ button.inv-slot {
     max-height: 124px;
   }
   .dock-body {
-    width: 178px;
-    height: 332px;
+    width: 188px;
+    height: 336px;
   }
   .dock-tab {
-    width: 30px;
-    height: 30px;
+    width: 33px;
+    height: 33px;
     font-size: 15px;
   }
   .inv-grid {
-    grid-template-columns: repeat(4, 38px);
-    grid-auto-rows: 38px;
+    grid-template-columns: repeat(4, 40px);
+    grid-auto-rows: 40px;
   }
   .skill-grid {
     grid-template-columns: repeat(3, 1fr);
@@ -4174,7 +4174,7 @@ button.inv-slot {
 }
 /* Tab rail: centre the glyph, gild the active tab. */
 .dock-tab { display: flex; align-items: center; justify-content: center; }
-.dock-tab .g-ico { width: 21px; height: 21px; vertical-align: middle; }
+.dock-tab .g-ico { width: 23px; height: 23px; vertical-align: middle; }
 .dock-tab.active { color: var(--gold); }
 /* Skills tab + level-up + skill detail */
 .sc-icon { color: var(--gold); }
@@ -4256,9 +4256,9 @@ button.inv-slot {
 .run-toggle {
   --e: 100;
   --ring: #b6d24a;
-  width: 26px;
-  height: 26px;
-  padding: 2.5px; /* ring thickness */
+  width: 34px;
+  height: 34px;
+  padding: 3px; /* ring thickness */
   display: block;
   border: 0;
   border-radius: 8px;
@@ -4278,7 +4278,7 @@ button.inv-slot {
   background: rgba(20, 16, 12, 0.96);
   color: var(--ink-dim);
 }
-.run-face .g-ico { width: 19px; height: 19px; }
+.run-face .g-ico { width: 22px; height: 22px; }
 /* Running: the orb face glows ember. Low/spent: the ring turns to warning red. */
 .run-control.on .run-face { color: var(--ember); }
 .run-control.low .run-toggle { --ring: #d9a441; }
