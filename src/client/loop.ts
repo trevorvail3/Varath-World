@@ -41,6 +41,7 @@ import { ActiveSkill } from "./activeSkill.ts";
 import type { ContextMenu, MenuItem, MenuTab } from "./contextMenu.ts";
 import { Dialogue } from "./dialogue.ts";
 import type { Guide } from "./guide.ts";
+import type { Tutorial } from "./tutorial.ts";
 import { Hud } from "./hud.ts";
 import { Minimap, WorldMapModal } from "./minimap.ts";
 import { biomeAt, Camera, drawWorld, interpTile, stepProgress, setCombatHits, setDrawDistance, setLootLabels, TILE, type HitFx } from "./render.ts";
@@ -435,6 +436,7 @@ export class Game {
     uiRoot: HTMLElement,
     menu: ContextMenu,
     private guide: Guide,
+    private tutorial: Tutorial,
   ) {
     const g = canvas.getContext("2d");
     if (!g) throw new Error("Could not get a 2D canvas context.");
@@ -608,6 +610,7 @@ export class Game {
     const events = this.bridge.tick(now);
     this.handleEvents(events, now);
     this.guide.update(this.bridge.state);
+    this.tutorial.update(this.bridge.state);
     this.decorate.update();
     // Keep the soundscape on the player's region (throttled; setScene no-ops
     // when nothing changed). Indoors — a home instance or under a lifted city

@@ -1835,6 +1835,92 @@ body {
   display: none;
 }
 
+/* --- First Steps tutorial (a one-time guided checklist, left side) --- */
+.tutorial-panel {
+  position: absolute;
+  top: 84px;
+  left: 10px;
+  z-index: 24;
+  width: min(216px, 60vw);
+  pointer-events: auto;
+  font-family: "EB Garamond", serif;
+  color: var(--ink);
+  background: rgba(20, 16, 12, 0.9);
+  border: 1px solid var(--gold);
+  border-radius: 8px;
+  padding: 8px 10px 10px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.55);
+  transition: opacity 0.35s ease, transform 0.35s ease;
+}
+
+.tutorial-panel.hidden { display: none; }
+.tutorial-panel.leaving { opacity: 0; transform: translateX(-12px); }
+
+.tutorial-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 6px;
+  padding-bottom: 5px;
+  border-bottom: 1px solid rgba(198, 156, 74, 0.35);
+}
+.tutorial-head-ic { display: inline-flex; color: var(--gold); }
+.tutorial-head-ic .g-ico { width: 16px; height: 16px; }
+.tutorial-head-t {
+  flex: 1;
+  font-family: "Cinzel", serif;
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  color: var(--gold);
+}
+.tutorial-skip {
+  pointer-events: auto;
+  cursor: pointer;
+  background: none;
+  border: none;
+  color: var(--ink-dim);
+  font-family: "EB Garamond", serif;
+  font-size: 11px;
+  text-decoration: underline;
+  padding: 0 2px;
+}
+.tutorial-skip:hover { color: var(--ink); }
+
+.tutorial-steps { display: flex; flex-direction: column; gap: 3px; }
+.tutorial-step {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 13px;
+  line-height: 1.25;
+  color: var(--ink-dim);
+  opacity: 0.6;
+}
+.tutorial-step-ic { display: inline-flex; }
+.tutorial-step-ic .g-ico { width: 15px; height: 15px; }
+.tutorial-step.active {
+  opacity: 1;
+  color: var(--ink);
+}
+.tutorial-step.active .tutorial-step-ic { color: var(--gold); }
+.tutorial-step.done {
+  opacity: 1;
+  color: var(--ink-dim);
+}
+.tutorial-step.done .tutorial-step-t { text-decoration: line-through; }
+.tutorial-step.done .tutorial-step-ic { color: #8bbf6a; }
+
+.tutorial-hint {
+  margin-top: 7px;
+  padding-top: 6px;
+  border-top: 1px solid rgba(198, 156, 74, 0.25);
+  font-size: 12px;
+  line-height: 1.35;
+  color: var(--ink);
+}
+.tutorial-grad-ic { display: inline-flex; vertical-align: -3px; color: var(--gold); }
+.tutorial-grad-ic .g-ico { width: 15px; height: 15px; }
+
 /* --- Controls primer (one-time "How to Play" card, after the intro) --- */
 .primer-screen {
   position: absolute;

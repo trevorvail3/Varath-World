@@ -28,6 +28,7 @@ import { hydratePlayer, serializePlayer } from "./core/save.ts";
 import { ContextMenu } from "./client/contextMenu.ts";
 import { Dialogue } from "./client/dialogue.ts";
 import { Guide } from "./client/guide.ts";
+import { Tutorial } from "./client/tutorial.ts";
 import { Intro } from "./client/intro.ts";
 import { Primer } from "./client/primer.ts";
 import { Game, type CoreBridge } from "./client/loop.ts";
@@ -243,6 +244,7 @@ function boot(newChar: CreatedCharacter | null, cloudReady: boolean): void {
 
   const menu = new ContextMenu(app!);
   const guide = new Guide(app!, content);
+  const tutorial = new Tutorial(app!);
   let game: Game;
   const dispatch = (intent: Intent): void => game.dispatch(intent);
   // `game` is assigned just below; the slider may read zoom during Hud build,
@@ -279,7 +281,7 @@ function boot(newChar: CreatedCharacter | null, cloudReady: boolean): void {
     set: (v) => game?.setLootLabels(v),
   }, (slot, item) => game?.beginUseItem(slot, item));
   const dialogue = new Dialogue(app!);
-  game = new Game(canvas!, bridge, hud, dialogue, app!, menu, guide);
+  game = new Game(canvas!, bridge, hud, dialogue, app!, menu, guide, tutorial);
   // Route sent chat lines to the world so they float over the player's head, and
   // arriving nearby players' lines over their ghost.
   hud.onLocalSay = (text: string) => game.showSpeech(text);
@@ -366,6 +368,9 @@ function boot(newChar: CreatedCharacter | null, cloudReady: boolean): void {
     // and on "looks advanced", so a player who quit mid-first-quest gets the
     // coach back, while veterans never see it again (Tier-0 fix).
     guide.start(state.player);
+    // The First Steps checklist — a brand-new hero's guided tutorial. Self-guards
+    // on completion and on "looks advanced", so it runs exactly once.
+    tutorial.start(state.player);
     // A founder's one-time cache window — after the intro/primer, once the
     // player is actually standing in the world.
     maybeShowFounderClaim(app!, state, dispatch);
