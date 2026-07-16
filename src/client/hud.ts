@@ -228,8 +228,6 @@ export class Hud {
   private charTotal!: HTMLElement;
   private charPlayed!: HTMLElement;
   private styleButtons = new Map<CombatStyle, HTMLElement>();
-  /** Attack-type buttons ("auto" = follow the weapon), for the weakness triangle. */
-  private attackTypeButtons = new Map<string, HTMLElement>();
   private questList?: HTMLElement;
   private factionRows = new Map<string, { rep: HTMLElement; stand: HTMLElement; fill: HTMLElement }>();
   // World tab: per-region Achievement Diary blocks, with live task/progress refs.
@@ -709,9 +707,9 @@ export class Hud {
         p.appendChild(sheet);
         // (Cape of Varath progress now lives in the Records tab, as an achievement.)
 
-        // Attack-style menu (OSRS-style): the STANCE (acc/dmg/def tradeoff + which
-        // skill it trains) and the melee ATTACK TYPE (slash/stab/crush) to match a
-        // foe's weakness.
+        // Combat stance — the acc/dmg/def tradeoff and which combat skill your
+        // next kill trains. (Your melee damage TYPE — slash/stab/crush — comes
+        // from the weapon itself, so weapon groups matter for a foe's weakness.)
         this.styleButtons.clear();
         const styleWrap = document.createElement("div");
         styleWrap.className = "style-select";
@@ -739,36 +737,6 @@ export class Hud {
           row.appendChild(b);
         }
         styleWrap.appendChild(row);
-
-        // Attack type — the melee damage type your blows land as, matched against a
-        // monster's slash/stab/crush weakness. "Auto" follows the worn weapon.
-        this.attackTypeButtons.clear();
-        const typeLabel = document.createElement("div");
-        typeLabel.className = "style-label";
-        typeLabel.textContent = "Attack type";
-        styleWrap.appendChild(typeLabel);
-        const typeRow = document.createElement("div");
-        typeRow.className = "style-row";
-        const types: { id: string; name: string; tip: string }[] = [
-          { id: "auto", name: "Auto", tip: "Use the worn weapon's own attack type." },
-          { id: "slash", name: "Slash", tip: "Land blows as SLASH — for foes weak to slashing." },
-          { id: "stab", name: "Stab", tip: "Land blows as STAB — for foes weak to stabbing." },
-          { id: "crush", name: "Crush", tip: "Land blows as CRUSH — for foes weak to crushing." },
-        ];
-        for (const t of types) {
-          const b = document.createElement("button");
-          b.type = "button";
-          b.className = "style-btn style-type-btn";
-          b.textContent = t.name;
-          b.title = t.tip;
-          b.addEventListener("click", () => this.dispatch({
-            type: "SET_ATTACK_TYPE",
-            ...(t.id === "auto" ? {} : { attackType: t.id as "slash" | "stab" | "crush" }),
-          }));
-          this.attackTypeButtons.set(t.id, b);
-          typeRow.appendChild(b);
-        }
-        styleWrap.appendChild(typeRow);
         p.appendChild(styleWrap);
 
         // --- Worn equipment (folded into the Character sheet) ---
@@ -1956,20 +1924,6 @@ export class Hud {
     this.charName.textContent = cname ? `${cname} of Ironvale` : "Wanderer of Ironvale";
     this.styleButtons.forEach((btn, id) => {
       btn.classList.toggle("active", id === player.combatStyle);
-    });
-    // Attack-type row: highlight the chosen type (or "Auto"), and show the worn
-    // weapon's own type on the Auto button so the default is legible.
-    const wpn = player.equipment.mainhand ? this.content.items[player.equipment.mainhand] : undefined;
-    const wpnType = wpn?.attackStyle;
-    const activeType = player.attackType ?? "auto";
-    this.attackTypeButtons.forEach((btn, id) => {
-      btn.classList.toggle("active", id === activeType);
-      if (id === "auto") {
-        const cap = (wpnType === "slash" || wpnType === "stab" || wpnType === "crush")
-          ? wpnType[0]!.toUpperCase() + wpnType.slice(1)
-          : null;
-        btn.textContent = cap ? `Auto (${cap})` : "Auto";
-      }
     });
 
     // Inventory

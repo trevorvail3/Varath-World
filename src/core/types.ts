@@ -86,11 +86,6 @@ export const COMBAT_SKILLS: SkillId[] = ["vitality", "edge", "vigour"];
  */
 export type CombatStyle = "edge" | "vigour" | "ward" | "controlled";
 
-/** The melee damage TYPE a blow lands as — matched against a monster's
- *  slash/stab/crush weakness. Chosen in the attack-style menu; defaults to the
- *  worn weapon's own `attackStyle`. */
-export type AttackType = "slash" | "stab" | "crush";
-
 /** One unlocked skill on the player: how much XP, and the level it implies. */
 export interface SkillState {
   xp: number;
@@ -1619,9 +1614,6 @@ export interface Player {
   /** The melee combat stance (Accurate/Aggressive/Defensive/Controlled) — its
    *  live acc/dmg/def tradeoff, and which combat skill the next kill trains. */
   combatStyle: CombatStyle;
-  /** The melee damage type the player chooses to attack WITH (slash/stab/crush),
-   *  to match a monster's weakness. Undefined = use the worn weapon's own type. */
-  attackType?: AttackType;
   /** Run toggle: when on (and energy remains), the player moves at sprint speed. */
   running: boolean;
   /** Run energy, 0–100. Drains while sprinting, regenerates otherwise. */
@@ -1989,13 +1981,6 @@ export interface SetStyleIntent {
   style: CombatStyle;
 }
 
-/** "Attack with this melee damage type" (slash/stab/crush) to match a monster's
- *  weakness — or clear it (undefined) to use the weapon's own type. */
-export interface SetAttackTypeIntent {
-  type: "SET_ATTACK_TYPE";
-  attackType?: AttackType;
-}
-
 /** Rearrange the pack: swap two inventory slots (OSRS drag-to-move). */
 export interface SwapSlotsIntent {
   type: "SWAP_SLOTS";
@@ -2337,7 +2322,6 @@ export type Intent =
   | UnequipIntent
   | CraftIntent
   | SetStyleIntent
-  | SetAttackTypeIntent
   | CastSpellIntent
   | SetAutocastIntent
   | ToggleBlessingIntent

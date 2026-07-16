@@ -2408,15 +2408,6 @@ export function applyIntent(
       });
       break;
     }
-    case "SET_ATTACK_TYPE": {
-      // Pick the melee damage type to attack with (to hit a foe's weakness), or
-      // clear it to follow the worn weapon's own type.
-      if (intent.attackType) player.attackType = intent.attackType;
-      else delete player.attackType;
-      const t = intent.attackType ?? weaponStyle(player, content) ?? "the weapon's";
-      events.push({ type: "LOG", message: `Attack type: ${t}.` });
-      break;
-    }
     case "TOGGLE_RUN": {
       player.running = !player.running;
       break;
@@ -4822,15 +4813,21 @@ function stepTick(
     // window has elapsed (walk/run/mount cadence). Between steps the position
     // holds and the client interpolates the glide, so motion stays smooth.
     const wasMoving = player.path.length > 0;
-    if (wasMoving && state.tickCount >= player.stepStartTick + player.stepDurTicks) {
+    // The current step's glide is only DONE once its whole tick-window elapses.
+    // Crucially, we must not reset prevPos before then — doing so on the tick
+    // right after the LAST step cut its glide short, so the final tile snapped.
+    const stepDone = state.tickCount >= player.stepStartTick + player.stepDurTicks;
+    if (wasMoving && stepDone) {
       stepMovement(state, player);
-    } else if (!wasMoving) {
-      // Idle: ready to step the instant a path arrives, and hold prevPos == pos
-      // so there's no phantom glide (the client clamps step progress to 1).
+    } else if (!wasMoving && stepDone) {
+      // Idle AND the last step has fully glided home: settle in place, ready to
+      // step the instant a path arrives, holding prevPos == pos (no phantom glide).
       player.stepStartTick = state.tickCount;
       player.stepDurTicks = 1;
       player.prevPos = { x: player.pos.x, y: player.pos.y };
     }
+    // else: mid-step (still gliding) — leave prevPos/pos alone so the tile
+    // finishes smoothly instead of jumping.
     // Run energy drains only while actually running on foot; it recovers on every
     // other tick (walking, standing, mounted, or winded).
     const runningOnFoot = wasMoving && player.running && player.energy > 0
@@ -6415,12 +6412,11 @@ function skillLvl(player: Player, skill: SkillId): number {
   return player.skills[skill]?.level ?? 1;
 }
 
-/** The melee damage type a blow lands as: the player's chosen attack type
- *  (slash/stab/crush) if set, else the worn main-hand weapon's own `attackStyle`.
- *  This is what the weakness triangle matches, so switching type in the
- *  attack-style menu lets any melee weapon target a monster's weakness. */
+/** The melee damage type a blow lands as — the worn main-hand weapon's own
+ *  `attackStyle` (slash/stab/crush). This is what the weakness triangle matches,
+ *  so a weapon's TYPE is what gives each weapon group its purpose: bring a crush
+ *  weapon for a crush-weak foe, a stabbing spear for another, and so on. */
 function weaponStyle(player: Player, content: Content): string | undefined {
-  if (player.attackType) return player.attackType;
   const id = player.equipment.mainhand;
   return id ? content.items[id].attackStyle : undefined;
 }
