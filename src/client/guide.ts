@@ -25,6 +25,7 @@
 
 import type { Content, Player, WorldState } from "../core/types.ts";
 import { getTrackedQuest, setTrackedQuest, isTrackingDismissed, dismissTracking } from "./questTrack.ts";
+import { tutorialRetired } from "./tutorial.ts";
 
 /** Quest-derived phases of the opening coach, in the order a new player meets them. */
 type Phase = "off" | "greet" | "mine" | "smelt" | "deliver" | "graduate";
@@ -256,17 +257,24 @@ export class Guide {
   update(state: WorldState): void {
     this.grandfatherOnce(state.player);
 
+    // While the First Steps tutorial is still running, the checklist panel is
+    // the sole onboarding voice: stand the opening coach AND the contextual tips
+    // down so nothing competes with it in the banner. The pinned quest objective
+    // + gold arrow (below) still show for navigation, and both the coach and the
+    // tips resume on their own once the tutorial completes or is skipped.
+    const tutorialDone = tutorialRetired();
+
     // The opening coach owns the banner while it runs; suppress tips until it
     // has retired (or was never started, e.g. for a returning player).
-    if (this.active) {
+    if (this.active && tutorialDone) {
       this.updateOpeningCoach(state);
       return;
     }
 
-    this.updateTips(state);
-    // Once the coach has retired, keep the current quest's objective PINNED in
-    // the top-left banner — the Wayfarer's Primer promises exactly this. A
-    // transient tip borrows the banner and reverts to the objective on fade.
+    if (tutorialDone) this.updateTips(state);
+    // Keep the current quest's objective PINNED in the top-left banner — the
+    // Wayfarer's Primer promises exactly this. A transient tip borrows the
+    // banner and reverts to the objective on fade.
     this.objectiveText = this.computeObjective(state);
     if (this.tipTimer === null) this.showObjective();
   }
