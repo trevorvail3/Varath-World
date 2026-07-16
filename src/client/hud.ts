@@ -1424,7 +1424,13 @@ export class Hud {
       : spell.kind === "teleport" ? "Teleports you to the city hub"
       : spell.kind === "kindle" ? "Superheats an ore in your pack into a bar"
       : spell.kind === "enchant" ? "Cuts a rough/uncut gem into a cut gem"
-      : spell.kind === "blessing" ? `Halves incoming ${spell.deflectStyle} damage while held`
+      : spell.kind === "blessing" ? (spell.deflectStyle
+          ? `Halves incoming ${spell.deflectStyle} damage while held`
+          : `${[
+              spell.boostAcc ? `+${Math.round((spell.boostAcc - 1) * 100)}% accuracy` : null,
+              spell.boostDmg ? `+${Math.round((spell.boostDmg - 1) * 100)}% damage` : null,
+              spell.boostDef ? `+${Math.round((spell.boostDef - 1) * 100)}% defence` : null,
+            ].filter(Boolean).join(", ")} while held`)
       : "";
     const blessing = spell.kind === "blessing";
     const items: MenuItem[] = [{

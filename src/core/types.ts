@@ -2902,6 +2902,13 @@ export interface SpellDef {
   curseMs?: number;
   /** blessing: which attack style it deflects (halves that style's damage). */
   deflectStyle?: "melee" | "ranged" | "magic";
+  /** blessing: OFFENSIVE/stat boosts (Piety-style) — multipliers on the player's
+   *  accuracy / max hit / defence while the blessing is held (1 = no change). All
+   *  styles benefit (melee/ranged/magic). Held blessings burn Grace, so these are
+   *  a live "spend Grace for power" layer, not a free buff. */
+  boostAcc?: number;
+  boostDmg?: number;
+  boostDef?: number;
   /** blessing: Grace drained per second while the blessing is held. */
   drainPerSec?: number;
   /** Faith XP granted on a successful cast. */

@@ -6431,10 +6431,19 @@ function weaponStyle(player: Player, content: Content): string | undefined {
  * equipStat sums the field across every worn item, and only weapons/rings/
  * amulets carry `acc`, so the base matches the idle game's sum.
  */
+/** Live combat multipliers from a held OFFENSIVE blessing (Piety-style prayer).
+ *  1.0 for no blessing or a protection-only one — so protection blessings are
+ *  unaffected and the base combat maths is untouched when no boon is lit. */
+function blessingMods(player: Player, content: Content): { acc: number; dmg: number; def: number } {
+  if (!player.blessing) return { acc: 1, dmg: 1, def: 1 };
+  const sp = content.spells.find((s) => s.id === player.blessing);
+  return { acc: sp?.boostAcc ?? 1, dmg: sp?.boostDmg ?? 1, def: sp?.boostDef ?? 1 };
+}
+
 function playerAccuracy(player: Player, content: Content): number {
   const cape = varathCapeWorn(player) ? 5 : 0; // Cape of Varath: +5 Edge
   const base = skillLvl(player, "edge") + equipStat(player, content, "acc") + cape + buffVal(player, "melee_acc");
-  return Math.max(1, Math.round(base * STYLE_MODS[player.combatStyle].acc));
+  return Math.max(1, Math.round(base * STYLE_MODS[player.combatStyle].acc * blessingMods(player, content).acc));
 }
 
 /** Max Hitpoints at a given Vitality level — the skill-info milestone maths
@@ -6455,7 +6464,7 @@ function playerMaxHit(player: Player, content: Content): number {
   const str = Math.round(skillLvl(player, "vigour") * COMBAT.dmgSkillScale);
   const cape = varathCapeWorn(player) ? 5 : 0; // Cape of Varath: +5 Vigour
   const base = str + equipStat(player, content, "dmg") + cape + buffVal(player, "melee_dmg");
-  return Math.max(1, Math.round(base * STYLE_MODS[player.combatStyle].dmg));
+  return Math.max(1, Math.round(base * STYLE_MODS[player.combatStyle].dmg * blessingMods(player, content).dmg));
 }
 
 /** The bow the player is wielding, if any — a ranged weapon worn in the mainhand. */
@@ -6476,7 +6485,8 @@ function rangedAccuracy(player: Player, content: Content): number {
   const ba = bow ? content.items[bow].acc ?? 0 : 0;
   const aa = ammo ? content.items[ammo].acc ?? 0 : 0;
   const cape = varathCapeWorn(player) ? 5 : 0; // Cape of Varath: +5 Draw
-  return skillLvl(player, "draw") + ba + aa + equipStat(player, content, "rngAcc") + cape + buffVal(player, "ranged_acc");
+  const base = skillLvl(player, "draw") + ba + aa + equipStat(player, content, "rngAcc") + cape + buffVal(player, "ranged_acc");
+  return Math.round(base * blessingMods(player, content).acc);
 }
 
 /** Ranged max hit: Draw + bow + arrow damage + any ranged-damage buff. */
@@ -6487,7 +6497,8 @@ function rangedMaxHit(player: Player, content: Content): number {
   const ad = ammo ? content.items[ammo].dmg ?? 0 : 0;
   const str = Math.round(skillLvl(player, "draw") * COMBAT.dmgSkillScale);
   const cape = varathCapeWorn(player) ? 5 : 0; // Cape of Varath: +5 Draw
-  return str + bd + ad + equipStat(player, content, "rngDmg") + cape + buffVal(player, "ranged_dmg");
+  const base = str + bd + ad + equipStat(player, content, "rngDmg") + cape + buffVal(player, "ranged_dmg");
+  return Math.round(base * blessingMods(player, content).dmg);
 }
 
 /** The casting staff the player is wielding, if any (a magic weapon in mainhand). */
@@ -6515,7 +6526,8 @@ function graceMax(player: Player): number {
 function magicAccuracy(player: Player, content: Content): number {
   const st = equippedStaff(player, content);
   const sa = st ? content.items[st].acc ?? 0 : 0;
-  return skillLvl(player, "faith") + sa + equipStat(player, content, "magAcc") + buffVal(player, "magic_acc");
+  const base = skillLvl(player, "faith") + sa + equipStat(player, content, "magAcc") + buffVal(player, "magic_acc");
+  return Math.round(base * blessingMods(player, content).acc);
 }
 
 /** Magic max hit: Faith + staff dmg + any magic-damage buff. */
@@ -6523,7 +6535,8 @@ function magicMaxHit(player: Player, content: Content): number {
   const st = equippedStaff(player, content);
   const sd = st ? content.items[st].dmg ?? 0 : 0;
   const str = Math.round(skillLvl(player, "faith") * COMBAT.dmgSkillScale);
-  return str + sd + equipStat(player, content, "magDmg") + buffVal(player, "magic_dmg");
+  const base = str + sd + equipStat(player, content, "magDmg") + buffVal(player, "magic_dmg");
+  return Math.round(base * blessingMods(player, content).dmg);
 }
 
 /** Player defence rating: Ward + summed armour defence (+ any Defence buff),
@@ -6531,7 +6544,7 @@ function magicMaxHit(player: Player, content: Content): number {
 function playerDefence(player: Player, content: Content): number {
   const cape = varathCapeWorn(player) ? 5 : 0; // Cape of Varath: +5 Ward
   const base = skillLvl(player, "ward") + equipStat(player, content, "def") + cape + buffVal(player, "defence");
-  return Math.round(base * STYLE_MODS[player.combatStyle].def);
+  return Math.round(base * STYLE_MODS[player.combatStyle].def * blessingMods(player, content).def);
 }
 
 /**

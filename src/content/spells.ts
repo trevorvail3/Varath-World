@@ -63,6 +63,20 @@ export const spells: SpellDef[] = [
     faithReq: 43, cost: 0, kind: "blessing", deflectStyle: "melee", drainPerSec: 0.6, xp: 0,
     blurb: "Orun's hand between you and the blow — halves melee damage while it burns. Drains Grace steadily.",
   },
+  // --- Offensive blessings: the OTHER side of the prayer layer. Held (one at a
+  // time, in place of a protection blessing — Grace can carry only one flame),
+  // they turn Grace into raw combat power for ANY style. They drain FAST, so
+  // they're a "spend Grace to kill faster" gamble against protecting yourself.
+  {
+    id: "keen_prayer", name: "Keen Devotion", icon: "🎯",
+    faithReq: 45, cost: 0, kind: "blessing", boostAcc: 1.12, drainPerSec: 0.9, xp: 0,
+    blurb: "Steady your hand with Orun's focus — +12% accuracy for every style while it burns. Drains Grace faster than a shield-prayer; you can hold only one flame.",
+  },
+  {
+    id: "zealots_fury", name: "Zealot's Fury", icon: "⚔️",
+    faithReq: 62, cost: 0, kind: "blessing", boostAcc: 1.1, boostDmg: 1.12, boostDef: 1.08, drainPerSec: 1.5, xp: 0,
+    blurb: "The martyr's ardour: +10% accuracy, +12% damage and +8% defence at once, for any style. Burns Grace hard — a finisher's prayer, not an all-day one.",
+  },
   {
     id: "marrow_grip", name: "Marrow Grip", icon: "🦴",
     faithReq: 45, cost: 8, kind: "curse", curseAmt: 25, curseMs: 20000, xp: 34,
