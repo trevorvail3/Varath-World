@@ -1985,6 +1985,12 @@ export function drawWorld(
     // Baseline at the feet, matching the object sprites, so the player slots into
     // the depth order — occluded by anything whose feet are lower on the screen.
     sprites.push({ y: rp.y * TILE + TILE - cam.y, draw: () => {
+    // "Moving" for the walk cycle must stay true through the LAST tile's glide,
+    // not just while more path is queued — the final step empties `path` before
+    // it has finished sliding, so gating on path alone froze the legs (and cut
+    // the footsteps) a tile early. prevPos != pos holds for exactly the glide
+    // window and clears the instant the step settles.
+    const moving = pl.path.length > 0 || pl.prevPos.x !== pl.pos.x || pl.prevPos.y !== pl.pos.y;
     // Face the next step's dominant direction (4-way); keep the last facing when
     // idle. Horizontal wins ties so a diagonal reads as a side-step, not a turn.
     if (pl.path.length > 0) {
@@ -2009,7 +2015,7 @@ export function drawWorld(
       if (petWx === null) { petWx = tx; petWy = ty; }
       petWx += (tx - petWx) * 0.16;
       petWy += (ty - petWy) * 0.16;
-      drawCompanion(g, content, pl.equipment.companion, petWx - cam.x, petWy - cam.y, now, pl.path.length > 0);
+      drawCompanion(g, content, pl.equipment.companion, petWx - cam.x, petWy - cam.y, now, moving);
     }
     const plCx = rp.x * TILE + TILE / 2 - cam.x;
     const plCy = rp.y * TILE + TILE / 2 - cam.y;
@@ -2026,7 +2032,7 @@ export function drawWorld(
       ((pl.bank as Record<string, number>)[iid] ?? 0) > 0 || pl.inventory.some((s) => s?.item === (iid as ItemId));
     drawPlayer(
       g, rp, cam, now, pl.appearance,
-      pl.path.length > 0, playerAction(pl, content, now),
+      moving, playerAction(pl, content, now),
       resolveGear(pl.equipment, content), playerFacing,
       mountId ? {
         id: mountId,

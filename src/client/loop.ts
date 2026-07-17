@@ -2133,7 +2133,12 @@ export class Game {
    *  shallow slosh), so walking is heard as well as seen. */
   private emitFootsteps(now: number): void {
     const pl = this.bridge.state.player;
-    if (!pl.alive || pl.path.length === 0) return; // only while actually walking
+    // Keep footfalls going through the LAST tile's glide, not only while more
+    // path is queued — the final step empties `path` before it finishes sliding,
+    // so gating on path alone silenced the last step. prevPos != pos covers the
+    // whole glide (matching the walk-cycle fix in render.ts).
+    const moving = pl.path.length > 0 || pl.prevPos.x !== pl.pos.x || pl.prevPos.y !== pl.pos.y;
+    if (!pl.alive || !moving) return; // only while actually walking/gliding
     if (now - this.lastPuff < 150) return;
     this.lastPuff = now;
     const m = this.bridge.state.map;
