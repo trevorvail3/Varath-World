@@ -1370,25 +1370,14 @@ export interface BossMilestone {
   pet?: ItemId;
 }
 
-/** The companion item whose meta.petBoss matches this boss, if any. */
-function bossPetItem(content: Content, bossId: string): ItemId | undefined {
-  for (const id of Object.keys(content.items) as ItemId[]) {
-    const d = content.items[id];
-    if (d.slot === "companion" && d.meta?.["petBoss"] === bossId) return id;
-  }
-  return undefined;
-}
-
 /** The milestone ladder for a boss: each tier is an XP lamp at a standard rate
  *  (100 XP per kill needed, so the 250-kill tier caps at 25k), the same for
  *  every boss; the 100-kill tier also grants the boss's pet as a pity guarantee. */
-export function bossMilestones(stats: MonsterStats, content: Content): BossMilestone[] {
-  const petId = bossPetItem(content, stats.id);
-  return BOSS_MILESTONE_KILLS.map((k) => {
-    const m: BossMilestone = { kills: k, xp: k * 100 }; // 1k / 2.5k / 5k / 10k / 25k
-    if (k === 100 && petId) m.pet = petId;
-    return m;
-  });
+export function bossMilestones(_stats: MonsterStats, _content: Content): BossMilestone[] {
+  // Milestones pay an XP lamp only. A boss's pet is NOT handed out here — it's a
+  // pure RNG drop off the boss's own table (see rollDrops), so owning one is a
+  // real trophy of luck and hours, not a participation prize for 100 kills.
+  return BOSS_MILESTONE_KILLS.map((k) => ({ kills: k, xp: k * 100 })); // 1k / 2.5k / 5k / 10k / 25k
 }
 
 function claimBossMilestone(
@@ -2752,11 +2741,11 @@ const EQUIP_SLOTS = new Set<string>([
 ]);
 
 /** Chance, per successful skill action, of a matching skilling-pet companion.
- *  Skilling pets roll on EVERY action, and maxing a skill is ~100k+ actions, so
- *  this is deliberately OSRS-rare — far rarer than a boss pet (1/500 per kill).
- *  At 1/500,000 per action a full grind to 100 (~120k actions) is only a ~21%
- *  shot, so each skilling pet stays a genuine prestige flex. */
-const PET_DROP_CHANCE = 0.000002;
+ *  Skilling pets roll on EVERY successful action. Maxing a skill takes ~28k–61k
+ *  actions (median ~44k), so at 1/150,000 a full grind to 100 is roughly a 25%
+ *  shot at that skill's pet (≈17–33% across skills) — a real reward for maxing,
+ *  while still leaving the pet a coveted find rather than a guarantee. */
+const PET_DROP_CHANCE = 1 / 150_000;
 
 /** The companion currently summoned, or undefined. */
 function activeCompanion(player: Player, content: Content): ItemDef | undefined {
