@@ -12,8 +12,8 @@
  * (see server/SUPABASE.md). The secret (service_role) key is never used here.
  */
 
-const SUPABASE_URL = "https://qkdjddlrgtaxxwlbkwbq.supabase.co";
-const SUPABASE_KEY = "sb_publishable_NUUtwbtlTCz9YQeDSMUQ8w_Ys2iGVAs";
+const SUPABASE_URL = "https://iutyspbplhhamedhmvzu.supabase.co";
+const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml1dHlzcGJwbGhoYW1lZGhtdnp1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc0OTA1MDgsImV4cCI6MjEwMzA2NjUwOH0.kIBihElnwRtKk_UYqw0nz4_hFlReybRGtYNpAwYiJNk";
 
 const SESSION_KEY = "varath.sb.session";
 
