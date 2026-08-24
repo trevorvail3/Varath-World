@@ -13,9 +13,22 @@
  */
 
 const SUPABASE_URL = "https://iutyspbplhhamedhmvzu.supabase.co";
-const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml1dHlzcGJwbGhoYW1lZGhtdnp1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc0OTA1MDgsImV4cCI6MjEwMzA2NjUwOH0.kIBihElnwRtKk_UYqw0nz4_hFlReybRGtYNpAwYiJNk";
+const SUPABASE_KEY = "sb_publishable_-O1DCgY4UDp-8onXPnkNeQ_pygXOQ2u";
 
 const SESSION_KEY = "varath.sb.session";
+
+/**
+ * Which project issued this session. Same guard as Hearthkeep's client, and it
+ * has to be the same or the shared session key stops meaning anything.
+ *
+ * Two reasons it exists. A session outlives the project that issued it, so a
+ * token from a dead project reads back as valid: the screen says signed in,
+ * every call 401s, and nothing explains why. And because `SESSION_KEY` is
+ * SHARED across the three games deliberately, a session written by one game
+ * without this stamp is discarded by the others — so "one account everywhere"
+ * silently stops working in whichever direction is missing it.
+ */
+const PROJECT_REF = SUPABASE_URL.replace(/^https:\/\//, "").split(".")[0] ?? "";
 
 export interface SbUser { id: string; email: string }
 interface Session {
@@ -23,6 +36,8 @@ interface Session {
   refresh_token: string;
   expires_at: number; // epoch seconds
   user: SbUser;
+  /** REQUIRED, so the compiler names any write path that forgets it. */
+  ref: string;
 }
 
 let session: Session | null = readSession();
@@ -33,6 +48,12 @@ function readSession(): Session | null {
     const raw = localStorage.getItem(SESSION_KEY);
     if (!raw) return null;
     const s = JSON.parse(raw);
+    if (s?.ref !== PROJECT_REF) {
+      // Issued by a different project. Nothing the player did, nothing they
+      // can do — sign them out rather than pretend.
+      localStorage.removeItem(SESSION_KEY);
+      return null;
+    }
     if (s && typeof s.access_token === "string" && s.user?.id) return s as Session;
   } catch { /* ignore */ }
   return null;
@@ -60,13 +81,23 @@ function sessionFromToken(d: Record<string, unknown>): Session | null {
     refresh_token: refresh,
     expires_at: Math.floor(Date.now() / 1000) + expiresIn,
     user: { id: String(user["id"]), email: String(user["email"] ?? "") },
+    ref: PROJECT_REF,
   };
 }
 
 async function authFetch(path: string, body: unknown): Promise<Record<string, unknown>> {
   const res = await fetch(`${SUPABASE_URL}/auth/v1/${path}`, {
     method: "POST",
-    headers: { "content-type": "application/json", apikey: SUPABASE_KEY },
+    // BOTH headers. A legacy anon key was a JWT carrying `role: anon`, so the
+    // gateway could read the role out of `apikey` alone. `sb_publishable_...`
+    // is opaque and carries no claim, so the anonymous role has to arrive as a
+    // bearer token. Sending only `apikey` is what made Hearthkeep's sign-up
+    // fail for a day under a setting nobody had touched.
+    headers: {
+      "content-type": "application/json",
+      apikey: SUPABASE_KEY,
+      authorization: `Bearer ${SUPABASE_KEY}`,
+    },
     body: JSON.stringify(body),
   });
   const data = await res.json().catch(() => ({}));
