@@ -590,7 +590,9 @@ export const monsters: Record<string, MonsterStats> = {
       { item: "cut_gem", chance: 0.05, tier: "rare" },
       { item: "seed_marrowflower", chance: 0.05, tier: "uncommon" },
       { item: "dagger_9", chance: 0.02, tier: "rare" },
-      { item: "shard_of_orun", chance: 0.002, tier: "legendary" }
+      { item: "shard_of_orun", chance: 0.002, tier: "legendary" },
+      // "A cave crawler broken to the saddle" — from the crawler itself.
+      { item: "mount_palecrawler", chance: 0.003, tier: "legendary" }
     ]
   },
   "deep_bat": {
@@ -622,7 +624,8 @@ export const monsters: Record<string, MonsterStats> = {
       { item: "uncut_ruby", chance: 0.025, tier: "rare" },
       { item: "cut_gem", chance: 0.05, tier: "rare" },
       { item: "arrow_hearthite", chance: 0.25, min: 10, max: 25, tier: "common" },
-      { item: "shard_of_orun", chance: 0.002, tier: "legendary" }
+      { item: "shard_of_orun", chance: 0.002, tier: "legendary" },
+      { item: "mount_deepwing", chance: 0.002, tier: "legendary" }
     ]
   },
   "marrow_wraith": {
@@ -657,7 +660,8 @@ export const monsters: Record<string, MonsterStats> = {
       { item: "cut_gem", chance: 0.06, tier: "rare" },
       { item: "ring_5", chance: 0.03, tier: "rare" },
       { item: "seed_hearthbloom", chance: 0.04, tier: "rare" },
-      { item: "shard_of_orun", chance: 0.005, tier: "legendary" }
+      { item: "shard_of_orun", chance: 0.005, tier: "legendary" },
+      { item: "mount_wraithsteed", chance: 0.002, tier: "legendary" }
     ]
   },
   "marrow_keeper": {
@@ -706,7 +710,9 @@ export const monsters: Record<string, MonsterStats> = {
       { "item": "armor_9", "chance": 0.04, "tier": "rare" },
       { "item": "boot_9", "chance": 0.04, "tier": "rare" },
       { "item": "worn_coin", "chance": 1, "min": 200, "max": 450, "tier": "always" },
-      { "item": "voidstone_bar", "chance": 0.4, "min": 1, "max": 2, "tier": "uncommon" }
+      { "item": "voidstone_bar", "chance": 0.4, "min": 1, "max": 2, "tier": "uncommon" },
+      // "A walking fragment of the Marrow's making."
+      { item: "mount_deepstrider", chance: 0.006, tier: "legendary" }
     ]
   },
   "deep_golem": {
@@ -890,7 +896,9 @@ export const monsters: Record<string, MonsterStats> = {
         "chance": 0.02,
         "tier": "legendary"
       },
-      { "item": "ring_8", "chance": 0.04, "tier": "rare" }
+      { "item": "ring_8", "chance": 0.04, "tier": "rare" },
+      // The Ferryman's Steed: "it crosses what others can't, and asks the same toll."
+      { item: "mount_ferryman", chance: 0.006, tier: "legendary" }
     ],
     "boss": true,
     "bossHint": "Climb down into the Ferryman's Cave — a black slot in the lonely hills NORTH of the Redrun crossings, well off the road. He fights you alone in the flooded dark; come well-fed, and bring stab or crush. He takes his toll in your years, and the river answers his oar — step off the black water when it rises.",
@@ -973,7 +981,11 @@ export const monsters: Record<string, MonsterStats> = {
       { item: "uncut_sapphire", chance: 0.03, tier: "uncommon" },
       { item: "uncut_emerald", chance: 0.01, tier: "rare" },
       { item: "spear_4", chance: 0.03, tier: "rare" },
-      { item: "shard_of_orun", chance: 0.002, tier: "legendary" }
+      { item: "shard_of_orun", chance: 0.002, tier: "legendary" },
+      // The Greymane's own two stranded rewards: a hunter's keepsake, and the
+      // boar itself broken to the saddle — both named in their descriptions.
+      { item: "trophy", chance: 0.02, tier: "rare" },
+      { item: "mount_greymane", chance: 0.004, tier: "legendary" }
     ]
   },
   "cult_devotee": {
@@ -1112,7 +1124,8 @@ export const monsters: Record<string, MonsterStats> = {
         "item": "bloodore_bar",
         "chance": 0.15,
         "tier": "uncommon"
-      }
+      },
+      { item: "mount_hollowsteed", chance: 0.005, tier: "legendary" }
     ]
   },
   "spine_warlord": {
@@ -2277,6 +2290,9 @@ export const monsters: Record<string, MonsterStats> = {
       { item: "cut_gem", chance: 0.5, min: 2, max: 4, tier: "uncommon" },
       { item: "marrow_shard", chance: 0.3, tier: "rare" },
       { item: "shard_of_orun", chance: 0.05, tier: "legendary" },
+      // The Runemarked: "a creature from old stories". The deepest thing in
+      // Varath is the only place old stories still walk.
+      { item: "mount_runemarked", chance: 0.004, tier: "legendary" }
     ],
   },
 

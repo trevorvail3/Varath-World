@@ -18,7 +18,7 @@
  * RULE 1 SAFE: pure functions over content data.
  */
 
-import { CONTAINER_TABLES } from "../core/worldCore.ts";
+import { CLUE_TIERS, CONTAINER_TABLES, FOUNDER_ITEMS, POTION_POOL, SUPERIOR_UNIQUES } from "../core/worldCore.ts";
 import type { Content, ItemId, MonsterStats, SkillAction } from "../core/types.ts";
 
 export interface LogEntry {
@@ -35,14 +35,23 @@ export interface LogCategory {
   entries: LogEntry[];
 }
 
-/** Items that are noise in a collection log: currency, junk, and quest keys. */
+/**
+ * What the log covers. This must match `collectionProgress` in worldCore, which
+ * counts every catalogued item except quest keys — because that count is the
+ * gate on Ironvale's Cape. A log that quietly excluded items the cape still
+ * required would tell a completionist they were finished when they were not.
+ */
 const EXCLUDED_CATS = new Set(["Quest"]);
-const EXCLUDED_ITEMS = new Set<string>(["worn_coin", "burnt_food"]);
 
 function keep(content: Content, id: ItemId): boolean {
-  if (EXCLUDED_ITEMS.has(id)) return false;
   const d = content.items[id];
   return !!d?.cat && !EXCLUDED_CATS.has(d.cat);
+}
+
+/** A skill's display name, or its id when the skill registry has no entry. */
+function skillName(content: Content, skill: string): string {
+  const reg = content.skills as Record<string, { name?: string } | undefined>;
+  return reg[skill]?.name ?? skill;
 }
 
 /** Drops worth logging from one monster, most notable first. */
@@ -148,7 +157,7 @@ export function buildCollectionLog(content: Content): LogCategory[] {
     if (entries.length === 0) continue;
     cats.push({
       id: `skill_${skill}`,
-      name: content.skills[skill]?.name ?? skill,
+      name: skillName(content, skill),
       group: "Skilling",
       entries,
     });
@@ -223,6 +232,99 @@ export function buildCollectionLog(content: Content): LogCategory[] {
       entries.push({ item: line.item });
     }
     if (entries.length) cats.push({ id: "bounty_shop", name: "Hunt Mark Exchange", group: "Bounty", entries });
+  }
+
+  // --- Global kill tables: trail scrolls and combat draughts --------------
+  // Every foe in Varath sheds these, so they belong to no single monster.
+  {
+    const clue: LogEntry[] = [];
+    for (const t of CLUE_TIERS) {
+      if (keep(content, t.item)) clue.push({ item: t.item, tier: t.tier });
+      if (keep(content, t.casket)) clue.push({ item: t.casket, tier: t.tier });
+    }
+    if (clue.length) cats.push({ id: "clue_scrolls", name: "Trail Scrolls", group: "Treasure Trails", entries: clue });
+
+    const pots: LogEntry[] = [];
+    const seen = new Set<string>();
+    for (const line of POTION_POOL) {
+      if (seen.has(line.item) || !keep(content, line.item)) continue;
+      seen.add(line.item);
+      pots.push({ item: line.item });
+    }
+    if (pots.length) cats.push({ id: "kill_draughts", name: "Combat Draughts (any kill)", group: "Monsters", entries: pots });
+  }
+
+  // --- Dungeon chests: one-off coffers, each with a named unique ------------
+  {
+    const entries: LogEntry[] = [];
+    const seen = new Set<string>();
+    for (const o of content.objects) {
+      if (o.kind !== "dungeon_chest") continue;
+      for (const l of (o as { loot?: { item: ItemId }[] }).loot ?? []) {
+        if (seen.has(l.item) || !keep(content, l.item)) continue;
+        seen.add(l.item);
+        entries.push({ item: l.item, tier: "unique" });
+      }
+    }
+    if (entries.length) cats.push({ id: "dungeon_chests", name: "Dungeon Coffers", group: "Other", entries });
+  }
+
+  // --- Gathering outfits: `meta.skillBonus` is the registry (tryOutfitDrop) -
+  for (const [id, d] of Object.entries(content.items)) {
+    const skill = d.meta?.["skillBonus"];
+    if (typeof skill !== "string" || d.slot === "companion" || !keep(content, id as ItemId)) continue;
+    const cat = cats.find((c) => c.id === `skill_${skill}`);
+    const entry: LogEntry = { item: id as ItemId, tier: "outfit" };
+    if (cat) { if (!cat.entries.some((e) => e.item === id)) cat.entries.unshift(entry); }
+    else cats.push({ id: `skill_${skill}`, name: skillName(content, skill), group: "Skilling", entries: [entry] });
+  }
+
+  // --- Skilling pets: `meta.petSkill` is the source of truth (tryPetDrop) ---
+  // They hang off the skill they roll on rather than in a pet shelf of their
+  // own, because "which skill do I train for this" is the question being asked.
+  for (const [id, d] of Object.entries(content.items)) {
+    const skill = d.meta?.["petSkill"];
+    if (typeof skill !== "string" || !keep(content, id as ItemId)) continue;
+    const cat = cats.find((c) => c.id === `skill_${skill}`);
+    const entry: LogEntry = { item: id as ItemId, tier: "pet" };
+    if (cat) { if (!cat.entries.some((e) => e.item === id)) cat.entries.unshift(entry); }
+    else cats.push({ id: `skill_${skill}`, name: skillName(content, skill), group: "Skilling", entries: [entry] });
+  }
+
+  // --- Superior encounters (a Bounty unlock) -------------------------------
+  {
+    const entries = SUPERIOR_UNIQUES.filter((i) => keep(content, i)).map((item) => ({ item, tier: "ultra-rare" }));
+    if (entries.length) cats.push({ id: "superior", name: "Superior Encounters", group: "Bounty", entries });
+  }
+
+  // --- Potion doses: a part-drunk vial is its own catalogued item -----------
+  {
+    const entries: LogEntry[] = [];
+    const seen = new Set<string>();
+    for (const d of Object.values(content.items)) {
+      const next = (d as { doseNext?: ItemId }).doseNext;
+      if (!next || seen.has(next) || !keep(content, next)) continue;
+      seen.add(next);
+      entries.push({ item: next, tier: "dose" });
+    }
+    if (entries.length) cats.push({ id: "potion_doses", name: "Part-Drunk Vials", group: "Skilling", entries });
+  }
+
+  // --- One-off grants the core makes in code, not data ---------------------
+  {
+    const grants: { item: ItemId; tier: string }[] = [
+      { item: "cape_ironvale", tier: "fill this log + every achievement" },
+      { item: "rod_gold", tier: "hold the Drowned Pier record" },
+      { item: "burnt_food", tier: "fail a cook" },
+      { item: "agility_mark", tier: "run a Trail lap" },
+      { item: "pier_chit", tier: "land a graded fish" },
+    ];
+    const entries = grants.filter((g) => keep(content, g.item));
+    if (entries.length) cats.push({ id: "earned", name: "Earned Outright", group: "Other", entries });
+  }
+  {
+    const entries = FOUNDER_ITEMS.filter((i) => keep(content, i)).map((item) => ({ item, tier: "founder" }));
+    if (entries.length) cats.push({ id: "founder", name: "Founder's Rewards", group: "Other", entries });
   }
 
   // Bosses first, then the rest alphabetically inside each shelf — the log is

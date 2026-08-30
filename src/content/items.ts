@@ -2983,36 +2983,6 @@ export const items: Record<ItemId, ItemDef> = {
     "acc": 22,
     "sell": 800
   },
-  "neck_war": {
-    "id": "neck_war",
-    "name": "Warrior's Chain",
-    "description": "A heavy chain worn by fighters. Adds striking power.",
-    "icon": "📿",
-    "cat": "Jewellery",
-    "slot": "necklace",
-    "dmg": 6,
-    "sell": 180
-  },
-  "neck_ward": {
-    "id": "neck_ward",
-    "name": "Guardian Chain",
-    "description": "A layered chain of ashiron links. Adds defence.",
-    "icon": "📿",
-    "cat": "Jewellery",
-    "slot": "necklace",
-    "def": 10,
-    "sell": 220
-  },
-  "neck_hunt": {
-    "id": "neck_hunt",
-    "name": "Hunter's Pendant",
-    "description": "A carved pendant worn by hunters. Improves ranged accuracy.",
-    "icon": "📿",
-    "cat": "Jewellery",
-    "slot": "necklace",
-    "acc": 10,
-    "sell": 200
-  },
   "mount_pony": {
     "id": "mount_pony",
     "name": "Knuckle Pony",
@@ -4897,34 +4867,6 @@ export const items: Record<ItemId, ItemDef> = {
     "cat": "Combat Items",
     "heals": 50,
     "sell": 150
-  },
-  "token_spine": {
-    "id": "token_spine",
-    "name": "Spine Pass",
-    "description": "A stamped bone seal issued by the Spine gate-keepers. Grants one entry to The Spine.",
-    "icon": "🪨",
-    "cat": "Combat Items"
-  },
-  "token_heartmoor": {
-    "id": "token_heartmoor",
-    "name": "Heartmoor Writ",
-    "description": "A folded document marked with moor-clay. Grants passage through the Heartmoor checkpost.",
-    "icon": "🌿",
-    "cat": "Combat Items"
-  },
-  "token_marrow": {
-    "id": "token_marrow",
-    "name": "Marrow Descent Key",
-    "description": "A carved stone key. Opens the lower shaft entrance to the Marrow Deeps.",
-    "icon": "🕳️",
-    "cat": "Combat Items"
-  },
-  "token_redrun": {
-    "id": "token_redrun",
-    "name": "Redrun Crossing Fee",
-    "description": "The ferryman's fee, paid in advance. Grants one crossing of the Redrun.",
-    "icon": "⛵",
-    "cat": "Combat Items"
   },
   "shard_of_orun": {
     "id": "shard_of_orun",

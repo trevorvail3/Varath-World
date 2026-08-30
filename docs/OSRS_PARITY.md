@@ -484,17 +484,42 @@ phase headless sims cannot cover.
   same non-answer as the flat percentage it replaced. Grouping by source is the
   whole point: *"Vorlag 3/7"* sends you somewhere.
 
-  **Deriving it turned up a content bug the game had no other way to catch:**
-  **57 equippable items have no source at all.** All 13 skilling pets,
-  `pet_superior`, all four gathering outfits (prospector / lumberjack / angler /
-  farmer, 16 pieces), nine mounts, the heraldry sigils and crests, and several
-  rings and amulets (`barrow_king_signet`, `delvers_lantern`, `storm_mantle`,
-  `neck_war`/`neck_ward`/`neck_hunt`). Nothing drops, sells, grows or rewards
-  them. The Companions grid has been advertising every skilling pet as
-  *"undiscovered — keep training"* for items that cannot be discovered.
-  `sims/collection.ts` pins the count at 57 so it can only fall. **Giving these
-  57 items real sources is the natural next increment** — the shelves to hang
-  them on now exist.
+  **Deriving it turned up a real bug — and the first count of it was wrong.**
+  The initial pass reported 57 unsourced equippables. That number was an
+  artifact of an incomplete deriver, not of the game: skilling pets roll off
+  `tryPetDrop` on `meta.petSkill`, four uniques sit in `dungeon_chest` loot,
+  `reckoners_charm`/`pet_superior` come off Superior encounters, and
+  `cape_ironvale`, `rod_gold`, the founder items, clue scrolls, kill draughts
+  and part-drunk vials are all granted in code the deriver was not reading.
+  Teaching it those sources — `CLUE_TIERS`, `POTION_POOL`, `SUPERIOR_UNIQUES`
+  and `FOUNDER_ITEMS` are now exported for it, the rest read from item and
+  object data — cut the figure to **32 genuinely stranded items**.
+
+  **Why that mattered more than a tidy log.** `collectionProgress`
+  (`worldCore.ts:6309`) counts *every* catalogued non-Quest item, and
+  `maybeGrantCompletionCape` grants **Ironvale's Cape** only when that count is
+  full. An item with no source therefore did not merely sit unused — it made
+  the grandmaster reward unreachable. Someone had already written the cape's
+  grant path ("Tier-0 fix: the cape had no code path to be earned"); the gate
+  behind it was still impossible.
+
+  **All 32 now have sources, each taken from the item's own description:**
+
+  | Stranded | Fix |
+  |---|---|
+  | 16 gathering-outfit pieces (Prospector / Lumberjack / Angler / Farmer) | New `tryOutfitDrop` in the core, 1/8,000 per action on `meta.skillBonus` — the same shape as `tryPetDrop`, missing pieces only. Item data is the registry, so a fifth set needs no code. |
+  | 6 Heraldry pieces | Six new Crafting recipes under a `heraldry` group, each using the exact materials its description names (knucklestone + gold, spinite + gold, coldvein + bloodore, ribstone + voidstone, wood ash, dusk bark). |
+  | 9 mounts | Five drop from the creature their description names (Greymane Boar, Dread Ferryman, Deep Bat, Marrow Wraith, Hollow Warden), three from where it names (Cave Crawler, Marrow Keeper, Vorlag), and the Lodge Outrider is released at the stables on Lodge standing — matching the stable's own comment that "the rarest steeds … are earned". |
+  | 6 materials + 2 foods + Ward Oil + the watchtower frame | Ten new actions filling holes in ladders that already existed: the one unmilled plank, the one uncut haft, wood ash and fine charcoal beside `charcoal`, dusk bark, the two top-tier forage foods above `ashroot_elixir`/`dawnspore_draught`, a Herblore Ward Oil, and an 85-Construction watchtower above `vault_stone`. |
+  | Hunter's Trophy | Rare drop from the Greymane Boar — "a rare keepsake from a great hunt". |
+  | `neck_war` / `neck_ward` / `neck_hunt` | **Deleted.** Strictly worse duplicates of the craftable `craft_neck_power` / `craft_neck_shield` / `craft_neck_hunter` ladder. |
+  | `token_spine` / `token_heartmoor` / `token_marrow` / `token_redrun` | **Deleted.** Passage tokens for region gates Varath does not have — nothing in the codebase reads them, and its dungeon gates use quest keys. |
+
+  Catalogue: 706 → **699 items, every one of them obtainable**. `sims/collection.ts`
+  now asserts that the log covers *exactly* what `collectionProgress` counts
+  (667/667), so an item added without a source fails the sim instead of quietly
+  locking the cape.
+
 - **Combat achievements** — tiered per boss, reusing `AchievementCond` and the
   Phase 1 combat events.
 - **Ironman / Hardcore modes** — a save flag gating the Grand Exchange, P2P

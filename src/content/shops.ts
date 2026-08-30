@@ -365,7 +365,9 @@ export const shops: ShopDef[] = [
     // A tight roster: four steeds per family (horse / wolf / draft / boar),
     // priced as a gold ladder, plus the cosmetics counter. Quest mounts (the
     // pony, the Silver Wolf, the Courier, the Destrier) are not for sale; the
-    // rarest steeds (Runemarked, Ferryman's, Wraith-Steed…) are earned.
+    // rarest steeds (Runemarked, Ferryman's, Wraith-Steed…) are earned — each
+    // now drops from the creature or place its own description names, and the
+    // Lodge Outrider is released on standing rather than coin.
     stock: [
       // HORSES — the classic ladder.
       { item: "mount_horse", price: 2000, qty: 1 },
@@ -380,6 +382,9 @@ export const shops: ShopDef[] = [
       { item: "mount_mule", price: 1200, qty: 1 },
       { item: "mount_aurochs", price: 22000, qty: 1 },
       { item: "mount_packbear", price: 75000, qty: 1 },
+      // EARNED, NOT BRED — the Lodge keeps one outrider's saddle in the yard
+      // and releases it only to those it has come to trust.
+      { item: "mount_lodgeoutrider", price: 40000, qty: 1, requiresRep: { faction: "lodge", amount: 50 } },
       // BOARS — all shoulder.
       { item: "mount_bristleback", price: 6000, qty: 1 },
       { item: "mount_ironboar", price: 14000, qty: 1 },

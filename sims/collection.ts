@@ -86,26 +86,29 @@ else {
   check(p.done === 2, `partial progress read ${p.done}/2 for ${someCat.id}`);
 }
 
-// --- Orphan audit: equippable items no source in the game produces ---------
-// Building the log by source turned this up for free. These items exist in the
-// catalogue and can be worn, but nothing drops, sells, grows or rewards them —
-// so they are uncollectable, and several are already advertised to the player as
-// chase items (every skilling pet in the Companions grid). Pinned so the number
-// can only go down: a new orphan is a content bug, and this is the only thing
-// in the repo that would catch one.
-const KNOWN_ORPHANS = 57;
-const orphans = (Object.keys(content.items) as ItemId[]).filter((id) => {
+// --- Completability: EVERY item the cape counts must have a source ---------
+// worldCore's collectionProgress counts every catalogued non-Quest item, and
+// Ironvale's Cape is granted only when that count is full. So an item with no
+// source does not merely sit unused — it makes the grandmaster reward
+// unreachable, silently and forever. This assertion is the only thing in the
+// repo that would catch that, and it must stay at zero.
+const unsourced = (Object.keys(content.items) as ItemId[]).filter((id) => {
   const d = content.items[id];
-  return !!d.slot && !!d.cat && d.cat !== "Quest" && !ids.has(id);
+  return !!d.cat && d.cat !== "Quest" && !ids.has(id);
 });
 check(
-  orphans.length <= KNOWN_ORPHANS,
-  `${orphans.length} equippable items have no source (was ${KNOWN_ORPHANS}); new: ${orphans.slice(KNOWN_ORPHANS).join(", ")}`,
+  unsourced.length === 0,
+  `${unsourced.length} catalogued items have no source, so Ironvale's Cape cannot be earned: ${unsourced.join(", ")}`,
 );
-if (orphans.length < KNOWN_ORPHANS) {
-  console.log(`note: orphans down to ${orphans.length} — lower KNOWN_ORPHANS to ${orphans.length}`);
-}
-console.log(`unsourced equippables: ${orphans.length}`);
+
+// A source the deriver cannot see is the same bug wearing a disguise, so the
+// two totals are held equal: the log covers exactly what the cape counts.
+const counted = (Object.keys(content.items) as ItemId[]).filter((id) => {
+  const d = content.items[id];
+  return !!d.cat && d.cat !== "Quest";
+}).length;
+check(ids.size === counted, `log covers ${ids.size} items but the cape counts ${counted}`);
+console.log(`completable: ${ids.size}/${counted} catalogued items have a source`);
 
 // --- The log is worth opening: enough of the game reachable through it ------
 check(entries >= 200, `only ${entries} entries logged — the deriver is missing sources`);

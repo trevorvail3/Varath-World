@@ -1058,7 +1058,7 @@ function openNest(
 // basic three; tougher foes add ranging and grace; past level 30 the full
 // two-dose brews (and eventually Deepgrace) join at lower weight.
 // ---------------------------------------------------------------------------
-const POTION_POOL: { item: ItemId; w: number; minLevel: number }[] = [
+export const POTION_POOL: { item: ItemId; w: number; minLevel: number }[] = [
   { item: "pot_battlemind_1", w: 3, minLevel: 1 },  // Edge — accuracy
   { item: "pot_warrior_1", w: 3, minLevel: 1 },     // Vigour — damage
   { item: "pot_ironhide_1", w: 3, minLevel: 1 },    // Ward — defence
@@ -1188,7 +1188,7 @@ function rollBountyForageDrop(
 // its riddle points at one real landmark. Interacting with that landmark
 // while carrying the scroll turns it into a casket of the tier.
 // ---------------------------------------------------------------------------
-const CLUE_TIERS = [
+export const CLUE_TIERS = [
   { tier: "easy" as const, item: "clue_easy" as ItemId, casket: "casket_easy" as ItemId, maxLevel: 29, odds: 35 },
   { tier: "medium" as const, item: "clue_medium" as ItemId, casket: "casket_medium" as ItemId, maxLevel: 69, odds: 45 },
   { tier: "hard" as const, item: "clue_hard" as ItemId, casket: "casket_hard" as ItemId, maxLevel: Infinity, odds: 55 },
@@ -1385,7 +1385,7 @@ function openContainer(
 /** The Founder's Cache: the cosmetic-only items a supporter claims once. The
  *  entitlement is the "founder" flag (stamped at login from the account's
  *  purchase; see FOUNDER.md). Purely cosmetic — no XP, gold, stats, or space. */
-const FOUNDER_ITEMS: ItemId[] = ["pet_founder_wisp", "cape_founder"];
+export const FOUNDER_ITEMS: ItemId[] = ["pet_founder_wisp", "cape_founder"];
 
 function claimFounder(state: WorldState, events: WorldEvent[]): void {
   const player = state.player;
@@ -2940,6 +2940,43 @@ function tryPetDrop(
     events.push({ type: "LOG", message: `A companion has found you: ${def.name}!` });
     return;
   }
+}
+
+/** Chance, per successful skill action, of a piece of that skill's gathering
+ *  outfit. The four sets (Prospector / Lumberjack / Angler / Farmer) carry
+ *  meta.skillBonus and existed in the catalogue with NO way to obtain them; this
+ *  is the source. At 1/8,000 across the ~28k–61k actions a skill takes to max,
+ *  a full grind hands over the set comfortably before 100 — an outfit is a
+ *  milestone you pass on the way, not a lottery like a pet. Missing pieces only,
+ *  so late rolls never hand you a duplicate. */
+const OUTFIT_DROP_CHANCE = 1 / 8_000;
+
+/**
+ * A successful action in a gathering skill can turn up a missing piece of that
+ * skill's gathering outfit. Pieces carry meta.skillBonus === skill, exactly as
+ * skilling pets carry meta.petSkill — same shape, same reasoning: the item data
+ * is the registry, so a new outfit needs no code.
+ */
+function tryOutfitDrop(
+  state: WorldState,
+  content: Content,
+  skill: SkillId,
+  ctx: Ctx,
+  events: WorldEvent[],
+): void {
+  if (ctx.rng() >= OUTFIT_DROP_CHANCE) return;
+  const player = state.player;
+  const missing: ItemId[] = [];
+  for (const id of Object.keys(content.items) as ItemId[]) {
+    const def = content.items[id];
+    if (def.meta?.["skillBonus"] !== skill || def.slot === "companion") continue;
+    if (!ownsItem(player, id) && !Object.values(player.equipment).includes(id)) missing.push(id);
+  }
+  if (!missing.length) return;
+  const pick = missing[Math.floor(ctx.rng() * missing.length)]!;
+  if (!canAddItem(player, pick)) return;
+  addItem(player, pick, 1, events);
+  events.push({ type: "LOG", message: `A find! ${content.items[pick].name} — part of a gatherer's outfit.` });
 }
 
 /** Skill level needed to equip each gear tier (index = tier 1–10). The craftable
@@ -5855,6 +5892,7 @@ function gatherStep(
       message: `You get ${content.items[yieldAction.produces!].name}.`,
     });
     tryPetDrop(state, content, yieldAction.skill, ctx, events);
+    tryOutfitDrop(state, content, yieldAction.skill, ctx, events);
     // A rich find: a rare bumper on ANY gather — the node gives double, with a
     // little fanfare. Turns a long, flat skilling grind into something with the
     // occasional jackpot to look forward to (OSRS's "clue/gem/bumper" thrill).
@@ -5959,6 +5997,7 @@ function processCraft(
     message: `You make ${content.items[action.produces].name}.`,
   });
   tryPetDrop(state, content, action.skill, ctx, events);
+  tryOutfitDrop(state, content, action.skill, ctx, events);
   advanceCraftClock(act, craftInterval(action), ctx);
 }
 
@@ -6804,7 +6843,7 @@ const SUPERIOR_ODDS = 100;            // ~1/100 on-task kills (…/65 with keen_
 const SUPERIOR_ODDS_KEEN = 65;
 const SUPERIOR_HP_MULT = 2.2;         // the risen fight is a real fight
 const SUPERIOR_UNIQUE_ODDS = 12;      // …of Superiors yield an ultra-rare (~1/1200 base)
-const SUPERIOR_UNIQUES: ItemId[] = ["reckoners_charm", "pet_superior"];
+export const SUPERIOR_UNIQUES: ItemId[] = ["reckoners_charm", "pet_superior"];
 
 /** After an ordinary on-task kill: maybe raise the corpse as a SUPERIOR — a
  *  visibly bigger, far tougher second fight that stands straight back up and
