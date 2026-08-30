@@ -5812,6 +5812,42 @@ function moveFishingSpots(
  * monster is the player's active combat target. Rebuilds state.creatureTiles
  * from live positions so the player's pathfinder routes around them.
  */
+/**
+ * One full day, in real milliseconds. The renderer has always tinted the sky on
+ * this cycle; now the world runs on it too, so the hour a townsman keeps and the
+ * light he keeps it in are the same hour.
+ */
+export const DAY_CYCLE_MS = 420_000; // 7 minutes
+
+/** Where we are in the day: 0 = midnight, 0.5 = noon. */
+export function dayPhase(ctx: Ctx): number {
+  // Wall-clock, not `now`: `now` is performance.now and resets every reload,
+  // which would restart the day at midnight each time the page loaded — and
+  // would disagree with the sky, which the renderer draws from the wall clock.
+  return (ctx.epoch % DAY_CYCLE_MS) / DAY_CYCLE_MS;
+}
+
+/**
+ * The tile a creature calls home right now: its routine's current post, or its
+ * spawn if it keeps no routine.
+ *
+ * Everything else about wandering is unchanged — a creature ambles around its
+ * home and walks back when it strays too far. Making "home" a function of the
+ * hour is the whole of the daily-routine feature: at the turn of a phase the
+ * post moves, the NPC finds itself out of range, and the existing walk-home
+ * logic carries it to the new post on its own.
+ */
+export function postOf(def: WorldObjectDef, ctx: Ctx): { x: number; y: number } {
+  const r = def.routine;
+  if (!r || r.length === 0) return { x: def.x, y: def.y };
+  const phase = dayPhase(ctx);
+  // The last post whose hour has come; before the first, the day's last post
+  // still stands (the night shift carries over midnight).
+  let best = r[r.length - 1]!;
+  for (const post of r) if (post.at <= phase) best = post;
+  return { x: best.x, y: best.y };
+}
+
 function wanderCreatures(
   state: WorldState,
   content: Content,
@@ -5876,7 +5912,9 @@ function wanderCreatures(
     // then holds and looses. Leashed a little past its wander radius so a bow-
     // kiting player can't trivially outrange it forever.
     const cheb = Math.max(Math.abs(here.x - pTile.x), Math.abs(here.y - pTile.y));
-    const spawnCheb = Math.max(Math.abs(here.x - def.x), Math.abs(here.y - def.y));
+    // "Home" is the routine's current post, not the spawn tile — see postOf.
+    const home = postOf(def, ctx);
+    const spawnCheb = Math.max(Math.abs(here.x - home.x), Math.abs(here.y - home.y));
     // End a pursuit once the player breaks far enough ahead or we've strayed too
     // far from home — then we fall through to walking back to the spawn.
     if (pursuing && (cheb > PURSUE_GIVEUP || spawnCheb > PURSUE_LEASH)) {
@@ -5893,7 +5931,7 @@ function wanderCreatures(
         const sy = Math.sign(pTile.y - here.y);
         for (const [nx, ny] of [[here.x + sx, here.y + sy], [here.x + sx, here.y], [here.x, here.y + sy]] as const) {
           if (nx === here.x && ny === here.y) continue;
-          if (Math.max(Math.abs(nx - def.x), Math.abs(ny - def.y)) > leash) continue;
+          if (Math.max(Math.abs(nx - home.x), Math.abs(ny - home.y)) > leash) continue;
           if (!walk(nx, ny) || (nx === pTile.x && ny === pTile.y)) continue;
           if (occupied.has(`${nx},${ny}`)) continue;
           // A CHASER COMMITS ITS STEP IN THE SAME TICK, unlike the idle amble
@@ -5916,8 +5954,8 @@ function wanderCreatures(
     }
     // Strayed from home on a pursuit that has now ended — head back to the spawn.
     if (!isCritter && spawnCheb > WANDER.radius) {
-      const sx = Math.sign(def.x - here.x);
-      const sy = Math.sign(def.y - here.y);
+      const sx = Math.sign(home.x - here.x);
+      const sy = Math.sign(home.y - here.y);
       for (const [nx, ny] of [[here.x + sx, here.y + sy], [here.x + sx, here.y], [here.x, here.y + sy]] as const) {
         if (nx === here.x && ny === here.y) continue;
         if (!walk(nx, ny) || (nx === pTile.x && ny === pTile.y)) continue;
@@ -5934,7 +5972,7 @@ function wanderCreatures(
         const ax = here.x + (here.x === pTile.x ? (ctx.rng() < 0.5 ? 1 : -1) : Math.sign(here.x - pTile.x));
         const ay = here.y + (here.y === pTile.y ? (ctx.rng() < 0.5 ? 1 : -1) : Math.sign(here.y - pTile.y));
         for (const [nx, ny] of [[ax, here.y], [here.x, ay], [ax, ay]] as const) {
-          if (Math.max(Math.abs(nx - def.x), Math.abs(ny - def.y)) > WANDER.radius + 3) continue;
+          if (Math.max(Math.abs(nx - home.x), Math.abs(ny - home.y)) > WANDER.radius + 3) continue;
           if (!walk(nx, ny) || (nx === pTile.x && ny === pTile.y)) continue;
           obj.wanderTarget = { x: nx, y: ny };
           break;
@@ -5953,7 +5991,7 @@ function wanderCreatures(
     for (const [dx, dy] of steps) {
       const nx = here.x + dx;
       const ny = here.y + dy;
-      if (Math.max(Math.abs(nx - def.x), Math.abs(ny - def.y)) > WANDER.radius) continue;
+      if (Math.max(Math.abs(nx - home.x), Math.abs(ny - home.y)) > WANDER.radius) continue;
       if (!walk(nx, ny)) continue;
       if (nx === pTile.x && ny === pTile.y) continue;
       if (occupied.has(`${nx},${ny}`)) continue;

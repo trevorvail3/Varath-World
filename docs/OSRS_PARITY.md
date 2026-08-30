@@ -871,9 +871,41 @@ generated sharing a tile with a hand-authored spawn. It reads the **shipped**
 objects rather than re-deriving them, because a re-derivation without the
 occupancy set tests a layout the game never uses.
 
+### NPC daily routines — done
+
+The renderer had always tinted the sky on a 7-minute day; the world ignored it.
+Townsfolk now keep hours on that same cycle.
+
+**The whole feature is a moving home.** A creature already ambles around its
+spawn and walks back when it strays too far, so `postOf(def, ctx)` returns the
+routine's current post instead of the spawn tile and every existing line of that
+logic does the rest: at the turn of a phase the post moves, the NPC finds itself
+out of range, and the walk-home branch carries it there. No new movement code,
+no scheduler, no pathfinding.
+
+`DAY_CYCLE_MS` moved into the core and the renderer now imports it — a sky on a
+different clock from the people under it is worse than no clock at all. The
+phase reads from `ctx.epoch`, not `ctx.now`: `now` is `performance.now` and
+resets every reload, which would restart the day at midnight on each page load
+*and* disagree with the sky.
+
+Twelve town folk keep a five-post day — indoors in the small hours, at their own
+door at dawn, up on the lane through the working day, in around the fire at
+dusk, back indoors at night — all expressed relative to their town centre, so a
+routine cannot send anyone out of the town it belongs to. **Only the generated
+folk get one.** Nobody with a job in a quest or a shop moves, because a keeper
+who wanders off is a shop you cannot find.
+
+`sims/routines.ts` guards the three quiet failures: a post on ground nobody can
+stand on (the NPC spends that phase against a wall), posts further apart than
+the phase is long (permanently in transit, never keeping any hour), and a
+schedule that does not cover the day. It also drives the real tick for 400 ticks
+to confirm they actually walk, and checks that an NPC *without* a routine is
+untouched.
+
 ### Still to come
 
-8 new ungated zones, NPC daily routines.
+8 new ungated zones.
 
 ## Phase 5 — Real multiplayer (capstone)
 

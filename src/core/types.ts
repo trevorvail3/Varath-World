@@ -1172,6 +1172,11 @@ export interface WorldObjectDef {
   /** Wandering world boss only: the tiles it patrols between. The core moves it
    *  from one to another on a slow clock and announces the sighting — a live
    *  world event players chase down. */
+  /** A daily routine: where this NPC stands at each phase of the day, as
+   *  `at` = fraction of the day cycle (0 = midnight, 0.5 = noon). The creature
+   *  ambles around its CURRENT post rather than its spawn, and walks to the next
+   *  post when the hour turns. Absent = stands near its spawn all day, as before. */
+  routine?: { at: number; x: number; y: number }[];
   patrol?: Vec2[];
   /** NPC only: the lines spoken when talked to. */
   lines?: string[];

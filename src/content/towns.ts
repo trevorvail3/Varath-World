@@ -163,6 +163,29 @@ export function townClearing(
  * `t` re-homes a v2 coordinate onto the live canvas.
  */
 /**
+ * A townsman's day, as posts around the town.
+ *
+ * Four phases, matching the sky the renderer already draws: at dawn they are at
+ * their own post, through the day they work the lane by the stations, at dusk
+ * they gather at the middle of the town where the fire is, and overnight they
+ * withdraw to the north side where the cottages stand. Everything is expressed
+ * relative to the town centre, so a routine can never send anyone off the map
+ * or out of the town it belongs to.
+ *
+ * Nobody with a job in a quest or a shop gets one of these — only the folk this
+ * file generates, who have no role but to be somewhere.
+ */
+function dayFor(post: { x: number; y: number }, centre: { x: number; y: number }): { at: number; x: number; y: number }[] {
+  return [
+    { at: 0.00, x: centre.x, y: centre.y - 4 },   // small hours — indoors, north side
+    { at: 0.25, x: post.x, y: post.y },           // dawn — at their own door
+    { at: 0.42, x: post.x, y: centre.y - 2 },     // the working day — up on the lane
+    { at: 0.72, x: centre.x, y: centre.y },       // dusk — in around the fire
+    { at: 0.88, x: centre.x, y: centre.y - 4 },   // night — back indoors
+  ];
+}
+
+/**
  * Ids are prefixed `seat_`, not `town_`: seven hand-authored NPCs already use
  * `town_` (town_crier, town_guard, town_child…), and a prefix that means two
  * things is a filter waiting to be written wrong — as it immediately was.
@@ -196,10 +219,15 @@ export function buildTownObjects(
       const p = free(c.x - TOWN_RX + 2 + i * 3, c.y - 5);
       out.push({ id: `seat_${town.id}_${kind}`, kind, x: p.x, y: p.y, name: STATION_NAME[kind] });
     });
-    // Folk stand on the south edge, facing them across the lane.
+    // Folk stand on the south edge, facing the stations across the lane — and
+    // keep a day. The posts are relative to the town, so a routine cannot send
+    // anyone somewhere the town is not.
     town.folk.forEach((f, i) => {
       const p = free(c.x - TOWN_RX + 3 + i * 5, c.y + 5);
-      out.push({ id: `seat_${town.id}_folk${i}`, kind: "npc", x: p.x, y: p.y, name: f.name, lines: f.lines });
+      out.push({
+        id: `seat_${town.id}_folk${i}`, kind: "npc", x: p.x, y: p.y, name: f.name, lines: f.lines,
+        routine: dayFor(p, c),
+      });
     });
     // A signpost at the town's west approach, on the lane itself.
     const sp = free(c.x - TOWN_RX, c.y);

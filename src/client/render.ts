@@ -7,6 +7,11 @@
  * Palette: dark aged stone, ember and iron.
  */
 
+// One full day in real milliseconds (dawn → noon → dusk → night → dawn).
+// Imported from the core rather than kept here twice: the world now runs
+// townsfolk routines on this same cycle, and a sky on a different clock from the
+// people under it is worse than no clock at all.
+import { DAY_CYCLE_MS } from "../core/worldCore.ts";
 import type {
   Appearance,
   Content,
@@ -2393,8 +2398,6 @@ function drawShopSign(
   }
 }
 
-/** One full day in real milliseconds (dawn → noon → dusk → night → dawn). */
-const DAY_CYCLE_MS = 420000; // 7 minutes
 
 /**
  * Tint the whole scene by the hour. `phase` 0 = midnight, 0.5 = noon. Night lays
