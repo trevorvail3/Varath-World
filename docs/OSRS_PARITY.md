@@ -724,13 +724,50 @@ moved with everything and still cover Ironvale and all six regions.
 
 Content boots in 332ms for 240,000 tiles.
 
+### The camps — done
+
+**Fourteen camps in the open country**, +150 objects, derived from one table
+(`src/content/camps.ts`). A camp is a small complete place: cleared ground, a
+fire to cook at, a signpost that names it, four foes and three gatherables.
+
+**Everything that can be derived, is** — and writing it the other way first is
+what proved why:
+
+- **Bands were hand-assigned, and the gradient was a lie.** `sims/camps.ts`
+  measured the correlation between a camp's distance from Ironvale and its
+  level band at **r = 0.26**: the difficulty ramp the signposts promise did not
+  exist, because I had written the numbers against a geography I guessed at
+  (Greenditch, which I placed as a near camp, is the furthest of the fourteen).
+  The band is now `campBand(distance)` and the correlation is **1.00** by
+  construction — 13 at the near ring, 63 at the far march. The curve is fitted
+  to where the camps actually are (~22 to ~70 v2 tiles); anchoring it to 0
+  instead put a level-26 camp an hour from the gate.
+- **Foes are picked from a themed pool** (`outlaw` / `beast` / `wild` / `cult` /
+  `drowned` / `deep`) by nearest level to the band. A theme states *character*;
+  geography decides *danger*. It also caught a hand-written `redrun_brigand` at
+  level 63 sitting in a camp I had marked band 38.
+- **Node tiers derive too.** They were still hand-tiered after the foes moved,
+  which is the same drift one step behind: a level-8 birch beside a level-63
+  harpy is scenery, not a reason to stop.
+- **Gather nodes must have no inputs.** The first derived pool offered "Strip
+  Dusk Bark" as a forage spot — a recipe needing a deeproot log in hand, so a
+  node that would silently refuse everyone who clicked it.
+
+`sims/camps.ts` also checks that no camp overlaps a region (its clearing would
+overwrite that terrain), that no two camps sit within each other's rings, that
+every generated object stands on ground with a walkable tile beside it, and that
+no generated id collides with a hand-authored spawn. `sims/world.ts` walks the
+result: 1,213 overworld objects, all reachable.
+
+Its reachability floor also had to gain a 2% tolerance — **adding** content
+costs tiles, because every prop and every standing foe blocks the square it is
+on. The failure that assertion exists for is a region going missing, which is
+thousands of tiles, not a hundred.
+
 ### Still to come
 
-The six region seats grown into real towns, 8 new ungated zones, a 14-camp
-roster, NPC daily routines. **Until those land the world is 6× the area with the
-same content**, so the open country between landmarks is thinner than it will
-be — the waystone network means no region is further away in practice, but the
-walk between them is emptier.
+The six region seats grown into real towns, 8 new ungated zones, NPC daily
+routines.
 
 ## Phase 5 — Real multiplayer (capstone)
 

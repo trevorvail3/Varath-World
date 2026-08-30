@@ -26,6 +26,7 @@
 
 import type { TileType, WorldMap } from "../core/types.ts";
 import { DUNGEON_LAYOUTS, type DungeonLayout } from "./dungeons.ts";
+import { CAMPS } from "./camps.ts";
 
 const WIDTH = 400;
 /** The overworld is rows 0–163; below it are sealed bands of boss arenas and,
@@ -696,6 +697,14 @@ function decode(): WorldMap {
   // 2c) Clear a yard for each region settlement (carved over the raw region
   //     terrain), so the cottages + folk sit on cleared ground at the road-edge.
   for (const s of SETTLEMENT_CLEARINGS) carve(s.x0, s.y0, s.x1, s.y1, s.floor);
+  // The camps of the open country: each is cleared to its own ground, one tile
+  // wider than its object ring so nothing a camp places can land in a bog it
+  // was meant to sit beside. Carved AFTER the biome passes, so the clearing
+  // wins over whatever terrain the country would otherwise have there.
+  for (const c of CAMPS) {
+    const at = spread(c.vx, c.vy);
+    carve(at.x - c.rx - 3, at.y - c.ry - 3, at.x + c.rx + 3, at.y + c.ry + 3, c.floor);
+  }
 
   const marrow = REGIONS.find((r) => r.key === "marrow")!;
   const spine = REGIONS.find((r) => r.key === "spine")!;

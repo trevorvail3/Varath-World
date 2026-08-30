@@ -2,8 +2,8 @@
   "width": 400,
   "height": 600,
   "overworldHeight": 400,
-  "reachableTiles": 140898,
-  "overworldObjects": 1063,
+  "reachableTiles": 140819,
+  "overworldObjects": 1213,
   "regionReach": {
     "spine": 537,
     "marrow": 297,

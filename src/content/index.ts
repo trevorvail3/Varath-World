@@ -27,6 +27,8 @@ import { crops } from "./crops.ts";
 import { furniture, surfaces } from "./furniture.ts";
 import { bountyGuides, bountyShop, bountyTasks, bountyUnlocks, huntingGrounds } from "./bounty.ts";
 import { objects, playerSpawn } from "./spawns.ts";
+import { buildCampObjects } from "./camps.ts";
+import { spread } from "./map.ts";
 import { skills } from "./skills.ts";
 import { xpForLevel } from "./xpCurve.ts";
 import { PIER_FISH, PIER_RECORDS } from "./pier.ts";
@@ -34,7 +36,7 @@ import { PIER_FISH, PIER_RECORDS } from "./pier.ts";
 export const content: Content = {
   map,
   respawnPoint: CITY_SPAWN,
-  objects,
+  objects: [...objects, ...buildCampObjects(spread)],
   items,
   monsters,
   // Derived once at boot from `items` — the OSRS-style attack/defence vector
