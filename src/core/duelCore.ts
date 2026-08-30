@@ -36,10 +36,13 @@ export const PVP_DMG = 0.65;
 export const PVP_SPEC_MULT = 1.25;
 const SPEC_GAIN_PER_HIT = 12;
 const SPEC_MAX = 100;
-// The PvE hit-chance curve, mirrored exactly (worldCore COMBAT).
-const DEF_WEIGHT = 1.35;
-const HIT_FLOOR = 0.05;
-const HIT_CAP = 0.95;
+/**
+ * The combat maths a fighter snapshot was built with. Folded into the desync
+ * fingerprint and checked at duel start: two clients on different builds would
+ * otherwise compute different damage from the same inputs and desync mid-fight —
+ * over real staked gold. Bump this whenever the PvE formulas change.
+ */
+export const COMBAT_FORMULA_VERSION = 2;
 
 /** A bite of food carried into the ring: what it heals and what it was. */
 export interface DuelFood { item: ItemId; heal: number; count: number }
@@ -74,6 +77,8 @@ export interface DuelFighter {
   /** Swing interval in duel ticks (weapon speed / DUEL_TICK_MS, min 3). */
   speedTicks: number;
   ranged: boolean;
+  /** Which combat maths built this snapshot — see COMBAT_FORMULA_VERSION. */
+  formulaVersion: number;
   food: DuelFood[];
   /** Equippable gear brought into the ring but not worn — the switch pool. */
   bench: ItemId[];
@@ -165,6 +170,17 @@ export function duelCreate(seed: number): DuelState {
 
 /** Initialise both sides' HP from their snapshots (kept out of duelCreate so
  *  the state can be built before the opponent's snapshot arrives). */
+/**
+ * True when two snapshots were built by the same combat maths. A duel between
+ * mismatched builds would compute different damage from identical inputs and
+ * desync mid-fight, with real staked gold on the line — the caller must refuse
+ * the duel rather than start one it cannot finish fairly.
+ */
+export function duelFormulasMatch(a: DuelFighter, b: DuelFighter): boolean {
+  return (a.formulaVersion ?? 0) === (b.formulaVersion ?? 0)
+    && (a.formulaVersion ?? 0) === COMBAT_FORMULA_VERSION;
+}
+
 export function duelStart(state: DuelState, a: DuelFighter, b: DuelFighter): void {
   state.a.hp = a.maxHp;
   state.b.hp = b.maxHp;
@@ -174,10 +190,13 @@ export function duelStart(state: DuelState, a: DuelFighter, b: DuelFighter): voi
   state.b.nextSwing = 2;
 }
 
-const clamp = (v: number, lo: number, hi: number): number => Math.max(lo, Math.min(hi, v));
 
+/** OSRS's accuracy curve, mirroring worldCore's `accuracyFrom` exactly. Both
+ *  arguments are ROLLS (effective level x (bonus + 64)), not ratings. */
 function hitChance(att: number, def: number): number {
-  return clamp(att / (att + def * DEF_WEIGHT), HIT_FLOOR, HIT_CAP);
+  const a = Math.max(1, att);
+  const d = Math.max(1, def);
+  return a > d ? 1 - (d + 2) / (2 * (a + 1)) : a / (2 * (d + 1));
 }
 
 /** Bites of a given food still left in the satchel. */
@@ -251,7 +270,10 @@ export function duelStep(
     me.specArmed = false;
     if (special || nextRng(state) < hitChance(f.acc, g.def)) {
       const maxHit = Math.max(1, Math.round(f.dmg * PVP_DMG * (special ? PVP_SPEC_MULT : 1)));
-      const dmg = 1 + Math.floor(nextRng(state) * maxHit);
+      // Uniform from ZERO like PvE, except a spent special always does something.
+      const dmg = special
+        ? 1 + Math.floor(nextRng(state) * maxHit)
+        : Math.floor(nextRng(state) * (maxHit + 1));
       foe.hp = Math.max(0, foe.hp - dmg);
       me.spec = Math.min(SPEC_MAX, me.spec + SPEC_GAIN_PER_HIT);
       events.push({ tick: t, side, kind: "hit", value: dmg });
@@ -298,6 +320,7 @@ export function fighterFingerprint(f: DuelFighter): number {
   h = (Math.imul(h, 31) + Math.round(f.dmg)) | 0;
   h = (Math.imul(h, 31) + Math.round(f.def)) | 0;
   h = (Math.imul(h, 31) + f.speedTicks + (f.ranged ? 101 : 0)) | 0;
+  h = (Math.imul(h, 31) + (f.formulaVersion ?? 0)) | 0;
   h = (Math.imul(h, 31) + f.bench.length) | 0;
   return h | 0;
 }

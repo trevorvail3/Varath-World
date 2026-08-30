@@ -19,10 +19,13 @@
  * bundle. This file only holds the *behaviour*.
  */
 
+import { COMBAT_FORMULA_VERSION, DUEL_TICK_MS } from "./duelCore.ts";
+
 import type {
   AchievementCond,
   Activity,
   BountyTaskDef,
+  EquipBonus,
   CombatStyle,
   Content,
   CropDef,
@@ -380,17 +383,31 @@ export function stationActions(content: Content, station: string): SkillAction[]
 
 const PLAYER_RESPAWN = 4000;
 
-// Combat math, ported from the Varath idle game (see docs/CANON_LEDGER.md).
-const COMBAT = {
+// Combat math. The rolls are OSRS's; the scale constants below are FITTED to
+// Varath's own content by sims/fitCombat.ts, against sims/baseline.ttk.json.
+// Exported so those sims can vary them in-process while searching — nothing in
+// the game mutates it.
+export const COMBAT = {
   /** Default melee swing interval (ms) when no weapon speed is set. */
   playerMeleeSpeed: 2400,
   /** Fallback monster swing interval (ms) if a monster has no `speed`. */
   monsterSpeed: 3000,
-  /** Hit-chance = clamp(att / (att + def·defWeight), floor, cap) — a ratio curve
-   *  (att==def·defWeight → 50%) so defence always matters and never saturates. */
-  defWeight: 1.35,
-  hitFloor: 0.05,
-  hitCap: 0.95,
+  // --- OSRS rolls (see playerAttackRoll / accuracyFrom) ---------------------
+  /** The flat term added to every effective level. */
+  effLvlBase: 8,
+  /** The flat term added to every equipment bonus before it multiplies. */
+  rollBase: 64,
+  /** The divisor in OSRS's max-hit formula. */
+  maxHitDivisor: 640,
+  /** Brings OSRS's max hit onto Varath's number scale — see `maxHitFrom`.
+   *  FITTED by sims/fitCombat.ts against sims/baseline.ttk.json: 9 puts the
+   *  median time-to-kill ratio at 1.000 across a level-spanning subset. */
+  maxHitScale: 9,
+  /** Monster acc/def are tuned in Varath's own units, not OSRS's. These bring
+   *  them onto the roll scale. FITTED by sims/fitCombat.ts. */
+  monsterAttackScale: 30,
+  monsterDefenceScale: 30,
+  monsterDefenceBase: 500,
   /** Exploiting a weakness multiplies accuracy / damage. Tuned so the triangle
    *  is REAL: playtests showed 1.2/1.1 vanished under the 95% hit cap (right vs
    *  wrong style differed by <7% TTK). At 1.5/1.4 + the boss off-style penalty
@@ -405,21 +422,12 @@ const COMBAT = {
    *  matching the triangle instead of pure auto-swing — without punishing early
    *  trash (below the threshold) or weakness-less foes (no way to match). */
   eliteOffStyleDmg: 0.85,
-  /** Ward soaks floor(defence / this) flat damage per hit. */
-  wardDivisor: 15,
   /** How long a slain monster stays down before respawning (ms). */
   respawn: 9000,
   /** Tiles a player with a bow can loose an arrow across (Chebyshev). */
   rangedReach: 5,
   // --- Damage feel (combat rebalance) -------------------------------------
-  /** How much a combat level adds to max hit. Below 1 so max hit grows slower
-   *  than the skill, killing the early one-shots (a level-12 hit can't erase a
-   *  near-level foe in one blow) and leaving room for gear to matter. */
-  dmgSkillScale: 0.6,
-  /** Damage floor as a fraction of max hit: a landed blow rolls in
-   *  [dmgMinFrac·max, max], not [1, max]. Tightens the swing so hits feel
-   *  consistent instead of "whiff for 1 or crit for everything". */
-  dmgMinFrac: 0.4,
+
   /** Non-boss monsters hit this much harder, so an even fight actually costs HP
    *  and you have to eat / play the weakness triangle. Bosses keep their own
    *  hand-tuned damage (they're excluded). */
@@ -489,7 +497,11 @@ const BASE_MAX_HP = 10;
 export const DAILY_WINDOW_MS = 20 * 3_600_000;
 
 const SPEC_MAX = 100;
-const SPEC_GAIN_PER_HIT = 12;
+// A landed blow charges the bar. OSRS-style rolls make a landed blow of ZERO
+// damage a real outcome, so more swings now count as "landed" than under the old
+// model — the per-hit gain drops to keep the spec economy where it was rather
+// than handing out free specials.
+const SPEC_GAIN_PER_HIT = 9;
 // Melee specials now differ by the weapon's damage TYPE (its family), not one
 // generic Sunder: a stab PUNCTURE finds the gap in armour, a slash RENDING BLOW
 // is raw power, a crush SHATTER cracks the target's guard for the whole party.
@@ -2038,28 +2050,50 @@ function addNoted(player: Player, item: ItemId, qty: number, events: WorldEvent[
  * wearing. This is how worn gear feeds into the fight without the core knowing
  * item names — it just reads the numbers content gave each piece.
  */
-function equipStat(
-  player: Player,
-  content: Content,
-  field: "acc" | "dmg" | "def" | "rngAcc" | "rngDmg" | "magAcc" | "magDmg",
-): number {
-  let total = 0;
+/** An all-zero bonus vector — the identity for summing worn gear. */
+const NO_BONUS: EquipBonus = {
+  aStab: 0, aSlash: 0, aCrush: 0, aMagic: 0, aRange: 0,
+  dStab: 0, dSlash: 0, dCrush: 0, dMagic: 0, dRange: 0,
+  str: 0, rngStr: 0, magDmg: 0, prayer: 0,
+};
+
+/**
+ * Sum the OSRS-style bonus vectors of everything the player is wearing.
+ *
+ * Replaces the old single-field `equipStat`: combat now needs the whole
+ * fourteen-number vector at once (an attack roll picks one attack bonus, the
+ * defence roll picks one defence bonus), and summing once beats seven passes
+ * over the same equipment.
+ */
+export function equipBonusTotal(player: Player, content: Content): EquipBonus {
+  const total: EquipBonus = { ...NO_BONUS };
   for (const [slot, id] of Object.entries(player.equipment)) {
     if (!id) continue;
-    // Arrows feed ranged math only — never melee accuracy/damage.
-    if (slot === "ammo") continue;
-    const idef = content.items[id];
-    // A bow in the mainhand is a ranged weapon: its acc/dmg belong to the Draw
-    // math (rangedAccuracy/rangedMaxHit), so it must not pad the melee sums.
-    if (slot === "mainhand" && idef.ranged && (field === "acc" || field === "dmg")) continue;
-    total += idef[field] ?? 0;
-    // Skill capes are best-in-slot defensive gear — their worn benefit. The
-    // Cape of Varath (and its prestige reskin) gives the most.
-    if (field === "def" && idef.cat === "Capes") {
-      total += idef.meta?.skill === "max" || idef.meta?.skill === "ironvale" ? 18 : 10;
+    // Arrows feed ranged math only — never melee. The vector keeps melee and
+    // ranged apart by construction, so ammo can simply contribute its ranged
+    // half rather than being excluded wholesale.
+    const b = content.equipBonus[id];
+    if (!b) continue;
+    if (slot === "ammo") {
+      total.aRange += b.aRange;
+      total.rngStr += b.rngStr;
+      continue;
     }
+    total.aStab += b.aStab; total.aSlash += b.aSlash; total.aCrush += b.aCrush;
+    total.aMagic += b.aMagic; total.aRange += b.aRange;
+    total.dStab += b.dStab; total.dSlash += b.dSlash; total.dCrush += b.dCrush;
+    total.dMagic += b.dMagic; total.dRange += b.dRange;
+    total.str += b.str; total.rngStr += b.rngStr; total.magDmg += b.magDmg;
+    total.prayer += b.prayer;
   }
   return total;
+}
+
+/** The difference between two worn-gear vectors — for "what would this swap do?" */
+export function bonusDelta(from: EquipBonus, to: EquipBonus): EquipBonus {
+  const out = { ...NO_BONUS };
+  for (const k of Object.keys(out) as (keyof EquipBonus)[]) out[k] = to[k] - from[k];
+  return out;
 }
 
 // ---------------------------------------------------------------------------
@@ -6590,14 +6624,94 @@ function blessingMods(player: Player, content: Content): { acc: number; dmg: num
   return { acc: sp?.boostAcc ?? 1, dmg: sp?.boostDmg ?? 1, def: sp?.boostDef ?? 1 };
 }
 
-function playerAccuracy(player: Player, content: Content): number {
-  const cape = varathCapeWorn(player) ? 5 : 0; // Cape of Varath: +5 Edge
-  const base = skillLvl(player, "edge") + equipStat(player, content, "acc") + cape + buffVal(player, "melee_acc");
-  return Math.max(1, Math.round(base * STYLE_MODS[player.combatStyle].acc * blessingMods(player, content).acc));
+/** The damage type a player's attacks land as, from the weapon in hand. */
+export type DamageType = "stab" | "slash" | "crush" | "ranged" | "magic";
+
+/** Which attack bonus a given damage type reads. */
+function attackBonusFor(b: EquipBonus, t: DamageType): number {
+  switch (t) {
+    case "stab": return b.aStab;
+    case "slash": return b.aSlash;
+    case "crush": return b.aCrush;
+    case "ranged": return b.aRange;
+    case "magic": return b.aMagic;
+  }
 }
 
-/** Max Hitpoints at a given Vitality level — the skill-info milestone maths
- *  (kept beside the combat formulas it mirrors). */
+/** Which defence bonus resists a given damage type — the armour triangle. */
+function defenceBonusVs(b: EquipBonus, t: DamageType): number {
+  switch (t) {
+    case "stab": return b.dStab;
+    case "slash": return b.dSlash;
+    case "crush": return b.dCrush;
+    case "ranged": return b.dRange;
+    case "magic": return b.dMagic;
+  }
+}
+
+/** A monster's `attackStyle` as a damage type. Six monsters say only "melee";
+ *  read that as crush, the most common heavy-blow shape. */
+export function damageTypeOf(style: string | undefined): DamageType {
+  switch (style) {
+    case "stab": case "slash": case "crush": case "ranged": case "magic": return style;
+    default: return "crush";
+  }
+}
+
+/** The damage type the player is currently dealing. */
+export function playerDamageType(player: Player, content: Content): DamageType {
+  if (isRanged(player, content)) return "ranged";
+  if (isMagic(player, content)) return "magic";
+  return damageTypeOf(weaponStyle(player, content));
+}
+
+/**
+ * OSRS's effective level: the visible level (with cape and potion boosts), the
+ * stance weighting, then a flat +8.
+ *
+ * NOTE ON STANCE: OSRS adds a flat +3 here. Varath's stances are deliberately
+ * multiplicative instead — the comment on STYLE_MODS records that a flat +3 was
+ * considered and rejected in favour of a live tradeoff you feel when you switch
+ * mid-fight. That decision is kept: the stance weight multiplies the visible
+ * level, and only the +8 is flat.
+ */
+function effLevel(
+  player: Player,
+  content: Content,
+  skill: SkillId,
+  leg: "acc" | "dmg" | "def",
+  buffKey: string,
+): number {
+  const cape = varathCapeWorn(player) ? 5 : 0;
+  const visible = skillLvl(player, skill) + cape + buffVal(player, buffKey);
+  const stance = STYLE_MODS[player.combatStyle][leg];
+  const blessing = blessingMods(player, content)[leg];
+  return Math.max(1, Math.floor(visible * stance * blessing)) + COMBAT.effLvlBase;
+}
+
+/**
+ * OSRS's attack roll: effective level × (equipment bonus + 64). A "roll" is not
+ * a rating — it only means anything compared against a defence roll of the same
+ * shape, through `accuracyFrom`.
+ */
+function playerAttackRoll(player: Player, content: Content): number {
+  const t = playerDamageType(player, content);
+  const bonus = attackBonusFor(equipBonusTotal(player, content), t);
+  const skill: SkillId = t === "ranged" ? "draw" : t === "magic" ? "faith" : "edge";
+  const buff = t === "ranged" ? "ranged_acc" : t === "magic" ? "magic_acc" : "melee_acc";
+  return effLevel(player, content, skill, "acc", buff) * (bonus + COMBAT.rollBase);
+}
+
+/** OSRS's defence roll for the player, against a specific incoming damage type. */
+function playerDefenceRoll(player: Player, content: Content, incoming: DamageType): number {
+  const bonus = defenceBonusVs(equipBonusTotal(player, content), incoming);
+  return effLevel(player, content, "ward", "def", "defence") * (bonus + COMBAT.rollBase);
+}
+
+/**
+ * Max Hitpoints at a given Vitality level — the skill-info milestone maths
+ * (kept beside the combat formulas it mirrors).
+ */
 export function vitalityMaxHp(level: number): number {
   return BASE_MAX_HP + level;
 }
@@ -6605,16 +6719,37 @@ export function vitalityMaxHp(level: number): number {
 /** The bare-handed melee max hit a Vigour level carries; weapons, amulets and
  *  the Vigour style add on top. Skill-info milestone maths. */
 export function vigourBaseHit(level: number): number {
-  return Math.max(1, Math.round(level * COMBAT.dmgSkillScale));
+  return maxHitFrom(level + COMBAT.effLvlBase, 0);
 }
 
-/** Player max hit: Vigour + summed gear dmg (weapon, amulet), re-weighted by the
- *  live stance (Aggressive hits harder; Accurate and Defensive trade damage away). */
+/**
+ * OSRS's max hit: `floor(0.5 + effStr × (strengthBonus + 64) / 640)`, then
+ * scaled.
+ *
+ * `maxHitScale` exists because OSRS's formula and Varath's content are on
+ * different number scales. Raw, the formula gives ~26 where Varath currently
+ * hits for ~164, against monster HP pools reaching 2600 — every apex fight would
+ * become a ten-minute grind and every drop rate, bounty count and Delve figure
+ * on record would be invalid. Rescaling monster HP instead would invalidate the
+ * same numbers from the other direction. One fitted constant keeps OSRS's SHAPE
+ * (levels, gear and stance combining the OSRS way) on Varath's scale.
+ */
+function maxHitFrom(effStr: number, strBonus: number): number {
+  const raw = 0.5 + (effStr * (strBonus + COMBAT.rollBase)) / COMBAT.maxHitDivisor;
+  return Math.max(1, Math.floor(raw * COMBAT.maxHitScale));
+}
+
+/** Player max hit for whatever they are wielding. */
 function playerMaxHit(player: Player, content: Content): number {
-  const str = Math.round(skillLvl(player, "vigour") * COMBAT.dmgSkillScale);
-  const cape = varathCapeWorn(player) ? 5 : 0; // Cape of Varath: +5 Vigour
-  const base = str + equipStat(player, content, "dmg") + cape + buffVal(player, "melee_dmg");
-  return Math.max(1, Math.round(base * STYLE_MODS[player.combatStyle].dmg * blessingMods(player, content).dmg));
+  const t = playerDamageType(player, content);
+  const b = equipBonusTotal(player, content);
+  if (t === "ranged") {
+    return maxHitFrom(effLevel(player, content, "draw", "dmg", "ranged_dmg"), b.rngStr);
+  }
+  if (t === "magic") {
+    return maxHitFrom(effLevel(player, content, "faith", "dmg", "magic_dmg"), b.magDmg);
+  }
+  return maxHitFrom(effLevel(player, content, "vigour", "dmg", "melee_dmg"), b.str);
 }
 
 /** The bow the player is wielding, if any — a ranged weapon worn in the mainhand. */
@@ -6626,29 +6761,6 @@ function equippedBow(player: Player, content: Content): ItemId | undefined {
 /** Is the player set to fight at range? (a bow wielded in the mainhand). */
 function isRanged(player: Player, content: Content): boolean {
   return !!equippedBow(player, content);
-}
-
-/** Ranged accuracy: Draw + bow + arrow accuracy + any ranged-accuracy buff. */
-function rangedAccuracy(player: Player, content: Content): number {
-  const bow = equippedBow(player, content);
-  const ammo = player.equipment.ammo;
-  const ba = bow ? content.items[bow].acc ?? 0 : 0;
-  const aa = ammo ? content.items[ammo].acc ?? 0 : 0;
-  const cape = varathCapeWorn(player) ? 5 : 0; // Cape of Varath: +5 Draw
-  const base = skillLvl(player, "draw") + ba + aa + equipStat(player, content, "rngAcc") + cape + buffVal(player, "ranged_acc");
-  return Math.round(base * blessingMods(player, content).acc);
-}
-
-/** Ranged max hit: Draw + bow + arrow damage + any ranged-damage buff. */
-function rangedMaxHit(player: Player, content: Content): number {
-  const bow = equippedBow(player, content);
-  const ammo = player.equipment.ammo;
-  const bd = bow ? content.items[bow].dmg ?? 0 : 0;
-  const ad = ammo ? content.items[ammo].dmg ?? 0 : 0;
-  const str = Math.round(skillLvl(player, "draw") * COMBAT.dmgSkillScale);
-  const cape = varathCapeWorn(player) ? 5 : 0; // Cape of Varath: +5 Draw
-  const base = str + bd + ad + equipStat(player, content, "rngDmg") + cape + buffVal(player, "ranged_dmg");
-  return Math.round(base * blessingMods(player, content).dmg);
 }
 
 /** The casting staff the player is wielding, if any (a magic weapon in mainhand). */
@@ -6672,29 +6784,16 @@ function graceMax(player: Player): number {
   return 28 + 2 * Math.max(1, skillLvl(player, "faith"));
 }
 
-/** Magic accuracy: Faith + staff acc + any magic-accuracy buff. */
-function magicAccuracy(player: Player, content: Content): number {
-  const st = equippedStaff(player, content);
-  const sa = st ? content.items[st].acc ?? 0 : 0;
-  const base = skillLvl(player, "faith") + sa + equipStat(player, content, "magAcc") + buffVal(player, "magic_acc");
-  return Math.round(base * blessingMods(player, content).acc);
-}
-
-/** Magic max hit: Faith + staff dmg + any magic-damage buff. */
-function magicMaxHit(player: Player, content: Content): number {
-  const st = equippedStaff(player, content);
-  const sd = st ? content.items[st].dmg ?? 0 : 0;
-  const str = Math.round(skillLvl(player, "faith") * COMBAT.dmgSkillScale);
-  const base = str + sd + equipStat(player, content, "magDmg") + buffVal(player, "magic_dmg");
-  return Math.round(base * blessingMods(player, content).dmg);
-}
-
-/** Player defence rating: Ward + summed armour defence (+ any Defence buff),
- *  then boosted while in the Defensive stance — the tank tradeoff (T1·06). */
+/**
+ * An AVERAGE defence roll, for the one place that needs a single number: the
+ * duel snapshot. PvE uses `playerDefenceRoll`, which knows what damage type is
+ * coming in and so reads the right leg of the armour triangle; a duel fighter is
+ * frozen to one number at stake-lock, so it averages the five.
+ */
 function playerDefence(player: Player, content: Content): number {
-  const cape = varathCapeWorn(player) ? 5 : 0; // Cape of Varath: +5 Ward
-  const base = skillLvl(player, "ward") + equipStat(player, content, "def") + cape + buffVal(player, "defence");
-  return Math.round(base * STYLE_MODS[player.combatStyle].def * blessingMods(player, content).def);
+  const b = equipBonusTotal(player, content);
+  const avg = Math.round((b.dStab + b.dSlash + b.dCrush + b.dMagic + b.dRange) / 5);
+  return effLevel(player, content, "ward", "def", "defence") * (avg + COMBAT.rollBase);
 }
 
 /**
@@ -6750,17 +6849,20 @@ export function duelStatsFor(
   kit: import("./duelCore.ts").DuelKit,
   equipment: Partial<Record<EquipSlot, ItemId>>,
   content: Content,
-): { acc: number; dmg: number; def: number; speedTicks: number; ranged: boolean } {
+): { acc: number; dmg: number; def: number; speedTicks: number; ranged: boolean; formulaVersion: number } {
   // A stub with only the fields the combat formulas read (skills/equipment/
   // style/buffs). Cast is safe: playerAccuracy et al. touch nothing else.
   const stub = { skills: kit.skills, equipment, combatStyle: kit.combatStyle, buffs: kit.buffs } as unknown as Player;
   const ranged = isRanged(stub, content);
   return {
-    acc: ranged ? rangedAccuracy(stub, content) : playerAccuracy(stub, content),
-    dmg: ranged ? rangedMaxHit(stub, content) : playerMaxHit(stub, content),
+    acc: playerAttackRoll(stub, content),
+    dmg: playerMaxHit(stub, content),
     def: playerDefence(stub, content),
-    speedTicks: Math.max(3, Math.round(playerSpeed(stub, content) / 600)),
+    // NOTE: the divisor is the DUEL tick, not the world tick. They are both
+    // 600ms now, which makes them easy to conflate — keep the duel constant.
+    speedTicks: Math.max(3, Math.round(playerSpeed(stub, content) / DUEL_TICK_MS)),
     ranged,
+    formulaVersion: COMBAT_FORMULA_VERSION,
   };
 }
 
@@ -6830,17 +6932,26 @@ function effectiveDef(obj: WorldObjectState, stats: MonsterStats, now: number): 
  * saturated to the 0.95 cap the moment accuracy outgrew a monster's defence —
  * making defence and the accuracy side of the triangle irrelevant at scale).
  *
- * This scales with the ATT/DEF *ratio*, so raising defence always lowers the
- * chance to be hit, and out-levelling a foe raises but never trivially maxes your
- * hit rate: att == def → ~0.5, att = 2·def → ~0.75, att = 4·def → ~0.87. Clamped
- * to [floor, cap]. The same curve governs both your swings and the monster's.
+ * OSRS's accuracy curve, taking two ROLLS (effective level × (bonus + 64)) and
+ * returning the chance the blow lands. Unlike a ratio curve it is not clamped:
+ * an overwhelming attack roll really does approach certainty, and a hopeless one
+ * really does approach zero. The same curve governs your swings and the
+ * monster's.
  */
-function hitChance(att: number, def: number): number {
-  const a = Math.max(1, att);
-  // Defence is weighted a little above raw accuracy so armour and Ward pull real
-  // weight — a heavily-armoured target is genuinely hard to land on.
-  const d = Math.max(0, def) * COMBAT.defWeight;
-  return Math.max(COMBAT.hitFloor, Math.min(COMBAT.hitCap, a / (a + d)));
+function accuracyFrom(attRoll: number, defRoll: number): number {
+  const a = Math.max(1, attRoll);
+  const d = Math.max(1, defRoll);
+  return a > d ? 1 - (d + 2) / (2 * (a + 1)) : a / (2 * (d + 1));
+}
+
+/** A monster's attack roll, on the same scale as the player's. */
+function monsterAttackRoll(stats: MonsterStats): number {
+  return Math.max(1, (stats.acc ?? 0) * COMBAT.monsterAttackScale);
+}
+
+/** A monster's defence roll, from its (possibly curse-reduced) defence. */
+function monsterDefenceRoll(effDef: number): number {
+  return Math.max(1, effDef * COMBAT.monsterDefenceScale + COMBAT.monsterDefenceBase);
 }
 
 /** A uniform integer in [lo, hi] inclusive, drawn from the injected RNG. */
@@ -6957,11 +7068,11 @@ function playerSwing(
   const wStyle = ranged ? "ranged" : magic ? "magic" : weaponStyle(player, content);
   const weak = activeWeakness(stats, obj);
   const exploits = wStyle !== undefined && weak.includes(wStyle);
-  const baseAcc = ranged ? rangedAccuracy(player, content)
-    : magic ? magicAccuracy(player, content) : playerAccuracy(player, content);
+  const baseAcc = playerAttackRoll(player, content);
+  // Exploiting a weakness multiplies the ATTACK ROLL, not the rolled damage —
+  // keeping the damage roll a clean uniform [0, max].
   const acc = exploits ? Math.round(baseAcc * COMBAT.weaknessAcc) : baseAcc;
-  let maxHit = ranged ? rangedMaxHit(player, content)
-    : magic ? magicMaxHit(player, content) : playerMaxHit(player, content);
+  let maxHit = playerMaxHit(player, content);
 
   // Magic damage: the FREE basic bolt is deliberately weak sustain (BASIC_BOLT
   // factor), so magic's real damage comes from AUTOCASTING a spell — which spends
@@ -7005,11 +7116,13 @@ function playerSwing(
   }
 
   const mechs = stats.mechanics ?? [];
-  if (special || ctx.rng() < hitChance(acc, effectiveDef(obj, stats, ctx.now))) {
-    const top = Math.max(1, maxHit);
-    const floor = Math.max(1, Math.round(top * COMBAT.dmgMinFrac));
-    const base = randInt(ctx, Math.min(floor, top), top);
-    let dmg = exploits ? Math.ceil(base * COMBAT.weaknessDmg) : base;
+  if (special || ctx.rng() < accuracyFrom(acc, monsterDefenceRoll(effectiveDef(obj, stats, ctx.now)))) {
+    // Weakness scales the CEILING, so the roll below stays uniform.
+    const top = Math.max(1, exploits ? Math.round(maxHit * COMBAT.weaknessDmg) : maxHit);
+    // OSRS rolls uniformly from ZERO: a landed blow that does nothing is a real
+    // outcome, and the blue 0-splat is a large part of how OSRS combat reads.
+    // A special attack is the exception — a spent spec bar always does something.
+    let dmg = special ? randInt(ctx, 1, top) : randInt(ctx, 0, top);
     // Thick hide (scaleguard): melee shrugs off most of the blow UNLESS the hit
     // exploits the boss's weakness — so bringing the right style really matters.
     const guard = mechs.find((m) => m.type === "scaleguard");
@@ -7083,7 +7196,8 @@ function playerSwing(
     // Ranged and magic strike from a distance, so they're spared the recoil.
     if (!ranged && !magic) {
       const rec = mechs.find((m) => m.type === "recoil");
-      if (rec && rec.type === "recoil" && player.hp > 1) {
+      // A blow that did nothing cannot burn you back.
+      if (dmg > 0 && rec && rec.type === "recoil" && player.hp > 1) {
         const burn = Math.min(player.hp - 1, Math.max(1, Math.round(dmg * rec.frac)));
         if (burn > 0) {
           player.hp -= burn;
@@ -7231,7 +7345,7 @@ function castSpell(
         return;
       }
       player.grace -= spell.cost;
-      const top = Math.max(1, magicMaxHit(player, content));
+      const top = Math.max(1, playerMaxHit(player, content));
       const dmg = Math.max(1, Math.round(top * (spell.dmgMult ?? 1)));
       obj.hp -= dmg;
       events.push({ type: "DAMAGE", targetId: obj.id, amount: dmg, weak: true });
@@ -7528,28 +7642,36 @@ function monsterSwing(
     dmgMult *= 1 + 0.12 * state.delve.depth;
   }
 
-  if (ctx.rng() < hitChance(stats.acc ?? 0, playerDefence(player, content))) {
-    const raw = randInt(ctx, 1, stats.maxHit);
-    const soak = Math.floor(playerDefence(player, content) / COMBAT.wardDivisor);
+  // The armour triangle bites here: which of the player's five defence bonuses
+  // resists this blow depends on how the monster attacks.
+  const incomingType = damageTypeOf(stats.attackStyle);
+  if (ctx.rng() < accuracyFrom(monsterAttackRoll(stats), playerDefenceRoll(player, content, incomingType))) {
+    // Uniform from ZERO, as the player's roll is. The flat `wardDivisor` soak
+    // that used to subtract floor(defence/15) here is gone: defence now lowers
+    // how OFTEN you are hit, through the defence roll above, rather than
+    // shaving every landed blow. Flat soak on top of a real zero floor would
+    // stack two different mitigations and make heavy armour absurd.
+    const raw = randInt(ctx, 0, stats.maxHit);
     // Ordinary monsters hit harder now (so an even fight bites); bosses keep
     // their own hand-tuned damage and are exempt from the global bump.
     const offense = stats.boss ? 1 : COMBAT.monsterDmgMult;
-    let dmg = Math.max(1, Math.round((raw - soak) * dmgMult * offense));
+    let dmg = Math.max(0, Math.round(raw * dmgMult * offense));
     // A held protection blessing halves damage of its style — the counterplay
     // layer: read the boss's attack style and light the right deflection.
     const bless = player.blessing ? content.spells.find((s) => s.id === player.blessing) : undefined;
     if (bless?.deflectStyle) {
       const incoming = stats.attackStyle === "ranged" ? "ranged"
         : stats.attackStyle === "magic" ? "magic" : "melee";
-      if (bless.deflectStyle === incoming) dmg = Math.max(1, Math.ceil(dmg * 0.5));
+      // `dmg && …` so a mitigation can never turn a real zero back into a 1.
+      if (bless.deflectStyle === incoming) dmg = dmg && Math.max(1, Math.ceil(dmg * 0.5));
     }
     // The Warden's Pale Greaves (Undergate unique): every blow lands a tenth softer.
-    if (player.equipment.boots === "pale_greaves") dmg = Math.max(1, Math.round(dmg * 0.9));
+    if (player.equipment.boots === "pale_greaves") dmg = dmg && Math.max(1, Math.round(dmg * 0.9));
     // A Bracing Draught (the universal, Faith-free protection layer): while braced,
     // every incoming blow lands `mitigate` softer — a weaker, buildless echo of
     // the Devotion blessings, so a pure-combat main can still buy some defence.
     const brace = buffVal(player, "mitigate");
-    if (brace > 0) dmg = Math.max(1, Math.round(dmg * (1 - Math.min(0.6, brace))));
+    if (brace > 0) dmg = dmg && Math.max(1, Math.round(dmg * (1 - Math.min(0.6, brace))));
     const before = player.hp;
     player.hp -= dmg;
     events.push({ type: "DAMAGE", targetId: "player", amount: dmg });
@@ -7560,7 +7682,8 @@ function monsterSwing(
     }
     // Life-drain: the boss heals a fraction of the harm it does.
     const ld = mechanics.find((m) => m.type === "lifedrain");
-    if (ld && ld.type === "lifedrain" && obj.hp !== undefined && obj.hp < stats.hp) {
+    // A blow that did nothing feeds nothing.
+    if (dmg > 0 && ld && ld.type === "lifedrain" && obj.hp !== undefined && obj.hp < stats.hp) {
       obj.hp = Math.min(stats.hp, obj.hp + Math.max(1, Math.round(dmg * ld.frac)));
       if (ctx.rng() < 0.4) events.push({ type: "LOG", message: ld.tell });
     }
@@ -7860,9 +7983,10 @@ function resolveSlams(
     if (bless?.deflectStyle) {
       const incoming = stats.attackStyle === "ranged" ? "ranged"
         : stats.attackStyle === "magic" ? "magic" : "melee";
-      if (bless.deflectStyle === incoming) dmg = Math.max(1, Math.ceil(dmg * 0.5));
+      // `dmg && …` so a mitigation can never turn a real zero back into a 1.
+      if (bless.deflectStyle === incoming) dmg = dmg && Math.max(1, Math.ceil(dmg * 0.5));
     }
-    if (player.equipment.boots === "pale_greaves") dmg = Math.max(1, Math.round(dmg * 0.9));
+    if (player.equipment.boots === "pale_greaves") dmg = dmg && Math.max(1, Math.round(dmg * 0.9));
     player.hp -= dmg;
     events.push({ type: "DAMAGE", targetId: "player", amount: dmg });
     events.push({ type: "LOG", message: `${def.name}'s ${slam.tiles ? "cleave catches" : "slam catches"} you square — ${dmg} damage!` });

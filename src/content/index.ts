@@ -11,6 +11,7 @@ import { actions } from "./actions.ts";
 import { items } from "./items.ts";
 import { map, CITY_SPAWN } from "./map.ts";
 import { monsters } from "./monsters.ts";
+import { buildEquipBonuses } from "./equipBonus.ts";
 import { quests } from "./quests.ts";
 import { spells } from "./spells.ts";
 import { lore } from "./lore.ts";
@@ -33,6 +34,10 @@ export const content: Content = {
   objects,
   items,
   monsters,
+  // Derived once at boot from `items` — the OSRS-style attack/defence vector
+  // every combat calculation reads. See equipBonus.ts for why it is derived
+  // rather than authored or generated.
+  equipBonus: buildEquipBonuses(items),
   actions,
   quests,
   spells,

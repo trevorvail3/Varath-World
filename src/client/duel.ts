@@ -24,7 +24,7 @@
 
 import type { Content, Intent, ItemId, Player } from "../core/types.ts";
 import {
-  DUEL_MAX_TICKS, DUEL_TICK_MS, duelCreate, duelHash, duelSeed, duelStart, duelStep,
+  DUEL_MAX_TICKS, DUEL_TICK_MS, duelCreate, duelFormulasMatch, duelHash, duelSeed, duelStart, duelStep,
   fighterFingerprint,
   type DuelEvent, type DuelFighter, type DuelIntent, type DuelState,
 } from "../core/duelCore.ts";
@@ -342,6 +342,16 @@ export class DuelSession {
 
   private maybeLock(): void {
     if (!this.mine.ok || !this.theirs.ok || !this.me || !this.foe) return;
+    // Refuse a duel between builds running different combat maths BEFORE anything
+    // is escrowed: both clients simulate the fight in lockstep from the same
+    // seed, so mismatched formulas would diverge mid-fight with real staked gold
+    // on the line. Standing down before the stake is cleaner than voiding after.
+    if (!duelFormulasMatch(this.me, this.foe)) {
+      this.phase = "idle";
+      this.result = "void";
+      this.onChange();
+      return;
+    }
     // Both accepted the same revision: escrow my stake and start the count.
     this.dispatch({ type: "DUEL_STAKE", duelId: this.duelId, gold: this.mine.gold, items: this.mine.items });
     this.staked = true;

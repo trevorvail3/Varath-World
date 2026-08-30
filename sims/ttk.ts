@@ -16,6 +16,7 @@
  */
 
 import { content, makeWorld, SimClock, levelMatchedPlayer, round } from "./harness.ts";
+import { readFileSync } from "node:fs";
 import { applyIntent, tick } from "../src/core/worldCore.ts";
 
 /** Seeds for the offence pass (TTK / hit rate) and the survivability pass. */
@@ -125,7 +126,53 @@ function run(): Row[] {
 }
 
 const rows = run();
-if (process.argv.includes("--json")) {
+
+/**
+ * `--check` compares this run against the committed baseline and reports how far
+ * combat has moved. It prints a verdict rather than throwing: a formula change is
+ * EXPECTED to move individual monsters, and the question is whether the roster as
+ * a whole still sits where it did.
+ */
+if (process.argv.includes("--check")) {
+  const base: { rows: Row[] } = JSON.parse(readFileSync("sims/baseline.ttk.json", "utf8"));
+  const byId = new Map(base.rows.map((r) => [r.monster, r]));
+  const ratios: { monster: string; r: number }[] = [];
+  for (const r of rows) {
+    const o = byId.get(r.monster);
+    if (o?.ttkMs && r.ttkMs) ratios.push({ monster: r.monster, r: r.ttkMs / o.ttkMs });
+  }
+  const sorted = [...ratios].sort((a, b) => a.r - b.r);
+  const med = sorted[Math.floor(sorted.length / 2)]?.r ?? NaN;
+  const within10 = ratios.filter((x) => Math.abs(x.r - 1) <= 0.10).length;
+  const beyond2x = ratios.filter((x) => x.r > 2 || x.r < 0.5);
+  const meanDeath = (rs: Row[]): number => rs.reduce((a, r) => a + r.deathsPer100, 0) / rs.length;
+
+  // TTK on a short fight is heavily quantized — a 7s kill is about three swings,
+  // so one swing either way reads as a 40% swing in "balance". Offensive OUTPUT
+  // (hit rate x damage per landed hit) is the same quantity without the
+  // granularity: weapon speed is unchanged, so it is proportional to DPS.
+  const output: { monster: string; r: number }[] = [];
+  for (const r of rows) {
+    const o = byId.get(r.monster);
+    if (o?.hitRate && o.dmgPerHit && r.hitRate && r.dmgPerHit) {
+      output.push({ monster: r.monster, r: (r.hitRate * r.dmgPerHit) / (o.hitRate * o.dmgPerHit) });
+    }
+  }
+  const oSorted = [...output].sort((a, b) => a.r - b.r);
+  const oMed = oSorted[Math.floor(oSorted.length / 2)]?.r ?? NaN;
+  const oWithin10 = output.filter((x) => Math.abs(x.r - 1) <= 0.10).length;
+  const oWithin25 = output.filter((x) => Math.abs(x.r - 1) <= 0.25).length;
+  console.log(`monsters compared     ${ratios.length}`);
+  console.log(`median TTK ratio      ${med.toFixed(3)}   (1.000 = unchanged)`);
+  console.log(`within 10% of before  ${within10}/${ratios.length}`);
+  console.log(`beyond 2x either way  ${beyond2x.length}${beyond2x.length ? "  " + beyond2x.map((x) => `${x.monster} ${x.r.toFixed(2)}x`).join(", ") : ""}`);
+  console.log(`mean death%           ${meanDeath(base.rows).toFixed(1)} -> ${meanDeath(rows).toFixed(1)}`);
+  console.log(`--- damage output (unquantized) ---`);
+  console.log(`median output ratio   ${oMed.toFixed(3)}`);
+  console.log(`within 10% / 25%      ${oWithin10}/${output.length}  ${oWithin25}/${output.length}`);
+  const worst = [...output].sort((a, b) => Math.abs(b.r - 1) - Math.abs(a.r - 1)).slice(0, 8);
+  console.log(`most moved            ${worst.map((x) => `${x.monster} ${x.r.toFixed(2)}x`).join(", ")}`);
+} else if (process.argv.includes("--json")) {
   console.log(JSON.stringify({ ttkSeeds: TTK_SEEDS, deathSeeds: DEATH_SEEDS, rows }, null, 2));
 } else {
   console.log(`${"monster".padEnd(22)}${"lvl".padStart(4)}${"hp".padStart(6)}${"ttk".padStart(9)}${"hit%".padStart(7)}${"dmg".padStart(7)}${"death%".padStart(8)}${"t/o".padStart(5)}`);

@@ -804,6 +804,41 @@ export type EquipSlot =
  * mount/pet/cape `meta`); they're carried losslessly so nothing is invented or
  * dropped when the systems that consume them arrive. See docs/CANON_LEDGER.md.
  */
+/**
+ * An item's full combat contribution, in OSRS's vocabulary: an attack bonus and
+ * a defence bonus against each of the five damage types, plus the three damage
+ * bonuses and a Grace (prayer) bonus.
+ *
+ * These are DERIVED from the fields items already carry — see
+ * `src/content/equipBonus.ts`. No item authors them by hand; a handful of
+ * marquee pieces override the derivation.
+ */
+export interface EquipBonus {
+  /** Attack bonus vs each damage type — which one is used depends on the
+   *  attack the player is making. */
+  aStab: number;
+  aSlash: number;
+  aCrush: number;
+  aMagic: number;
+  aRange: number;
+  /** Defence bonus vs each damage type — which one is used depends on the
+   *  attack coming in. This is where the armour triangle lives. */
+  dStab: number;
+  dSlash: number;
+  dCrush: number;
+  dMagic: number;
+  dRange: number;
+  /** Melee strength — feeds max hit. */
+  str: number;
+  /** Ranged strength — feeds ranged max hit. */
+  rngStr: number;
+  /** Magic damage — a flat add, matching Varath's existing magic maths rather
+   *  than OSRS's percentage model. */
+  magDmg: number;
+  /** Grace (prayer) bonus. */
+  prayer: number;
+}
+
 export interface ItemDef {
   id: ItemId;
   name: string;
@@ -2961,6 +2996,8 @@ export interface Content {
   items: Record<ItemId, ItemDef>;
   /** Monster combat stats + loot, keyed by MonsterStats id. */
   monsters: Record<string, MonsterStats>;
+  /** Every item's derived OSRS-style combat vector — see content/equipBonus.ts. */
+  equipBonus: Record<ItemId, EquipBonus>;
   /** The full canon skill-action registry — drives gathering + station crafting. */
   actions: SkillAction[];
   /** The quest chains (data). */
