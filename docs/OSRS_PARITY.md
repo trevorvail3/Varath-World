@@ -79,6 +79,24 @@ is wall-clock ms off `ctx.now` (12 `_MS` constants, plus `nextAttackAt`,
 respawns, craft intervals, farming epochs) and is therefore *unaffected* by a
 change to `TICK_MS`. The tick change touches movement cadence and nothing else.
 
+## WS0 — The sim harness *(do first — it does not exist)*
+
+`tsx` is **not a dependency**, there is no `sims/` directory, and `node_modules`
+is not installed. Before any code changes:
+
+- Add `tsx` to `devDependencies` and `sim:*` scripts; add `"sims"` to
+  `tsconfig.json`'s `include` so the sims are typechecked too — they are the
+  only regression net this repo has.
+- `sims/harness.ts`: **reuse `mulberry32` from `duelCore.ts`** (already the
+  project's seeded PRNG) — do not write a second one. Export `makeCtx(nowMs)`
+  matching `src/main.ts:71`, an `advance()` that ticks in sub-`TICK_MS` slices
+  so the accumulator at `worldCore.ts:4782` behaves like a real rAF loop, and
+  one shared `levelMatchedPlayer(content, level)` built via **`equipRequirement`
+  (`worldCore.ts:2842`)** so every balance sim agrees on what "level-matched"
+  means.
+- **Commit `sims/baseline.ttk.json` and `sims/baseline.rates.json` generated
+  against unchanged code.** Nothing below is trustworthy without them.
+
 ## WS1 — The 600ms game tick
 
 Set `TICK_MS = 600` (`worldCore.ts:63`) and re-express movement.
@@ -98,13 +116,51 @@ Set `TICK_MS = 600` (`worldCore.ts:63`) and re-express movement.
   floored at 3). This is what actually delivers the OSRS *feel*: swings,
   eating (`EAT_DELAY_MS`) and movement all land on the same beat.
 
-**Risk — what gets coarser.** The 200ms clock is load-bearing in two places
-worth checking by hand: boss slam/cleave dodge windows (`resolveSlams`,
-`worldCore.ts:7774`) and the pier fishing tension minigame. Both need a real
-browser check. `tensionUI.ts` runs its own rAF loop and is probably
-unaffected, but boss telegraph windows are expressed in ms and will now be
-sampled 3× less often — verify each telegraph still leaves ≥2 ticks of
-reaction time, and lengthen any that doesn't.
+### Two regressions that are NOT "unaffected ms"
+
+The claim that ms-expressed timings are unaffected holds only for schedulers
+that *accumulate*. Verified in the tree, they split two ways:
+
+- **Combat accumulates and is safe** — `worldCore.ts:6857` does
+  `nextActionAt += playerSpeed(...)`, so quantization changes jitter but not
+  average rate.
+- **Gathering and crafting do not** — `:5470`, `:5515`, `:5525` and
+  `beginGather` all do `nextActionAt = ctx.now + interval`, and `ctx.now` is
+  already tick-quantized. The effective interval becomes
+  `ceil(interval / TICK_MS) × TICK_MS`, which **only ever gets slower**.
+
+**This wrecks the top of the tool ladder.** `TOOL_TIER_SPEED`
+(`worldCore.ts:2830`) runs 1.0 → 0.45. A tier-10 pickaxe at 1500 × 0.45 =
+675ms quantizes to 1200ms — **a 44% rate loss**. Base mining 1500 → 1800
+(+20%); fishing 1300 → 1800 (+38%). This is silent: no crash, no bug report,
+just "levelling feels slow now", while invalidating every xp/hr figure on
+record.
+
+**Fix:** stop expressing gather cadence in ms. Fix the swing at **4 ticks
+(2.4s)** — OSRS's gathering beat — and move the tool ladder out of *interval*
+and into *success chance* (`WOODCUTTING.success` / `MINING.success` /
+`FISHING.success`, `worldCore.ts:197-199`). That is what OSRS actually does,
+it deletes the quantization problem outright, and the rates can be refit
+exactly against `baseline.rates.json`.
+
+**Pursuit silently stops working.** `wanderCreatures` reserves a tile on one
+tick (`obj.wanderTarget`, `:5131`) and only commits the hop on the next
+(`:5091-5095`) — **two ticks per tile**. At 200ms that's 400ms/tile, faster
+than the player's 600ms walk. At 600ms it becomes **1200ms/tile, half the
+player's walk speed, so no aggressive monster can ever reach a walking
+player.** Aggro still fires and `PURSUE_MS` still counts down; the whole
+system just becomes decorative, and nothing surfaces it. **Fix:** in the
+`(engaged || pursuing)` branch, commit the step in the same tick instead of
+reserving; keep reserve-then-hop for idle ambling, where it is a pacing
+feature. `NPC_STEP_TICKS` 3 → 1.
+
+**Risk — what gets coarser.** Boss slam/cleave dodge windows (`resolveSlams`,
+`worldCore.ts:7774`) are `windupMs` 2000–2800, which all collapse to 4–5
+ticks; combined with running at 2 tiles/tick a radius-1 slam becomes dodgeable
+in *one* tick — too generous. Add `windupTicks` to the `slam`/`cleave`
+mechanics and author 3 ticks as the norm. The pier tension minigame runs its
+own rAF loop in `tensionUI.ts` outside the tick and is genuinely unaffected.
+Both still need a real browser check.
 
 ## WS2 — OSRS accuracy and damage rolls
 
@@ -130,6 +186,27 @@ WS6's hitsplats. Note this deliberately *undoes* an earlier tuning decision —
 the comment at `worldCore.ts:414` explains why the floor was added. Flag it
 for the feel-test.
 
+**The max-hit compression is the real problem.** At vigour 99 with a +86
+strength bonus, today's model gives `round(99 × 0.6) + 86 = 145`, ×1.12
+stance ≈ **162**. OSRS's formula gives
+`floor(0.5 + 118 × 150 / 640) = **28**` — a **~5× drop**, against monster HP
+pools reaching 2600. Left alone, the apex bosses become 10-minute fights and
+every drop-rate, bounty count and Delve figure on record is invalid.
+**Do not scale monster HP** — that invalidates every implied kill rate and
+bounty task count. Expose one `COMBAT.maxHitScale` multiplier and fit it by
+sim against baseline median TTK. Expect ≈ 4–6.
+
+**Combat XP is immune, and that is why this is tractable.** XP is granted per
+point of damage, and total damage per kill equals monster HP regardless of how
+the distribution is shaped — so WS2 needs **no XP retuning at all**.
+
+**Zeros have consequences beyond the splat.** Specials must stay guaranteed
+`1..maxHit` (that is their identity); `recoil` and `lifedrain` need a
+`dmg > 0` guard or a 0-hit burns you for 1; spec charging fires on any landed
+hit, so charging on zeros needs `SPEC_GAIN_PER_HIT` dropped to compensate;
+monster damage moves from `randInt(1, maxHit)` to `randInt(0, maxHit)`,
+halving mean damage per landed hit, so `COMBAT.monsterDmgMult` must be refit.
+
 **Monster stats are not in OSRS units** and must not be hand-authored across
 85 monsters. Derive: fit a conversion from each monster's existing
 `acc`/`def`/`maxHit` so post-change accuracy and TTK track current values,
@@ -139,9 +216,27 @@ rather than replacing it — the weakness triangle (`weaknessAcc 1.5`,
 `weaknessDmg 1.4`), `bossOffStyleDmg 0.6`, `eliteOffStyleDmg 0.85`,
 scaleguard, and the `wardDivisor` soak.
 
-**This is the workstream most likely to blow up the balance.** Guard: write
-the TTK/XP-rate sim *before* touching the formulas, record a baseline, and
-treat >10% drift on any monster as a bug to fix — not as a new balance point.
+**Removing the flat `wardDivisor` soak is a second, separate risk.** Defence
+should lower hit *frequency*, not subtract a flat N — but until a low-level
+player's defence *roll* advantage is large enough to replace that flat soak,
+they take full damage from trash they used to shrug off. It is silent until
+someone dies to a rat. Assert deaths-per-100-fights per monster, not just TTK:
+**TTK can be preserved while the game becomes unsurvivable.**
+
+**This is the workstream most likely to blow up the balance**, because three
+changes land at once — the ~5× max-hit compression, the zero-floor roll, and
+the soak removal — each individually tunable, together moving TTK, incoming
+DPS, food consumption *and* variance simultaneously. Guard: put both formulas
+behind a `COMBAT.formula: "legacy" | "osrs"` switch so a regression is
+bisectable and both can be printed side by side; write the TTK/death-rate sim
+*before* touching the formulas; treat >10% TTK drift as a bug, not a new
+balance point.
+
+**`duelCore.ts` mirrors the PvE curve verbatim** (its own `DEF_WEIGHT` /
+`HIT_FLOOR` / `HIT_CAP`) and folds `acc`/`dmg`/`def` into `fighterFingerprint`,
+the desync hash. Two clients on different builds would **desync mid-duel over
+real staked gold**. Add a `formulaVersion` to `DuelFighter`, refuse to start on
+mismatch, and fold it into the fingerprint.
 
 ## WS3 — The equipment bonus sheet *(do before WS2)*
 
@@ -174,11 +269,25 @@ wearable — what makes gear upgrades legible. This is also what finally gives
 ## WS4 — Attack options per weapon type
 
 OSRS gives each weapon type four options that pick **both** the attack type
-(stab/slash/crush) and the XP split. `wepType` already exists on every weapon
-and is currently unused for this.
+(stab/slash/crush) and the XP split.
+
+⚠️ **`wepType` does not exist on every weapon.** Measured: only **30 items**
+carry it (dagger 9, hammer 7, spear 6, claymore 6, sword 2) out of ~58
+weapons — and **none of the 9 bows or 9 staves have one**, nor do 7 of the 9
+swords or the legendaries. A bare `Record<WepType, …>` therefore covers under
+half the arsenal. **Ship a `wepTypeOf(def)` deriver first**: explicit
+`wepType` → `ranged ⇒ bow` → `magic ⇒ staff` → id prefix
+(`sword_`/`dagger_`/`spear_`/`hammer_`/`claymore_`) → `attackStyle`
+(slash⇒sword, stab⇒dagger, crush⇒hammer) → `tool` → `unarmed`. Then tighten
+`ItemDef.wepType` from `string` to the real union and let tsc find every
+literal. It belongs next to the WS3 deriver, same file, same philosophy.
+
+Note also that weapon `speed` is **absent** on all bows, all `sword_*` and 5
+legendaries — they silently fall through to `COMBAT.playerMeleeSpeed` 2400.
+Worth fixing while in here.
 
 Add `WEAPON_STYLES: Record<WepType, AttackOption[]>` in content, replacing the
-flat `STYLE_MODS` (`worldCore.ts:436`) as the source of the acc/dmg/def
+flat `STYLE_MODS` (`worldCore.ts:434`) as the source of the acc/dmg/def
 weighting. A scimitar-equivalent offers Chop (slash/accurate), Slash
 (slash/aggressive), Lunge (stab/controlled), Block (slash/defensive); a hammer
 offers crush options; a spear offers stab.
@@ -221,6 +330,13 @@ The visual half of the parity pass, all on existing seams:
   and a case in `play()`.
 
 ## WS7 — Death penalty and the quick-action strip
+
+**Prerequisite: the death path is duplicated.** `PLAYER_DIED` is pushed from
+two places — `worldCore.ts:7556` (full: gold + pack spill + `deathSpillStacks`)
+and `:7822` in `resolveSlams` (degraded: coin only, pack left intact). WS5's
+poison death would add a third. Extract one `killPlayer()` first; it is
+independently verifiable and the gravestone work depends on it. Decide the
+slam-path discrepancy deliberately — a death should be a death.
 
 **Harsher death.** `DEATH_ITEMS_KEPT = 3` and the 5-minute ground spill
 already exist (`worldCore.ts:145`, `:7532`); what goes is
@@ -327,7 +443,9 @@ There is no test runner, and this plan does not add one. The established gates:
    expected; filter it. Because `ItemId` is a hand-maintained union and every
    content reference is type-checked, this alone proves the data layer is
    internally consistent.
-2. **Headless `npx tsx` sims** driving `createWorld` / `applyIntent` / `tick`.
+2. **Headless `tsx` sims** driving `createWorld` / `applyIntent` / `tick`.
+   ⚠️ `tsx` is **not currently a dependency** and there is no `sims/`
+   directory — see WS0.
 3. **Manual feel-test on a dev server** for anything visual or timing-related.
    The tick change and the hitsplat work **cannot** be signed off headlessly.
 4. **The `?test=1` seam** — `src/main.ts:357` exposes
@@ -341,11 +459,11 @@ output. It is the only thing that will tell you whether WS2 broke the balance.
 
 | # | Asserts |
 |---|---|
-| **Baseline** | For all 85 monsters: hit chance, mean damage, TTK, XP/hr, kills/hr. Recorded to a checked-in JSON fixture. |
-| WS1 | Walking N tiles takes N ticks; running takes ⌈N/2⌉; a 2400ms weapon fires every 4 ticks; TTK within 5% of baseline. |
-| WS2 | Re-run the baseline — **every monster within 10% of its recorded TTK**. Damage distribution includes 0. Accuracy matches the OSRS formula on hand-computed cases. |
+| **Baseline** | For all 85 monsters: hit chance, mean damage, TTK, **deaths per 100 fights**, XP/hr, kills/hr — plus gather actions/min for each of the 10 tool tiers. Two checked-in fixtures. |
+| WS1 | Walking N tiles takes N ticks; running takes ⌈N/2⌉; a 2400ms weapon fires every 4 ticks; TTK within 5% of baseline; **a pursuing wolf closes on a walking player** (catches the reserve-then-hop bug); gather actions/min within 5% of baseline for all 10 tool tiers. |
+| WS2 | Re-run the baseline — **every monster within 10% of its recorded TTK**, and **deaths per 100 fights not more than doubled** for any monster below level 30. Damage distribution includes 0. Accuracy matches the OSRS formula on hand-computed cases. |
 | WS3 | All 704 items produce a complete, finite bonus vector; the armour triangle holds (plate beats leather vs crush, robes beat plate vs magic); the ~14 overrides win over the deriver. |
-| WS4 | Every `wepType` has a full option set; each option maps to a valid attack type and XP split; a version-1 save migrates to a valid option. |
+| WS4 | **Every weapon in `items.ts` resolves to a `WepType` present in `WEAPON_STYLES`** (catches the 28 weapons with no `wepType`); every `wepType` has a full option set; each option maps to a valid attack type and XP split; a version-1 save migrates to a valid option. |
 | WS5 | Poison decays to zero and stops; venom ramps and does not; drained stats restore at 1/min; all deterministic under a fixed seed. |
 | WS7 | Death drops everything but 3 (4 with protection); the grave holds it; reclaim returns it; a second death has defined behaviour; a version-1 save loads with no grave. |
 
