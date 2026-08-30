@@ -28,7 +28,7 @@ import { setPerfMode, setBrightness } from "./render.ts";
 import { audio } from "./audio.ts";
 import { reportBug } from "./ops.ts";
 import { glyph, iconize } from "./glyph.ts";
-import { activeAttackOption, bossMilestones, combatLevel, isIronman, modeOf, compassHint, DAILY_WINDOW_MS, DELVE_FULL_LOCKOUT_MS, equipBonusTotal, equipRequirement, evalAchievement, playerWepType } from "../core/worldCore.ts";
+import { activeAttackOption, bossMilestones, combatLevel, isIronman, masteryRequirement, masteryStars, modeOf, MASTERY_TIERS, totalMasteryStars, compassHint, DAILY_WINDOW_MS, DELVE_FULL_LOCKOUT_MS, equipBonusTotal, equipRequirement, evalAchievement, playerWepType } from "../core/worldCore.ts";
 import { WEAPON_STYLES } from "../content/weaponStyles.ts";
 import { categoryProgress } from "../content/collectionLog.ts";
 import type { LogCategory } from "../content/collectionLog.ts";
@@ -1725,10 +1725,16 @@ export class Hud {
     this.menu.show(screenX, screenY, def.name, items, descWithTotal, valueChip);
   }
 
-  /** Gear tooltip: stat line plus any level requirement to wield it. */
+  /** Gear tooltip: stat line plus whatever it takes to wield the thing —
+   *  a skill level, or, for the Ascendant tier, master stars. */
   private gearDesc(id: ItemId): string {
     const def = this.content.items[id];
     const base = gearLine(def) || def.description;
+    const stars = masteryRequirement(this.content, id);
+    if (stars > 0) {
+      const have = this.lastState ? totalMasteryStars(this.lastState.player) : 0;
+      return `${base} · Requires ${stars}\u2605 mastery (you have ${have})`;
+    }
     const req = equipRequirement(this.content, id);
     if (!req) return base;
     return `${base} · Requires ${this.content.skills[req.skill].name} ${req.level}`;
@@ -2571,14 +2577,16 @@ export class Hud {
     // Mastery: the long-tail prestige surfacing (audit T5·01–03). Master-stars
     // count the 25M/50M/100M-XP tiers a skill has passed (past the level-100
     // cap the game never showed), plus the Delve depth record and the duel ladder.
-    const STAR_TIERS = [25_000_000, 50_000_000, 100_000_000];
-    let totalStars = 0, fullMastery = 0, totalXp = 0;
+    // Read from the core, not a second copy of the thresholds: these stars are
+    // now spendable (they mint Ascendant Embers), so the panel and the game must
+    // never be able to disagree about how many you have.
+    let fullMastery = 0, totalXp = 0;
+    const totalStars = totalMasteryStars(player);
     const starRows = skillIds.map((id) => {
       const xp = player.skills[id]?.xp ?? 0;
       totalXp += xp;
-      const stars = STAR_TIERS.filter((t) => xp >= t).length;
-      if (stars >= 3) fullMastery += 1;
-      totalStars += stars;
+      const stars = masteryStars(player, id);
+      if (stars >= MASTERY_TIERS.length) fullMastery += 1;
       const name = (this.content.skills[id] as { name?: string } | undefined)?.name ?? id;
       return { name, stars, xp };
     }).filter((r) => r.stars > 0).sort((a, b) => b.xp - a.xp);
@@ -2586,12 +2594,26 @@ export class Hud {
       ? `<div class="mastery-chips">` + starRows.map((r) =>
           `<span class="mastery-chip" title="${escapeHtml(r.name)} — ${r.xp.toLocaleString()} XP">${escapeHtml(r.name)} <span class="mastery-star">${"★".repeat(r.stars)}</span></span>`).join("") + `</div>`
       : `<div class="tab-note">No master stars yet — earned at 25M, 50M and 100M XP in a skill, far past level 100.</div>`;
+    // What the stars are actually for. A number nobody can spend is a trophy.
+    const nextStar = skillIds
+      .map((id) => {
+        const xp = player.skills[id]?.xp ?? 0;
+        const next = MASTERY_TIERS.find((t) => xp < t);
+        return next === undefined ? null : { id, need: next - xp, next };
+      })
+      .filter((r): r is { id: SkillId; need: number; next: number } => r !== null)
+      .sort((a, b) => a.need - b.need)[0];
+    const starUse =
+      `<div class="mastery-row">${iconize("\ud83d\udfe0")} Each star mints one <b>Ascendant Ember</b> — the only thing that forges the Ascendant tier, the gear above every level.</div>` +
+      (nextStar
+        ? `<div class="tab-note">Nearest star: ${escapeHtml((this.content.skills[nextStar.id] as { name?: string } | undefined)?.name ?? nextStar.id)}, ${Math.round(nextStar.need).toLocaleString()} XP short of ${(nextStar.next / 1_000_000)}M.</div>`
+        : `<div class="tab-note">Every skill is at the 100M ceiling. There is nothing left above you.</div>`);
     const depth = player.delveDepthRecord ?? 0;
     const st = player.stats;
     const dRating = st.duelRating, dBest = st.duelBestStreak ?? 0, dW = st.duelWins ?? 0, dL = st.duelLosses ?? 0;
     const masteryBody =
       `<div class="mastery-head">Total XP <b>${Math.round(totalXp).toLocaleString()}</b> · Master stars <b>${totalStars}</b>${fullMastery ? ` · 100M skills <b>${fullMastery}</b>` : ""}</div>` +
-      starChips +
+      starChips + starUse +
       `<div class="mastery-row">${iconize("🕳️")} Deepest Delve — ${depth > 0 ? `<b>Depth ${depth}</b>` : "not yet past the gauntlet"}</div>` +
       `<div class="mastery-row">${iconize("⚔️")} Duel ladder — ${dRating !== undefined ? `Rating <b>${dRating}</b> · best streak <b>${dBest}</b> · ${dW}W/${dL}L` : "step into the ring to earn a rating"}</div>`;
 

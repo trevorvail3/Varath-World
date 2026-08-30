@@ -558,6 +558,17 @@ export type ItemId =
   | "deepmoss_broth"
   | "ashbloom_tea"
   | "health_elixir"
+  | "ascendant_ember"
+  | "ascendant_helm"
+  | "ascendant_body"
+  | "ascendant_legs"
+  | "ascendant_boots"
+  | "ascendant_shield"
+  | "ascendant_claymore"
+  | "ascendant_spear"
+  | "ascendant_maul"
+  | "ascendant_bow"
+  | "ascendant_staff"
   | "shard_of_orun"
   | "blade_of_graves"
   | "marrow_flail"
@@ -870,6 +881,10 @@ export interface ItemDef {
   /** Explicit equip level, overriding the tier→level table (for uniques like
    *  the level-75 dragon set). Gated on the slot's combat skill. */
   equipLevel?: number;
+  /** Master stars needed to wear this, across all skills. The Ascendant tier
+   *  gates on mastery rather than level, because level stops at 100 and this
+   *  gear sits above everything a level can reach. See masteryRequirement. */
+  equipMastery?: number;
   /**
    * Gathering-tool kind. Tools are wielded in the mainhand (slot "mainhand")
    * but tagged here so the core knows a mainhand item is a hatchet/pickaxe/rod

@@ -598,9 +598,47 @@ phase headless sims cannot cover.
   rule, an absent `mode` reads as unrestricted, and — because of the
   `combatFeats` bug above — every mode, the death record and the feats survive a
   real `serializePlayer` → `hydratePlayer` round-trip.
-- **New gear tier + mastery beyond max.** `XP_CAP = 100M` already lets XP
-  climb past level 100 (`src/content/xpCurve.ts:36-39`), so the prestige
-  substrate exists; it needs a visible mastery layer on top.
+- ~~**New gear tier + mastery beyond max.**~~ **Done.** The substrate was always
+  there — `XP_CAP = 100M` lets XP climb while the level orb freezes at 100 — and
+  the Records tab already counted master stars at 25M/50M/100M XP. What it never
+  had was a **meaning**: nothing anywhere read those stars. A number nobody can
+  spend is a trophy, not progression.
+
+  **Stars are now currency.** Each one, the first time it is passed, mints one
+  **Ascendant Ember** (flag-guarded per star, so it pays exactly once however
+  the XP arrives). Embers are the only ingredient in the **Ascendant tier** —
+  ten pieces (helm, cuirass, greaves, sabatons, bulwark, greatsword, spear,
+  maul, longbow, staff), each the best of its family in the game. The whole tier
+  falls out of the XP curve: **no new drop table, no new currency, no new sink.**
+
+  **It gates on mastery, not level**, via a new `equipMastery` on `ItemDef` and
+  `masteryRequirement()` — kept beside `equipRequirement` rather than folded into
+  its return type, because nine call sites read that shape and only this tier has
+  anything to say. Level stops at 100; this gear sits above everything a level
+  can reach.
+
+  Level 100 is 12M XP, so the first star at 25M is already **twice the entire
+  climb to max**. The set costs 25 embers against the 63 an account can ever
+  mint (21 skills × 3), so it is finishable but is deliberately the longest road
+  in Varath.
+
+  Settlement runs on the **tick** as well as on the XP grant: a save loaded at
+  60M XP crossed its stars while the game was not running, and waiting for the
+  next XP gain would leave that player holding nothing. The loop exits on the
+  first comparison for anyone below 25M, which is almost everyone, almost always.
+
+  The HUD now reads `masteryStars`/`totalMasteryStars` **from the core** instead
+  of keeping its own copy of the thresholds — the panel and the game must not be
+  able to disagree about a number you can spend — and says what the stars are
+  for, with the nearest one named and its XP counted down.
+
+  `sims/mastery.ts` guards it through the real core: one ember per star and
+  never a duplicate, a save loaded already past two stars settles both and only
+  once, every Ascendant piece is forgeable and only from embers, the set costs
+  less than an account can mint, the gate actually refuses at 0 stars and admits
+  at the required count, and each piece beats the best non-Ascendant item **in
+  its own family** (comparing a maul to a greatsword measures crush vs slash,
+  not the tier).
 - **Raids.** ⚠️ **Named blocker: there is no per-player instancing.**
   "Instances" today are fixed coordinate bands — `HOME_LOTS`
   (`src/content/map.ts:191`) is *three hardcoded lots*, and `instanceRectAt()`

@@ -53,7 +53,7 @@ const DEFENCE_SPREAD: Record<Archetype, [number, number, number, number, number]
 };
 
 /** Categories that read as heavy metal armour. */
-const PLATE_CATS = new Set(["Armour", "Legendary Armour", "Bone Armour"]);
+const PLATE_CATS = new Set(["Armour", "Legendary Armour", "Bone Armour", "Ascendant Armour"]);
 /** Categories that read as light/ranged armour. */
 const LEATHER_CATS = new Set(["Leather Armour", "Ranged Armour", "Greenhood Armour", "Trails"]);
 /** Categories that read as caster robes. */

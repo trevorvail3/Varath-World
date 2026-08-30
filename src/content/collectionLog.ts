@@ -18,7 +18,7 @@
  * RULE 1 SAFE: pure functions over content data.
  */
 
-import { CLUE_TIERS, CONTAINER_TABLES, FOUNDER_ITEMS, POTION_POOL, SUPERIOR_UNIQUES } from "../core/worldCore.ts";
+import { ASCENDANT_EMBER, CLUE_TIERS, CONTAINER_TABLES, FOUNDER_ITEMS, POTION_POOL, SUPERIOR_UNIQUES } from "../core/worldCore.ts";
 import type { Content, ItemId, MonsterStats, SkillAction } from "../core/types.ts";
 
 export interface LogEntry {
@@ -318,6 +318,7 @@ export function buildCollectionLog(content: Content): LogCategory[] {
       { item: "burnt_food", tier: "fail a cook" },
       { item: "agility_mark", tier: "run a Trail lap" },
       { item: "pier_chit", tier: "land a graded fish" },
+      { item: ASCENDANT_EMBER, tier: "pass a master star" },
     ];
     const entries = grants.filter((g) => keep(content, g.item));
     if (entries.length) cats.push({ id: "earned", name: "Earned Outright", group: "Other", entries });

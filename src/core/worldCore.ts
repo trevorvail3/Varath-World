@@ -1750,6 +1750,88 @@ const XP_RATE: Record<SkillId, number> = {
   farming: 1.0,
 };
 
+// ---------------------------------------------------------------------------
+// Mastery — the layer above level 100.
+//
+// XP_CAP already lets a skill climb to 100M while the level orb freezes at 100
+// (xpCurve.ts), so the substrate for post-max progression has always existed.
+// What it never had was a MEANING: the Records tab counted master stars and
+// nothing anywhere read them. A number nobody can spend is a trophy, not
+// progression.
+//
+// So each star, the first time it is passed, mints one Ascendant Ember — and
+// embers are the only way to forge the Ascendant tier, the gear above every
+// smithable and every drop. That makes the whole tier fall out of the XP curve
+// itself: no new drop table, no new currency sink, and the post-max grind is
+// the gate rather than a boss's loot roll.
+//
+// Level 100 is 12M XP, so the first star at 25M is already twice the whole
+// climb to max. This is deliberately the longest road in Varath.
+// ---------------------------------------------------------------------------
+
+/** Total XP at which each master star is earned. */
+export const MASTERY_TIERS = [25_000_000, 50_000_000, 100_000_000];
+
+/** The item each star mints, once. Exported so the collection log can name
+ *  its source without repeating the id. */
+export const ASCENDANT_EMBER = "ascendant_ember" as ItemId;
+
+/** Master stars earned in one skill (0–3). */
+export function masteryStars(player: Player, skill: SkillId): number {
+  const xp = player.skills[skill]?.xp ?? 0;
+  return MASTERY_TIERS.filter((t) => xp >= t).length;
+}
+
+/** Master stars across every skill — what the Ascendant tier is gated on. */
+export function totalMasteryStars(player: Player): number {
+  let n = 0;
+  for (const id of Object.keys(player.skills) as SkillId[]) n += masteryStars(player, id);
+  return n;
+}
+
+/** The flag marking one star as already paid, so a reload cannot re-mint it. */
+function masteryFlag(skill: SkillId, tier: number): string {
+  return `mastery:${skill}:${tier}`;
+}
+
+/**
+ * Pay the Ascendant Embers owed for any star this XP gain has just crossed.
+ * Flag-guarded per star, so it fires exactly once each however the XP arrives —
+ * including a save loaded at 60M XP that never saw the crossing.
+ */
+function payMasteryEmbers(
+  state: WorldState,
+  content: Content,
+  skill: SkillId,
+  events: WorldEvent[],
+): void {
+  const { player } = state;
+  const xp = player.skills[skill]?.xp ?? 0;
+  for (let i = 0; i < MASTERY_TIERS.length; i++) {
+    if (xp < MASTERY_TIERS[i]!) break;
+    const flag = masteryFlag(skill, i + 1);
+    if (player.flags.includes(flag)) continue;
+    if (!content.items[ASCENDANT_EMBER]) { player.flags.push(flag); continue; }
+    // The flag is set only once the ember is actually in hand. An ember is the
+    // reward for tens of hours past max: a full pack must postpone it, never
+    // consume it. The overflow bank is no help to an Ultimate Ironman, who
+    // cannot open one — for them a full pack simply means "later", and the next
+    // tick with a free slot pays up.
+    if (canAddItem(player, ASCENDANT_EMBER)) addItem(player, ASCENDANT_EMBER, 1, events);
+    else if (modeOf(player) !== "ultimate") player.bank[ASCENDANT_EMBER] = (player.bank[ASCENDANT_EMBER] ?? 0) + 1;
+    else {
+      events.push({ type: "LOG", message: "A master star waits on you — your pack is full, and an Ascendant Ember needs a hand free.", tone: "err" });
+      break;
+    }
+    player.flags.push(flag);
+    const name = (content.skills as Record<string, { name?: string } | undefined>)[skill]?.name ?? skill;
+    events.push({
+      type: "LOG",
+      message: `Mastery — ${name} passes ${(MASTERY_TIERS[i]! / 1_000_000)}M XP. An Ascendant Ember is yours (${i + 1}\u2605).`,
+    });
+  }
+}
+
 function grantXp(
   state: WorldState,
   content: Content,
@@ -1777,6 +1859,23 @@ function grantXp(
   if (after > before) {
     s.level = after;
     events.push({ type: "LEVEL_UP", skill, level: after });
+  }
+  // Past 100 the level stops moving but mastery does not.
+  if (s.xp >= MASTERY_TIERS[0]!) payMasteryEmbers(state, content, skill, events);
+}
+
+/**
+ * Settle any Ascendant Embers the player is owed across every skill. Called
+ * once a tick as well as on the XP grant, because a save loaded already past a
+ * star crossed it while the game was not running — waiting for the next XP tick
+ * would leave a player who logs in at 60M XP holding nothing. The loop exits on
+ * the first comparison for anyone below the first tier, which is almost
+ * everyone, almost always.
+ */
+function settleMastery(state: WorldState, content: Content, events: WorldEvent[]): void {
+  const { player } = state;
+  for (const id of Object.keys(player.skills) as SkillId[]) {
+    if ((player.skills[id]?.xp ?? 0) >= MASTERY_TIERS[0]!) payMasteryEmbers(state, content, id, events);
   }
 }
 
@@ -3241,6 +3340,16 @@ function tierFromId(id: string): number | undefined {
 }
 
 /**
+ * Master stars a piece needs before it can be worn, or 0 for everything that
+ * gates on a level instead. Kept separate from equipRequirement rather than
+ * folded into its return type: nine call sites read that shape, and only the
+ * Ascendant tier has anything to say here.
+ */
+export function masteryRequirement(content: Content, itemId: ItemId): number {
+  return content.items[itemId]?.equipMastery ?? 0;
+}
+
+/**
  * The skill + level a piece of gear or a tool needs before it can be worn.
  * Tools gate on their gathering skill; weapons gate on Edge, armour on Ward,
  * bows/arrows on Draw. Exported so the UI shows the same requirement the equip
@@ -3353,6 +3462,17 @@ function equipSlot(
       });
       return;
     }
+  }
+  // The Ascendant tier gates on mastery instead of level, because level stops
+  // at 100 and this gear sits above everything a level can reach.
+  const stars = masteryRequirement(content, data.item);
+  if (stars > 0 && totalMasteryStars(player) < stars) {
+    events.push({
+      type: "LOG",
+      message: `The ${def.name} answers only to mastery — ${stars} master stars, and you have ${totalMasteryStars(player)}.`,
+      tone: "err",
+    });
+    return;
   }
 
   const target = eslot as EquipSlot;
@@ -5323,6 +5443,8 @@ export function tick(
 ): WorldEvent[] {
   activeContent = content;
   const events: WorldEvent[] = [];
+  // Any master star crossed while the game was not running is settled here.
+  settleMastery(state, content, events);
   // First call of a session (or an old save without the tick fields): anchor the
   // discrete clock to the real clock so schedules set by intents line up.
   if (!state.tickNow) { state.tickNow = ctx.now; state.lastTick = ctx.now; state.tickAcc = 0; }
