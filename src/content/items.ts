@@ -5285,6 +5285,7 @@ export const items: Record<ItemId, ItemDef> = {
     "sell": 2200
   },
   "bonesaw": {
+    "poison": 4,
     "id": "bonesaw",
     "name": "The Bonesaw",
     "description": "The Boneman's own tool — a long, toothed saw, the handle wrapped in cured hide. It does its grim work as well on the living as the dead.",
@@ -6409,6 +6410,25 @@ export const items: Record<ItemId, ItemDef> = {
       "buffAmt": 0.1,
       "buffMs": 480000
     },
+  "pot_antidote": {
+    "id": "pot_antidote",
+    "name": "Antidote (2)",
+    "description": "Spinethistle steeped over nightshade — bitter enough to make the blood refuse anything else. Each dose draws out poison AND venom outright. Two doses.",
+    "icon": "\ud83e\uddea",
+    "cat": "Potions",
+    "sell": 320,
+    "curePoison": true,
+    "doseNext": "pot_antidote_1"
+  },
+  "pot_antidote_1": {
+    "id": "pot_antidote_1",
+    "name": "Antidote (1)",
+    "description": "One bitter mouthful left. Draws out poison and venom outright.",
+    "icon": "\ud83e\uddea",
+    "cat": "Potions",
+    "sell": 160,
+    "curePoison": true
+  },
   "pot_orunstears": {
       "id": "pot_orunstears",
       "name": "Restore Potion (2)",

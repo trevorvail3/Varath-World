@@ -669,6 +669,11 @@ body {
   letter-spacing: 0.02em;
 }
 
+/* Poison / venom status chips — read as a warning, not a boon. */
+.buff-chip.status { border-color: rgba(63, 155, 79, 0.6); }
+.buff-chip.status.poison { color: #7ec98a; }
+.buff-chip.status.venom { color: #b892e0; border-color: rgba(107, 63, 160, 0.7); }
+
 /* Equipment Stats sheet — three columns: label, attack bonus, defence bonus. */
 .es-head,
 .es-row {

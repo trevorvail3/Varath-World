@@ -3692,6 +3692,7 @@ export const actions: SkillAction[] = [
   { "id": "brew_pot_sage", "skill": "herblore", "name": "Experience Potion", "levelReq": 52, "xp": 190, "baseTime": 5200, "requires": { "vial_water": 1, "herb_duskshade": 1, "forage_dawnspore": 1 }, "produces": "pot_sage", "group": "potions" },
   { "id": "brew_pot_mastergather", "skill": "herblore", "name": "Super Gathering Potion", "levelReq": 62, "xp": 240, "baseTime": 5700, "requires": { "vial_water": 1, "herb_marrowflower": 1, "forage_deepmoss": 1 }, "produces": "pot_mastergather", "group": "potions" },
   { "id": "brew_pot_hearthfire", "skill": "herblore", "name": "Super Experience Potion", "levelReq": 76, "xp": 320, "baseTime": 6400, "requires": { "vial_water": 1, "herb_hearthbloom": 1, "forage_ashbloom": 1 }, "produces": "pot_hearthfire", "group": "potions" },
+  { "id": "brew_antidote", "skill": "herblore", "name": "Antidote", "levelReq": 24, "xp": 92, "baseTime": 4200, "requires": { "vial_water": 1, "herb_spinethistle": 1, "forage_nightshade": 1 }, "produces": "pot_antidote", "group": "potions", "note": "The counterplay to poison. Deliberately cheap to reach (Herblore 24) - a status you cannot answer is not a mechanic, it is a tax." },
   { "id": "brew_pot_orunstears", "skill": "herblore", "name": "Restore Potion", "levelReq": 90, "xp": 430, "baseTime": 7200, "requires": { "vial_water": 1, "herb_orunroot": 1, "forage_nightshade": 1 }, "produces": "pot_orunstears", "group": "potions" },
 
   // --- Trophy sinks (audit T4·03): dead-end monster trophies given a real loop

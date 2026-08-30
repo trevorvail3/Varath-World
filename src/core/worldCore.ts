@@ -438,6 +438,79 @@ export const COMBAT = {
   monsterDmgMult: 1.4,
 };
 
+// --- Poison and venom -------------------------------------------------------
+// Poison bites on its own clock, not on a swing, so it is a reason to leave a
+// fight rather than a modifier inside one.
+/** How long between poison/venom bites. 18 ticks — long enough to run from. */
+const POISON_INTERVAL_MS = 18 * TICK_MS;
+/** A poison lands this many bites before it burns itself out. */
+const POISON_HITS = 8;
+/** Poison loses this much bite each time it lands, so it fades on its own. */
+const POISON_DECAY = 1;
+/** Venom starts here and climbs by VENOM_STEP every bite. It never decays. */
+const VENOM_BASE = 6;
+const VENOM_STEP = 2;
+/** Venom cannot climb past this — it kills you, but it doesn't one-shot you. */
+const VENOM_MAX = 20;
+
+/**
+ * Apply poison (or venom) to whatever is carrying `holder`.
+ *
+ * Re-applying poison REFRESHES rather than stacks: otherwise a fast attacker
+ * would pile on lethal damage that never had a counterplay. Venom, which is
+ * meant to be the fight you bring an antidote to, keeps whatever stack it has.
+ */
+function applyPoison(
+  holder: { poison?: { dmg: number; nextAt: number; hitsLeft: number } | null; venom?: { stack: number; nextAt: number } | null },
+  dmg: number,
+  ctx: Ctx,
+  venom = false,
+): boolean {
+  if (venom) {
+    if (holder.venom) return false; // already envenomed — it only ever ramps
+    holder.venom = { stack: 0, nextAt: ctx.now + POISON_INTERVAL_MS };
+    return true;
+  }
+  // Venom outranks poison: never downgrade the worse condition.
+  if (holder.venom) return false;
+  const fresh = !holder.poison;
+  holder.poison = { dmg, nextAt: ctx.now + POISON_INTERVAL_MS, hitsLeft: POISON_HITS };
+  return fresh;
+}
+
+/** Cure both conditions. Returns what was actually cleared, for the log. */
+function curePoison(holder: { poison?: unknown; venom?: unknown }): "venom" | "poison" | null {
+  const had = holder.venom ? "venom" : holder.poison ? "poison" : null;
+  (holder as { poison?: unknown }).poison = null;
+  (holder as { venom?: unknown }).venom = null;
+  return had as "venom" | "poison" | null;
+}
+
+/**
+ * Advance a holder's poison/venom clock and return the damage it deals now.
+ * Zero means nothing landed this tick.
+ */
+function tickPoison(
+  holder: { poison?: { dmg: number; nextAt: number; hitsLeft: number } | null; venom?: { stack: number; nextAt: number } | null },
+  ctx: Ctx,
+): { dmg: number; kind: "poison" | "venom" } | null {
+  if (holder.venom && ctx.now >= holder.venom.nextAt) {
+    const dmg = Math.min(VENOM_MAX, VENOM_BASE + VENOM_STEP * holder.venom.stack);
+    holder.venom.stack += 1;
+    holder.venom.nextAt = ctx.now + POISON_INTERVAL_MS;
+    return { dmg, kind: "venom" };
+  }
+  if (holder.poison && ctx.now >= holder.poison.nextAt) {
+    const dmg = holder.poison.dmg;
+    holder.poison.hitsLeft -= 1;
+    holder.poison.dmg = Math.max(1, holder.poison.dmg - POISON_DECAY);
+    holder.poison.nextAt = ctx.now + POISON_INTERVAL_MS;
+    if (holder.poison.hitsLeft <= 0) holder.poison = null;
+    return { dmg, kind: "poison" };
+  }
+  return null;
+}
+
 // T1·06 — the combat-style toggle is a LIVE tradeoff, not a flat +3. Each stance
 // re-weights the SAME accuracy / max-hit / defence you already carry, so the
 // choice matters moment-to-moment and switching mid-fight is a real decision:
@@ -3192,8 +3265,15 @@ function eatSlot(
   const canBuff = !!(def.buff && def.buffMs);
   const canGrace = !!def.graceRestore;
   const canEnergy = !!def.energyRestore;
-  if (!canHeal && !canBuff && !canGrace && !canEnergy) {
+  const canCure = !!def.curePoison;
+  if (!canHeal && !canBuff && !canGrace && !canEnergy && !canCure) {
     events.push({ type: "LOG", message: `You can't use the ${def.name}.`, tone: "err" });
+    return;
+  }
+  // Don't waste an antidote on clean blood — the same courtesy the energy
+  // restore below gets.
+  if (canCure && !canHeal && !player.poison && !player.venom) {
+    events.push({ type: "LOG", message: "Nothing is burning through you.", tone: "err" });
     return;
   }
   // Don't waste a pure energy restore (Runner's Blend) on full legs.
@@ -3238,6 +3318,15 @@ function eatSlot(
     player.energy = Math.min(ENERGY_MAX, player.energy + def.energyRestore!);
     player.winded = false;
     msg += " Your legs feel fresh again.";
+  }
+  if (canCure) {
+    const had = curePoison(player);
+    if (had) {
+      events.push({
+        type: "LOG",
+        message: had === "venom" ? "The venom is drawn out of you." : "The poison is drawn out of you.",
+      });
+    }
   }
   // Multi-dose potions (OSRS): a drink leaves the next dose in the slot
   // instead of consuming the vial outright.
@@ -4924,6 +5013,21 @@ function stepTick(
     }
   }
 
+  // 0b2) Poison and venom bite on their own clock. Placed before the death
+  // check below so a poison tick can genuinely be the thing that kills you.
+  if (player.alive) {
+    const bite = tickPoison(player, ctx);
+    if (bite) {
+      player.hp = Math.max(0, player.hp - bite.dmg);
+      events.push({ type: "DAMAGE", targetId: "player", amount: bite.dmg, kind: bite.kind });
+      if (player.hp <= 0) {
+        killPlayerByStatus(state, content, ctx, events, bite.kind);
+      } else if (!player.poison && !player.venom) {
+        events.push({ type: "LOG", message: "The poison finally runs its course." });
+      }
+    }
+  }
+
   // 0c) A held protection blessing burns Grace steadily; it gutters out when
   // the pool runs dry (refill at a shrine and re-light it).
   if (player.blessing) {
@@ -5056,6 +5160,22 @@ function stepTick(
         }
       }
       events.push({ type: "OBJECT_RESPAWNED", objId: def.id });
+    }
+  }
+
+  // 4b) Poison burning through monsters. Kept beside the player's own tick so
+  // the two conditions can never drift apart in behaviour.
+  for (const def of content.objects) {
+    if (def.kind !== "monster") continue;
+    const obj = state.objects[def.id];
+    if (!obj?.available || obj.hp === undefined || !obj.poison) continue;
+    const bite = tickPoison(obj, ctx);
+    if (!bite) continue;
+    obj.hp -= bite.dmg;
+    events.push({ type: "DAMAGE", targetId: def.id, amount: bite.dmg, kind: bite.kind });
+    if (obj.hp <= 0) {
+      const stats = monsterFor(content, def);
+      if (stats) checkKill(state, content, def, obj, stats, ctx, events);
     }
   }
 
@@ -7254,6 +7374,13 @@ function playerSwing(
     } else {
       grantXp(state, content, player.combatStyle, dmg * 1.5, events);
     }
+    // A coated weapon or arrow poisons what it lands on. Read from whichever is
+    // doing the work: the arrow when shooting, the weapon in hand otherwise.
+    const coatId = ranged ? player.equipment.ammo : player.equipment.mainhand;
+    const coat = coatId ? content.items[coatId]?.poison ?? 0 : 0;
+    if (dmg > 0 && coat > 0 && !stats.boss && applyPoison(obj, coat, ctx)) {
+      events.push({ type: "LOG", message: `Your coating bites — the ${def.name} is poisoned.` });
+    }
     grantXp(state, content, "vitality", dmg * 0.5, events);
     // Searing hide (recoil): a melee blow burns you back. Never lethal on its
     // own — it can't drop you below 1 — but it forces you to keep healing.
@@ -7622,6 +7749,81 @@ function lightFire(
   events.push({ type: "LOG", message: `The ${content.items[data.item].name} catches and a fire roars up.` });
 }
 
+/**
+ * Knock the player out — the ONE death path.
+ *
+ * This used to exist twice: the full version in `monsterSwing` and a degraded
+ * copy in the boss-slam handler that took the coin but left the pack intact, so
+ * dying to a slam was quietly cheaper than dying to a swing. Poison would have
+ * made it three. A death is a death, wherever it comes from.
+ */
+function killPlayer(
+  state: WorldState,
+  content: Content,
+  ctx: Ctx,
+  events: WorldEvent[],
+  cause: string,
+): void {
+  const { player } = state;
+  player.hp = 0;
+  player.alive = false;
+  player.respawnAt = ctx.now + PLAYER_RESPAWN;
+  player.path = [];
+  clearActivity(player);
+  // Death clears what is burning through you — respawning is a fresh start, not
+  // a fresh start that immediately kills you again.
+  curePoison(player);
+  // Coin setback: a tenth of your carried gold (capped).
+  const lost = Math.min(DEATH_GOLD_CAP, Math.floor(player.gold * DEATH_GOLD_FRACTION));
+  if (lost > 0) player.gold -= lost;
+  // Item risk, OSRS-style: your gear stays on your back and your THREE most
+  // valuable carried stacks are kept — the rest spills where you fell, and
+  // you have a recovery window to run back for it. New players carry little,
+  // so this self-scales: trivial at level 5, a real corpse-run at the Wyrm.
+  const px = Math.round(player.pos.x);
+  const py = Math.round(player.pos.y);
+  const slots = player.inventory
+    .map((s, i) => ({ s, i, v: s ? marketValue(content, s.item) * s.qty : -1 }))
+    .filter((r) => r.s !== null)
+    .sort((a, b) => b.v - a.v);
+  const spilled = slots.slice(DEATH_ITEMS_KEPT).filter((r) => r.v > 0);
+  // Below a pocket-change total the spill is waived — a newbie's first deaths
+  // sting (coin) but never strip their pack.
+  const spillValue = spilled.reduce((n, r) => n + r.v, 0);
+  let droppedCount = 0;
+  if (spillValue >= DEATH_SPILL_MIN_VALUE) {
+    for (const r of spilled) {
+      dropToGround(state, r.s!.item, r.s!.qty, px, py, ctx, true);
+      player.inventory[r.i] = null;
+      droppedCount++;
+    }
+    // Death drops get a LONGER window than ordinary litter — enough to
+    // respawn, re-gear and run back across the map.
+    for (const g of state.ground) {
+      if (g.x === px && g.y === py) g.despawnAt = ctx.now + DEATH_SPILL_TTL;
+    }
+  }
+  // Record the spill for the death overlay's reassurance line (0 = kept all).
+  player.deathSpillStacks = droppedCount;
+  const bits = [
+    lost > 0 ? `You lose ${lost}g` : "",
+    droppedCount > 0 ? `your pack spills where you fell (${droppedCount} stack${droppedCount === 1 ? "" : "s"} — run back within ${Math.round(DEATH_SPILL_TTL / 60000)} minutes!)` : "",
+  ].filter(Boolean).join(" and ");
+  events.push({ type: "LOG", message: `${cause}${bits ? ` ${bits}.` : ""}` });
+  events.push({ type: "PLAYER_DIED" });
+}
+
+/** Poison or venom finished the job. Routed through the same death as any blow. */
+function killPlayerByStatus(
+  state: WorldState,
+  content: Content,
+  ctx: Ctx,
+  events: WorldEvent[],
+  kind: "poison" | "venom",
+): void {
+  killPlayer(state, content, ctx, events, `The ${kind} takes you.`);
+}
+
 function monsterSwing(
   state: WorldState,
   content: Content,
@@ -7736,6 +7938,17 @@ function monsterSwing(
     // the Devotion blessings, so a pure-combat main can still buy some defence.
     const brace = buffVal(player, "mitigate");
     if (brace > 0) dmg = dmg && Math.max(1, Math.round(dmg * (1 - Math.min(0.6, brace))));
+    // A venomous bite. Only on a blow that actually landed — a blocked hit
+    // shouldn't break your skin.
+    if (dmg > 0 && stats.poison && applyPoison(player, stats.poison, ctx, stats.venom)) {
+      events.push({
+        type: "LOG",
+        message: stats.venom
+          ? `The ${def.name}'s bite burns — you are ENVENOMED. Only an antidote will stop it.`
+          : `The ${def.name}'s bite is poisoned.`,
+        tone: "err",
+      });
+    }
     const before = player.hp;
     player.hp -= dmg;
     events.push({ type: "DAMAGE", targetId: "player", amount: dmg, kind: "hit" });
@@ -7755,51 +7968,7 @@ function monsterSwing(
     events.push({ type: "DAMAGE", targetId: "player", amount: 0, kind: "miss" });
   }
 
-  if (player.hp <= 0) {
-    player.hp = 0;
-    player.alive = false;
-    player.respawnAt = ctx.now + PLAYER_RESPAWN;
-    player.path = [];
-    clearActivity(player);
-    // Coin setback: a tenth of your carried gold (capped).
-    const lost = Math.min(DEATH_GOLD_CAP, Math.floor(player.gold * DEATH_GOLD_FRACTION));
-    if (lost > 0) player.gold -= lost;
-    // Item risk, OSRS-style: your gear stays on your back and your THREE most
-    // valuable carried stacks are kept — the rest spills where you fell, and
-    // you have a recovery window to run back for it. New players carry little,
-    // so this self-scales: trivial at level 5, a real corpse-run at the Wyrm.
-    const px = Math.round(player.pos.x);
-    const py = Math.round(player.pos.y);
-    const slots = player.inventory
-      .map((s, i) => ({ s, i, v: s ? marketValue(content, s.item) * s.qty : -1 }))
-      .filter((r) => r.s !== null)
-      .sort((a, b) => b.v - a.v);
-    const spilled = slots.slice(DEATH_ITEMS_KEPT).filter((r) => r.v > 0);
-    // Below a pocket-change total the spill is waived — a newbie's first deaths
-    // sting (coin) but never strip their pack.
-    const spillValue = spilled.reduce((n, r) => n + r.v, 0);
-    let droppedCount = 0;
-    if (spillValue >= DEATH_SPILL_MIN_VALUE) {
-      for (const r of spilled) {
-        dropToGround(state, r.s!.item, r.s!.qty, px, py, ctx, true);
-        player.inventory[r.i] = null;
-        droppedCount++;
-      }
-      // Death drops get a LONGER window than ordinary litter — enough to
-      // respawn, re-gear and run back across the map.
-      for (const g of state.ground) {
-        if (g.x === px && g.y === py) g.despawnAt = ctx.now + DEATH_SPILL_TTL;
-      }
-    }
-    // Record the spill for the death overlay's reassurance line (0 = kept all).
-    player.deathSpillStacks = droppedCount;
-    const bits = [
-      lost > 0 ? `You lose ${lost}g` : "",
-      droppedCount > 0 ? `your pack spills where you fell (${droppedCount} stack${droppedCount === 1 ? "" : "s"} — run back within ${Math.round(DEATH_SPILL_TTL / 60000)} minutes!)` : "",
-    ].filter(Boolean).join(" and ");
-    events.push({ type: "LOG", message: `The ${def.name} knocks you out!${bits ? ` ${bits}.` : ""}` });
-    events.push({ type: "PLAYER_DIED" });
-  }
+  if (player.hp <= 0) killPlayer(state, content, ctx, events, `The ${def.name} knocks you out!`);
 }
 
 // How often the wandering world boss relocates along its patrol.
@@ -8058,14 +8227,7 @@ function resolveSlams(
       // Same stakes as any killing blow (coin + pack spill live in monsterSwing's
       // death block; a slam death keeps it simple: coin only, pack intact).
       player.hp = 0;
-      player.alive = false;
-      player.respawnAt = ctx.now + PLAYER_RESPAWN;
-      player.path = [];
-      clearActivity(player);
-      const lost = Math.min(DEATH_GOLD_CAP, Math.floor(player.gold * DEATH_GOLD_FRACTION));
-      if (lost > 0) player.gold -= lost;
-      events.push({ type: "LOG", message: `${def.name}'s slam knocks you out!${lost > 0 ? ` You lose ${lost}g.` : ""}` });
-      events.push({ type: "PLAYER_DIED" });
+      killPlayer(state, content, ctx, events, `${def.name}'s slam knocks you out!`);
     }
   }
 }

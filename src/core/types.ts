@@ -675,6 +675,8 @@ export type ItemId =
   | "pot_hearthfire_1"
   | "pot_orunstears"
   | "pot_orunstears_1"
+  | "pot_antidote"
+  | "pot_antidote_1"
   // Ranged + magic gear sets (4 tiers × 3 slots each) and the magic resource.
   // (Sinew already exists as a beast drop.)
   | "hex_cloth"
@@ -890,6 +892,11 @@ export interface ItemDef {
   attackStyle?: string;
   /** Weapon family, e.g. "sword", "dagger", "claymore". */
   wepType?: string;
+  /** A weapon or ammo coated to poison what it hits: the poison damage it
+   *  inflicts on a landed blow. */
+  poison?: number;
+  /** Drinking this clears poison and venom outright. */
+  curePoison?: boolean;
   /** Whether the weapon occupies both hands (no shield). */
   twoHand?: boolean;
   /** A bow: worn in the mainhand but fired at range (uses Draw + the quiver). */
@@ -1283,6 +1290,10 @@ export interface MonsterStats {
   xp: number;
   /** Attack style: "slash" | "stab" | "crush". */
   attackStyle?: string;
+  /** Poison damage this creature inflicts on a landed blow, if any. With
+   *  `venom` it is the ramping kind an antidote is the only answer to. */
+  poison?: number;
+  venom?: boolean;
   /** Styles this monster is weak to (extra damage). */
   weakness?: string[];
   drops: Drop[];
@@ -1389,6 +1400,8 @@ export interface WorldObjectState {
   fert?: 1 | 2;
   /** Boss combat: how many times it has swung (drives the "heavy" cadence). */
   swings?: number;
+  /** Poison burning through a monster — the mirror of the player's own. */
+  poison?: { dmg: number; nextAt: number; hitsLeft: number } | null;
   /** Boss combat: whether the one-shot enrage / self-heal have fired. */
   enraged?: boolean;
   healed?: boolean;
@@ -1665,6 +1678,17 @@ export interface Player {
    * directly — see `attackOption`.
    */
   combatStyle: CombatStyle;
+  /**
+   * Poison: a fixed bite every interval that WEAKENS as it runs its course.
+   * Transient like `buffs` — deliberately not saved, so logging out is not a
+   * cure but a crash is not a punishment either.
+   */
+  poison?: { dmg: number; nextAt: number; hitsLeft: number } | null;
+  /**
+   * Venom: like poison but it RAMPS and never decays. Only an antidote or death
+   * ends it, which is what makes a venomous foe a fight you prepare for.
+   */
+  venom?: { stack: number; nextAt: number } | null;
   /**
    * Which of the wielded weapon's attack options is selected (an index into its
    * family's list in content/weaponStyles.ts). The option decides the DAMAGE

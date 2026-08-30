@@ -1456,11 +1456,19 @@ export class Hud {
   private renderBuffs(player: WorldState["player"]): void {
     const now = performance.now();
     const entries = Object.entries(player.buffs).filter(([, b]) => b.until > now);
-    if (entries.length === 0) {
+    // Poison and venom sit at the FRONT of the strip: they are the only entries
+    // that are costing you health right now, so they must not be something you
+    // discover by watching your HP drift down for no visible reason.
+    const status = player.venom
+      ? `<div class="buff-chip status venom" title="Envenomed — it ramps and will not fade on its own. Drink an antidote."><span class="buff-ic">${iconize("☠️")}</span><span class="buff-amt">Venom</span></div>`
+      : player.poison
+        ? `<div class="buff-chip status poison" title="Poisoned — it bites every few seconds and weakens as it runs out. An antidote ends it now."><span class="buff-ic">${iconize("🧪")}</span><span class="buff-amt">Poison</span></div>`
+        : "";
+    if (entries.length === 0 && !status) {
       if (this.buffStrip.childElementCount) this.buffStrip.innerHTML = "";
       return;
     }
-    this.buffStrip.innerHTML = entries
+    this.buffStrip.innerHTML = status + entries
       .map(([kind, b]) => {
         const secs = Math.max(0, Math.round((b.until - now) / 1000));
         const time = `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, "0")}`;

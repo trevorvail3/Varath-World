@@ -73,6 +73,7 @@ export const monsters: Record<string, MonsterStats> = {
     ]
   },
   "gutter_spider": {
+    "poison": 3,
     "id": "gutter_spider",
     "name": "Gutter Spider",
     "icon": "🕷️",
@@ -526,6 +527,7 @@ export const monsters: Record<string, MonsterStats> = {
     ]
   },
   "mire_serpent": {
+    "poison": 6, "venom": true,
     "id": "mire_serpent",
     "name": "Mire Serpent",
     "icon": "🐍",
@@ -1640,6 +1642,7 @@ export const monsters: Record<string, MonsterStats> = {
     ],
   },
   "ashen_widow": {
+    "poison": 5,
     id: "ashen_widow", name: "The Ashen Widow", icon: "🧙", level: 35, hp: 420,
     acc: 155, def: 42, maxHit: 20, speed: 2700, attackRange: 5, xp: 680, attackStyle: "magic",
     weakness: ["ranged"],
