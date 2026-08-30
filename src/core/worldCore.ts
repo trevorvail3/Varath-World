@@ -1261,7 +1261,9 @@ interface CrateLine { item: ItemId; w: number; min?: number; max?: number }
  *  lines roll INDEPENDENTLY after the weighted haul: each is a flat 1-in-`one`
  *  chance, the mechanism behind the hard casket's clue-exclusive cosmetics —
  *  common enough to chase, rare enough to mean something (the "3rd age" hook). */
-const CONTAINER_TABLES: Record<string, { rolls: number; coins: [number, number]; lines: CrateLine[]; rare?: { item: ItemId; one: number }[] }> = {
+/** Exported so the collection log can read what each container can yield —
+ *  the log derives its Treasure Trails shelf from this rather than repeating it. */
+export const CONTAINER_TABLES: Record<string, { rolls: number; coins: [number, number]; lines: CrateLine[]; rare?: { item: ItemId; one: number }[] }> = {
   bounty_crate: {
     rolls: 2, coins: [20, 80],
     lines: [

@@ -3090,6 +3090,9 @@ export interface Content {
   equipBonus: Record<ItemId, EquipBonus>;
   /** Who and what can be stolen from — see content/thieving.ts. */
   thieveTargets: import("../content/thieving.ts").ThieveTarget[];
+  /** The collection log, derived from every drop and reward table in the game.
+   *  See content/collectionLog.ts. */
+  collectionLog: import("../content/collectionLog.ts").LogCategory[];
   /** The full canon skill-action registry — drives gathering + station crafting. */
   actions: SkillAction[];
   /** The quest chains (data). */

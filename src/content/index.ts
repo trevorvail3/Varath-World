@@ -13,6 +13,7 @@ import { map, CITY_SPAWN } from "./map.ts";
 import { monsters } from "./monsters.ts";
 import { buildEquipBonuses } from "./equipBonus.ts";
 import { thieveTargets } from "./thieving.ts";
+import { buildCollectionLog } from "./collectionLog.ts";
 import { quests } from "./quests.ts";
 import { spells } from "./spells.ts";
 import { lore } from "./lore.ts";
@@ -40,6 +41,8 @@ export const content: Content = {
   // rather than authored or generated.
   equipBonus: buildEquipBonuses(items),
   thieveTargets,
+  // Filled in just below: it needs the finished bundle to read from.
+  collectionLog: [],
   actions,
   quests,
   spells,
@@ -62,6 +65,11 @@ export const content: Content = {
   xpForLevel,
   skills,
 };
+
+// The collection log is derived FROM the finished bundle (it reads drop tables,
+// container tables and the action registry), so it is filled in after the object
+// literal rather than inside it.
+content.collectionLog = buildCollectionLog(content);
 
 /** The player's starting tile, re-exported for main.ts to place them. */
 export const playerStart = playerSpawn;

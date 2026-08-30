@@ -3887,6 +3887,12 @@ button.inv-slot {
 .coll-cell.locked { opacity: 0.9; }
 .coll-cell.locked .item-svg { filter: grayscale(1) brightness(0.35); opacity: 0.7; }
 .coll-cell.got { border-color: rgba(201, 162, 74, 0.4); }
+/* Collection log: the plain-text "still missing" line under each source grid —
+   hover tooltips do not exist on a phone, so the chase has to be readable. */
+.coll-missing { padding: 0 2px 4px; font-size: 10px; line-height: 1.35; color: var(--ink-dim, #9a8b74); }
+.coll-missing.done { color: #8fbf6a; }
+.rec-subbody .rec-sub { border-top-color: rgba(74, 61, 44, 0.22); }
+.rec-subbody .rec-subhead { font-size: 11px; padding: 4px 2px; }
 
 /* === Login + Character Creator (startup overlays) ======================== */
 .login-backdrop, .creator-backdrop {

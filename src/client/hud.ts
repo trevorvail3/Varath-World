@@ -16,7 +16,6 @@ import type {
   EquipSlot,
   Intent,
   InventorySlot,
-  ItemDef,
   ItemId,
   MonsterStats,
   Player,
@@ -31,6 +30,8 @@ import { reportBug } from "./ops.ts";
 import { glyph, iconize } from "./glyph.ts";
 import { activeAttackOption, bossMilestones, combatLevel, compassHint, DAILY_WINDOW_MS, DELVE_FULL_LOCKOUT_MS, equipBonusTotal, equipRequirement, evalAchievement, playerWepType } from "../core/worldCore.ts";
 import { WEAPON_STYLES } from "../content/weaponStyles.ts";
+import { categoryProgress } from "../content/collectionLog.ts";
+import type { LogCategory } from "../content/collectionLog.ts";
 import { SkillDetailModal } from "./skillDetail.ts";
 import { LEVEL_CAP, XP_CAP } from "../content/xpCurve.ts";
 import { HiscoresUI } from "./hiscoresUI.ts";
@@ -2493,31 +2494,53 @@ export class Hud {
       `<div class="char-cape-bar"><div class="char-cape-fill" style="width:${capePct}%"></div></div>` +
       `<div class="char-cape-note">${escapeHtml(capeNote)}</div></div>`;
 
-    // Collection Log (OSRS-style): every item grouped by category, obtained ones
-    // shown in colour with a count, the rest a greyed silhouette to chase.
-    const owned = new Set<ItemId>(player.collection ?? []);
-    const collItems = (Object.values(this.content.items) as ItemDef[])
-      .filter((d) => d.cat && d.cat !== "Quest");
-    const collCats: string[] = [];
-    for (const d of collItems) { const c = d.cat!; if (!collCats.includes(c)) collCats.push(c); }
-    collCats.sort();
-    let collDone = 0, collTotal = 0;
-    const collCatsBody = collCats.map((cat) => {
-      const rows = collItems.filter((d) => d.cat === cat).sort((a, b) => a.name.localeCompare(b.name));
-      const have = rows.filter((d) => owned.has(d.id)).length;
-      collDone += have; collTotal += rows.length;
-      return subSection(`coll:${cat}`, cat, `${have}/${rows.length}`, () =>
-        `<div class="coll-grid">` + rows.map((d) => {
-          const got = owned.has(d.id);
-          return `<span class="coll-cell ${got ? "got" : "locked"}" title="${escapeHtml(got ? d.name : "???")}">${itemIconSVG(d)}</span>`;
-        }).join("") + `</div>`);
-    }).join("");
+    // Collection Log (OSRS-style): organised BY SOURCE, not by item category.
+    // "Vorlag 3/7" tells you where to go; "Armour 40/120" tells you nothing. The
+    // shelves and their contents are derived at boot from the drop tables
+    // themselves (content/collectionLog.ts), so they can never drift from the game.
+    const owned = new Set<string>(player.collection ?? []);
+    const LOG_SHELVES: LogCategory["group"][] = ["Bosses", "Treasure Trails", "Bounty", "Skilling", "Monsters", "Quests", "Shops", "Other"];
+    let collDone = 0, collTotal = 0, collCatsDone = 0;
+    const shelfHtml: string[] = [];
+    for (const shelf of LOG_SHELVES) {
+      const cats = this.content.collectionLog.filter((c) => c.group === shelf);
+      if (!cats.length) continue;
+      let sDone = 0, sTotal = 0, sFull = 0;
+      const catHtml = cats.map((c) => {
+        const { done, total } = categoryProgress(c, owned);
+        sDone += done; sTotal += total;
+        if (done >= total) sFull += 1;
+        // Each source is its own sub-accordion, nested inside its shelf. The
+        // delegated [data-toggle] handler at the tab root already covers these.
+        return subSection(`coll:${c.id}`, c.name, `${done >= total ? "\u2713 " : ""}${done}/${total}`, () => {
+          const cells = c.entries.map((e) => {
+            const d = items[e.item];
+            const got = owned.has(e.item);
+            const name = d?.name ?? e.item;
+            const label = got ? name : `${name} — not yet found`;
+            const title = e.tier ? `${label} (${e.tier})` : label;
+            return `<span class="coll-cell ${got ? "got" : "locked"}" title="${escapeHtml(title)}">${d ? itemIconSVG(d) : ""}</span>`;
+          }).join("");
+          // Hover tooltips do not exist on a phone, so name what is still
+          // missing in plain text underneath — that is what the log is for.
+          const missing = c.entries.filter((e) => !owned.has(e.item)).map((e) => items[e.item]?.name ?? e.item);
+          const miss = missing.length
+            ? `<div class="coll-missing">Missing: ${escapeHtml(missing.join(", "))}</div>`
+            : `<div class="coll-missing done">Complete.</div>`;
+          return `<div class="coll-grid">${cells}</div>${miss}`;
+        });
+      }).join("");
+      collDone += sDone; collTotal += sTotal; collCatsDone += sFull;
+      shelfHtml.push(subSection(`collg:${shelf}`, shelf, `${sFull}/${cats.length}`, () => catHtml));
+    }
     // The chase meter: how much of Varath's ledger this account has touched.
     const collPct = collTotal ? Math.floor((collDone / collTotal) * 100) : 0;
+    const collCatTotal = this.content.collectionLog.length;
     const collBody =
-      `<div class="coll-meter"><div class="coll-meter-top"><span>Logged</span><span>${collDone} / ${collTotal} · ${collPct}%</span></div>` +
-      `<div class="char-cape-bar"><div class="char-cape-fill" style="width:${collPct}%"></div></div></div>` +
-      collCatsBody;
+      `<div class="coll-meter"><div class="coll-meter-top"><span>Logged</span><span>${collDone} / ${collTotal} \u00b7 ${collPct}%</span></div>` +
+      `<div class="char-cape-bar"><div class="char-cape-fill" style="width:${collPct}%"></div></div>` +
+      `<div class="tab-note">${collCatsDone} of ${collCatTotal} sources fully collected. Every drop table, casket and skilling rare in Varath, listed by where it comes from.</div></div>` +
+      shelfHtml.join("");
 
     // Mastery: the long-tail prestige surfacing (audit T5·01–03). Master-stars
     // count the 25M/50M/100M-XP tiers a skill has passed (past the level-100
@@ -2554,7 +2577,7 @@ export class Hud {
 
     this.recordsEl.innerHTML =
       section("bosslog", "Boss Log", `${bossSlain}/${bosses.length}`, bossBody) +
-      section("collection", "Collection Log", `${collDone}/${collTotal} \u00b7 ${collPct}%`, collBody) +
+      section("collection", "Collection Log", `${collCatsDone}/${collCatTotal} \u00b7 ${collPct}%`, collBody) +
       section("cape", "Cape of Varath", capeOwned ? "Earned" : `${capeMaxed}/${skillIds.length}`, capeBody) +
       section("mastery", "Mastery & Ladders", totalStars > 0 ? `${totalStars}★` : (depth > 0 ? `Depth ${depth}` : "—"), masteryBody) +
       section("companions", "Companions", `${compOwned}/${comps.length}`, compBody) +

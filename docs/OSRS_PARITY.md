@@ -469,10 +469,32 @@ phase headless sims cannot cover.
 
 ## Phase 3 — Endgame & progression
 
-- **Collection log.** Core already tracks `player.collection` and pays
-  quarter-milestone lamps (`worldCore.ts:5855-5884`). What is missing is the
-  *log*: per-source categories (each boss, each clue tier, each skill), a UI
-  panel, completion tracking. Cheapest high-value item in the phase.
+- ~~**Collection log.**~~ **Done.** `src/content/collectionLog.ts` derives
+  **115 categories / 1,340 entries / 579 distinct items** at boot from the
+  sources themselves — monster drop tables, `CONTAINER_TABLES`, skill action
+  `produces`/`rareDrop`/`seedDrop`/`woodShardDrop`, the crop table, shop stock,
+  quest `reward.items` *and* mid-quest `giveItem` choices, and the Bounty
+  exchange. Eight shelves: Bosses (16) · Treasure Trails (3) · Bounty (1) ·
+  Skilling (12) · Monsters (64) · Quests (1) · Shops (17) · Other (1).
+  Rendered into the Records tab as nested accordions on the existing delegated
+  `[data-toggle]` handler, each source naming what is still missing in plain
+  text (hover tooltips do not exist on a phone). `sims/collection.ts` guards it.
+
+  The old panel grouped items by `ItemDef.cat` — "Armour 40/120" — which is the
+  same non-answer as the flat percentage it replaced. Grouping by source is the
+  whole point: *"Vorlag 3/7"* sends you somewhere.
+
+  **Deriving it turned up a content bug the game had no other way to catch:**
+  **57 equippable items have no source at all.** All 13 skilling pets,
+  `pet_superior`, all four gathering outfits (prospector / lumberjack / angler /
+  farmer, 16 pieces), nine mounts, the heraldry sigils and crests, and several
+  rings and amulets (`barrow_king_signet`, `delvers_lantern`, `storm_mantle`,
+  `neck_war`/`neck_ward`/`neck_hunt`). Nothing drops, sells, grows or rewards
+  them. The Companions grid has been advertising every skilling pet as
+  *"undiscovered — keep training"* for items that cannot be discovered.
+  `sims/collection.ts` pins the count at 57 so it can only fall. **Giving these
+  57 items real sources is the natural next increment** — the shelves to hang
+  them on now exist.
 - **Combat achievements** — tiered per boss, reusing `AchievementCond` and the
   Phase 1 combat events.
 - **Ironman / Hardcore modes** — a save flag gating the Grand Exchange, P2P
