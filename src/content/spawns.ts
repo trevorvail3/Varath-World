@@ -570,6 +570,15 @@ const rawObjects: WorldObjectDef[] = [
 
   // --- The Grand Exchange: a clerk's booth in the heart of the market. Trade
   //     on the world order book here (no longer a menu in the World tab). ---
+  // --- Market stalls (Thieving) ------------------------------------------
+  // The map has described this street as "lined with stalls" since it was
+  // carved; until now that was scenery in a comment. They sit along the market
+  // row within sight of the Exchange, which is the point: the richest stall in
+  // Varath is a few tiles from its most respectable institution.
+  { id: "stall_produce", kind: "stall", x: 69, y: 44, name: "Produce Stall", lines: ["Crates of roots and river-fish, and a grocer who looks away at all the wrong moments."] },
+  { id: "stall_baker", kind: "stall", x: 71, y: 44, name: "Baker's Stall", lines: ["Flat loaves under a cloth, still warm."] },
+  { id: "stall_silver", kind: "stall", x: 73, y: 44, name: "Silversmith's Stall", lines: ["Thin silver laid on dark felt. The smith counts it twice an hour."] },
+  { id: "stall_gem", kind: "stall", x: 75, y: 44, name: "Gem Stall", lines: ["Uncut stones in a locked tray — and a tray is only as locked as the hands near it."] },
   { id: "grand_exchange_1", kind: "grand_exchange", x: 66, y: 47, name: "Grand Exchange", lines: ["A clerk's booth ringed with chalkboards of bids and asks — the honest heart of Varath's market."] },
 
   // --- The Carpenter's sawmill, in the artisans' yard (Woodcraft) ---

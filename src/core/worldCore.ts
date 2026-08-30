@@ -1728,6 +1728,7 @@ const XP_RATE: Record<SkillId, number> = {
   fishing: 4.4,
   survivalist: 4.0,
   bounty: 4.0,
+  thieving: 3.6,
   hunter: 3.2,
   construction: 3.2,
   woodcraft: 2.4,
@@ -3413,6 +3414,109 @@ function withdrawItem(player: Player, item: ItemId, want: number, events: WorldE
   }
 }
 
+/**
+ * Attempt a theft — one loop for pockets, stalls and anything added later.
+ *
+ * Success climbs from the target's base chance at its own level toward its cap
+ * as you outgrow it, so a mark you have outlevelled becomes reliable rather than
+ * merely likelier. Failure is the interesting half: a pocket's owner grabs you
+ * (a stun and a slap), a stall's owner just shouts. Being stunned is what makes
+ * a botched lift in a guarded street actually dangerous — you are held still
+ * while whatever else is nearby keeps acting.
+ */
+function attemptTheft(
+  state: WorldState,
+  content: Content,
+  objId: string,
+  ctx: Ctx,
+  events: WorldEvent[],
+): void {
+  const { player } = state;
+  const t = content.thieveTargets.find((x) => x.id === objId);
+  if (!t) return;
+  const obj = state.objects[objId];
+  if (!obj) return;
+
+  const lvl = skillLvl(player, "thieving");
+  if (lvl < t.levelReq) {
+    events.push({
+      type: "LOG",
+      message: `You need Thieving ${t.levelReq} to try ${t.name}.`,
+      tone: "err",
+    });
+    return;
+  }
+  if (!obj.available) {
+    events.push({
+      type: "LOG",
+      message: t.kind === "stall" ? "That stall has nothing left worth taking." : "They're watching you now. Give it a moment.",
+      tone: "err",
+    });
+    return;
+  }
+  if (player.stunnedUntil && ctx.now < player.stunnedUntil) return;
+
+  // Success improves as you outlevel the mark, toward its own ceiling.
+  const span = Math.max(1, LEVEL_CAP - t.levelReq);
+  const grown = Math.min(1, Math.max(0, (lvl - t.levelReq) / span));
+  const chance = t.success + (t.successCap - t.success) * grown;
+
+  if (ctx.rng() >= chance) {
+    // Caught.
+    obj.available = false;
+    obj.respawnAt = ctx.now + t.respawnMs;
+    if (t.stunMs) {
+      player.stunnedUntil = ctx.now + t.stunMs;
+      player.path = [];
+      clearActivity(player);
+    }
+    if (t.damage) {
+      const dmg = t.damage;
+      player.hp = Math.max(0, player.hp - dmg);
+      events.push({ type: "DAMAGE", targetId: "player", amount: dmg, kind: "hit" });
+      if (player.hp <= 0) {
+        killPlayer(state, content, ctx, events, "You are beaten senseless over a botched lift.");
+        return;
+      }
+    }
+    events.push({
+      type: "LOG",
+      message: t.kind === "stall"
+        ? `The stallkeeper turns just as you reach — you back off empty-handed.`
+        : `A hand closes on your wrist. ${t.name[0]!.toUpperCase()}${t.name.slice(1)} has you.`,
+      tone: "err",
+    });
+    return;
+  }
+
+  // Clean lift.
+  obj.available = false;
+  obj.respawnAt = ctx.now + t.respawnMs;
+  grantXp(state, content, "thieving", t.xp, events);
+  const took: string[] = [];
+  if (t.gold) {
+    const coin = randInt(ctx, t.gold[0], t.gold[1]);
+    player.gold += coin;
+    took.push(`${coin}g`);
+  }
+  for (const roll of t.loot ?? []) {
+    if (ctx.rng() >= roll.chance) continue;
+    const qty = randInt(ctx, roll.min ?? 1, roll.max ?? roll.min ?? 1);
+    if (!canAddItem(player, roll.item)) {
+      events.push({ type: "INVENTORY_FULL" });
+      continue;
+    }
+    addItem(player, roll.item, qty, events);
+    took.push(`${qty}× ${content.items[roll.item].name}`);
+  }
+  events.push({
+    type: "LOG",
+    message: took.length
+      ? `You lift ${took.join(" and ")} from ${t.name}.`
+      : `You get a hand in, but ${t.name} was carrying nothing.`,
+  });
+}
+
 function startInteraction(
   state: WorldState,
   content: Content,
@@ -3533,7 +3637,17 @@ function startInteraction(
       break;
     }
 
+    case "stall": {
+      attemptTheft(state, content, objId, ctx, events);
+      break;
+    }
     case "npc": {
+      // "Steal" is an explicit choice on the menu, never the default action —
+      // walking up to somebody should not rob them.
+      if (mode === "steal") {
+        attemptTheft(state, content, objId, ctx, events);
+        break;
+      }
       // A bounty guide IS the bounty system: their panel is the only place to
       // take, claim and spend. "talk" still gives their dialogue, and a quest
       // that needs them takes priority over the contract panel.
@@ -5108,7 +5222,9 @@ function stepTick(
     // Crucially, we must not reset prevPos before then — doing so on the tick
     // right after the LAST step cut its glide short, so the final tile snapped.
     const stepDone = state.tickCount >= player.stepStartTick + player.stepDurTicks;
-    if (wasMoving && stepDone) {
+    // Held after a botched theft: the path stays, but the feet don't move.
+    const stunned = player.stunnedUntil !== undefined && ctx.now < player.stunnedUntil;
+    if (wasMoving && stepDone && !stunned) {
       stepMovement(state, player);
     } else if (!wasMoving && stepDone) {
       // Idle AND the last step has fully glided home: settle in place, ready to
@@ -5144,6 +5260,14 @@ function stepTick(
       if (state.campfire && state.campfire.x === c.x && state.campfire.y === c.y) {
         events.push({ type: "OPEN_CRAFT", station: "fire", objId: "campfire" });
       }
+    }
+
+    // 2a2) A botched lift holds you where you stand. Checked before the grave
+    // and activity steps below, so a stunned thief can neither loot nor work
+    // their way out of it — only wait, while whatever they annoyed keeps acting.
+    if (player.stunnedUntil !== undefined && ctx.now >= player.stunnedUntil) {
+      delete player.stunnedUntil;
+      events.push({ type: "LOG", message: "You shake yourself loose." });
     }
 
     // 2b) Standing on your own grave reclaims it. No intent, no menu: you have

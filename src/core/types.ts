@@ -61,6 +61,9 @@ export type SkillId =
   | "construction"
   | "crafting"
   | "bounty"
+  // Thieving: pickpockets, market stalls and locked chests. The one OSRS skill
+  // Varath had no analogue for at all.
+  | "thieving"
   // Agility: trained by running; raises run-energy duration + recharge.
   | "agility"
   // Combat skills.
@@ -1026,6 +1029,8 @@ export type ObjKind =
   | "housing_plot"
   /** A furniture footing inside a claimed plot: build/replace a piece here. */
   | "build_hotspot"
+  /** A market stall to steal from (Thieving). */
+  | "stall"
   /** A door between a homestead lot and its private interior instance. */
   | "house_door"
   /** A sealed doorway to an add-on room (a wing) — build the extension to open it. */
@@ -1685,6 +1690,11 @@ export interface Player {
    */
   poison?: { dmg: number; nextAt: number; hitsLeft: number } | null;
   /**
+   * Held in place after a botched theft — you cannot move or act until it
+   * passes. Transient, like the rest of the status block.
+   */
+  stunnedUntil?: number;
+  /**
    * Venom: like poison but it RAMPS and never decays. Only an antidote or death
    * ends it, which is what makes a venomous foe a fight you prepare for.
    */
@@ -1833,7 +1843,7 @@ export interface Player {
    */
   pendingInteractId: string | null;
   /** Talk/shop mode queued alongside pendingInteractId (shopkeepers). Transient. */
-  pendingInteractMode: "talk" | "shop" | null;
+  pendingInteractMode: "talk" | "shop" | "steal" | null;
   /**
    * A loot pile the player is walking toward: once the path finishes, the core
    * grabs it (mirroring pendingInteractId). Null when not walking to loot.
@@ -1978,7 +1988,7 @@ export interface InteractIntent {
    * trade window. Omitted = the default (a shopkeeper opens their shop unless a
    * quest step needs them right now).
    */
-  mode?: "talk" | "shop";
+  mode?: "talk" | "shop" | "steal";
 }
 
 /** "Stop whatever I'm doing" (cancels movement and current activity). */
@@ -3078,6 +3088,8 @@ export interface Content {
   monsters: Record<string, MonsterStats>;
   /** Every item's derived OSRS-style combat vector — see content/equipBonus.ts. */
   equipBonus: Record<ItemId, EquipBonus>;
+  /** Who and what can be stolen from — see content/thieving.ts. */
+  thieveTargets: import("../content/thieving.ts").ThieveTarget[];
   /** The full canon skill-action registry — drives gathering + station crafting. */
   actions: SkillAction[];
   /** The quest chains (data). */

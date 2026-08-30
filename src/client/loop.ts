@@ -242,6 +242,7 @@ function readLootLabels(): boolean {
 
 /** The verb shown for interacting with each kind of object. */
 const VERB: Record<ObjKind, string> = {
+  stall: "Steal from",
   dungeon_gate: "Inspect",
   puzzle_lever: "Pull",
   dungeon_chest: "Open",
@@ -293,6 +294,7 @@ const VERB: Record<ObjKind, string> = {
 };
 
 const EXAMINE_OBJECT: Record<ObjKind, string> = {
+  stall: "Somebody's livelihood, laid out in reach. The owner glances up now and then.",
   tree: "A pale ashwood — common as dirt, and the forester's first tree.",
   rock: "A workable seam of stone.",
   fishing_spot: "Dark ripples at the head of the Redrun; ashfin move below.",
@@ -2885,6 +2887,18 @@ export class Game {
           label: "Read", target: obj.name, tone: "action",
           onSelect: () => { this.walkBeside(this.liveTile(obj)); void this.showDuelStandings(); },
         });
+      } else if (obj.kind === "npc" && this.thieveMark(obj.id)) {
+        // A mark gets Talk first and Pickpocket second: walking up to somebody
+        // should never rob them by accident, and the tap-anywhere default
+        // action must stay the harmless one.
+        items.push({
+          label: "Talk to", target: obj.name, tone: "action",
+          onSelect: () => this.interactObject(obj.id, this.liveTile(obj), "talk"),
+        });
+        items.push({
+          label: "Pickpocket", target: obj.name,
+          onSelect: () => this.interactObject(obj.id, this.liveTile(obj), "steal"),
+        });
       } else if (obj.kind === "npc" && this.isShopkeeper(obj.id)) {
         // Shopkeepers list both Talk and Shop.
         items.push({
@@ -3110,7 +3124,12 @@ export class Game {
     this.dispatch({ type: "MOVE", path });
   }
 
-  private interactObject(objId: string, tile: Vec2, mode?: "talk" | "shop", synced = false): void {
+  /** Is this NPC somebody you could try to rob? */
+  private thieveMark(id: string): boolean {
+    return this.bridge.content.thieveTargets.some((t) => t.id === id && t.kind === "pocket");
+  }
+
+  private interactObject(objId: string, tile: Vec2, mode?: "talk" | "shop" | "steal", synced = false): void {
     // Talking to Jacob is when the Golden Rod changes hands. Reconcile with the
     // shared board FIRST, so the trophy is only ever granted to the true global
     // record-holder — and stripped from a local champion since out-fished

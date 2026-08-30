@@ -12,6 +12,7 @@ import { items } from "./items.ts";
 import { map, CITY_SPAWN } from "./map.ts";
 import { monsters } from "./monsters.ts";
 import { buildEquipBonuses } from "./equipBonus.ts";
+import { thieveTargets } from "./thieving.ts";
 import { quests } from "./quests.ts";
 import { spells } from "./spells.ts";
 import { lore } from "./lore.ts";
@@ -38,6 +39,7 @@ export const content: Content = {
   // every combat calculation reads. See equipBonus.ts for why it is derived
   // rather than authored or generated.
   equipBonus: buildEquipBonuses(items),
+  thieveTargets,
   actions,
   quests,
   spells,

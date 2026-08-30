@@ -3018,6 +3018,9 @@ function drawObject(
     case "cart":
       drawCart(g, cx, cy);
       break;
+    case "stall":
+      drawStall(g, cx, cy, def.id);
+      break;
     case "bone_cairn":
       drawBoneCairn(g, cx, cy, def.id);
       break;
@@ -5248,6 +5251,56 @@ function drawSawmill(g: CanvasRenderingContext2D, cx: number, cy: number): void 
 }
 
 /** A market stall: a cart with a striped awning and a crate or two. */
+/**
+ * A market stall: a striped awning over a counter of goods.
+ *
+ * The awning colour is keyed off the stall's id so the four of them read as
+ * four different trades from across the plaza rather than one prop repeated —
+ * you should be able to pick out the gem stall without walking up to it.
+ */
+function drawStall(g: CanvasRenderingContext2D, x: number, y: number, id: string): void {
+  const AWNING: Record<string, [string, string]> = {
+    stall_produce: ["#5f8f4a", "#e8e2d0"],
+    stall_baker: ["#b8813a", "#e8e2d0"],
+    stall_silver: ["#8a97a8", "#e8e2d0"],
+    stall_gem: ["#8a5aa8", "#e8e2d0"],
+  };
+  const [dark, light] = AWNING[id] ?? ["#9a7040", "#e8e2d0"];
+  g.save();
+  g.translate(x, y);
+  // Counter shadow.
+  g.fillStyle = "rgba(0,0,0,0.3)";
+  g.beginPath();
+  g.ellipse(0, 11, 15, 5, 0, 0, Math.PI * 2);
+  g.fill();
+  // Posts.
+  g.fillStyle = "#5a4632";
+  g.fillRect(-14, -14, 2.5, 26);
+  g.fillRect(11.5, -14, 2.5, 26);
+  // Counter with goods heaped on it.
+  g.fillStyle = "#6b5238";
+  g.fillRect(-15, 2, 30, 8);
+  g.fillStyle = dark;
+  for (let i = 0; i < 4; i++) {
+    g.beginPath();
+    g.arc(-10 + i * 6.5, 2, 2.6, Math.PI, 0);
+    g.fill();
+  }
+  // Striped awning.
+  for (let i = 0; i < 6; i++) {
+    g.fillStyle = i % 2 === 0 ? dark : light;
+    g.fillRect(-15 + i * 5, -16, 5, 7);
+  }
+  // Scalloped hem, so it reads as cloth rather than a plank.
+  g.fillStyle = dark;
+  for (let i = 0; i < 6; i++) {
+    g.beginPath();
+    g.arc(-12.5 + i * 5, -9, 2.5, 0, Math.PI);
+    g.fill();
+  }
+  g.restore();
+}
+
 function drawCart(g: CanvasRenderingContext2D, cx: number, cy: number): void {
   shadow(g, cx, cy + 10, 13, 4);
   // Cart bed + wheel.

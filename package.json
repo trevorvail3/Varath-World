@@ -15,7 +15,8 @@
     "sim:bonus": "tsx sims/bonus.ts",
     "sim:styles": "tsx sims/styles.ts",
     "sim:status": "tsx sims/status.ts",
-    "sim:death": "tsx sims/death.ts"
+    "sim:death": "tsx sims/death.ts",
+    "sim:thieving": "tsx sims/thieving.ts"
   },
   "devDependencies": {
     "@types/node": "^26.4.0",
