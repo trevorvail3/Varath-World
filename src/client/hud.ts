@@ -28,7 +28,7 @@ import { setPerfMode, setBrightness } from "./render.ts";
 import { audio } from "./audio.ts";
 import { reportBug } from "./ops.ts";
 import { glyph, iconize } from "./glyph.ts";
-import { activeAttackOption, bossMilestones, combatLevel, compassHint, DAILY_WINDOW_MS, DELVE_FULL_LOCKOUT_MS, equipBonusTotal, equipRequirement, evalAchievement, playerWepType } from "../core/worldCore.ts";
+import { activeAttackOption, bossMilestones, combatLevel, isIronman, modeOf, compassHint, DAILY_WINDOW_MS, DELVE_FULL_LOCKOUT_MS, equipBonusTotal, equipRequirement, evalAchievement, playerWepType } from "../core/worldCore.ts";
 import { WEAPON_STYLES } from "../content/weaponStyles.ts";
 import { categoryProgress } from "../content/collectionLog.ts";
 import type { LogCategory } from "../content/collectionLog.ts";
@@ -896,8 +896,13 @@ export class Hud {
         // One delegated handler for the whole tab: header toggles + companion
         // summon. (Rebuilding the inner HTML never re-binds anything.)
         wrap.addEventListener("click", (e) => {
-          const t = (e.target as HTMLElement).closest("[data-toggle],[data-comp],[data-claim-boss]") as HTMLElement | null;
+          const t = (e.target as HTMLElement).closest("[data-toggle],[data-comp],[data-claim-boss],[data-relax]") as HTMLElement | null;
           if (!t) return;
+          if (t.dataset.relax) {
+            this.dispatch({ type: "SET_MODE", mode: "standard" });
+            if (this.lastState) this.renderRecords(this.lastState.player, true);
+            return;
+          }
           if (t.dataset.claimBoss) {
             const boss = t.dataset.claimBoss;
             const kills = Number(t.dataset.claimKills);
@@ -1366,7 +1371,14 @@ export class Hud {
   }
 
   /** Open the Grand Exchange (called when the player uses its market booth). */
-  openExchange(): Promise<void> { return this.exchange.show(); }
+  openExchange(): Promise<void> {
+    const p = this.lastState?.player;
+    if (p && isIronman(p)) {
+      this.log("The Grand Exchange is closed to you. What you have, you get yourself.");
+      return Promise.resolve();
+    }
+    return this.exchange.show();
+  }
 
   /** Poll for the trade I'm in (so a request pops even with no window open). */
   private startTradeFeed(): void {
@@ -1383,6 +1395,13 @@ export class Hud {
 
   /** Ask an online player to trade (from the Players panel). */
   private async startTrade(id: string, name: string): Promise<void> {
+    // The core refuses the settlement anyway; this just stops an Ironman from
+    // negotiating a trade that was never going to apply.
+    const p = this.lastState?.player;
+    if (p && isIronman(p)) {
+      this.log("An Ironman trades with no one. What you have, you get yourself.");
+      return;
+    }
     const myName = this.lastState?.player.appearance?.name ?? "Wanderer";
     try {
       await requestTrade(id, myName, name);
@@ -2376,6 +2395,7 @@ export class Hud {
       capeMaxed, capeOwned ? 1 : 0,
       (player.collection ?? []).length,
       (player.combatFeats ?? []).length,
+      player.mode ?? "", player.hardcoreDeath ? 1 : 0,
       [...this.openSecs].sort().join(","),
     ].join("|");
     if (!force && sig === this.recordsSig) return;
@@ -2575,6 +2595,31 @@ export class Hud {
       `<div class="mastery-row">${iconize("🕳️")} Deepest Delve — ${depth > 0 ? `<b>Depth ${depth}</b>` : "not yet past the gauntlet"}</div>` +
       `<div class="mastery-row">${iconize("⚔️")} Duel ladder — ${dRating !== undefined ? `Rating <b>${dRating}</b> · best streak <b>${dBest}</b> · ${dW}W/${dL}L` : "step into the ring to earn a rating"}</div>`;
 
+    // Account: what this character gave up, and what it has left to give up.
+    // Shown as its own section because a mode is a permanent claim about how
+    // everything else on this page was earned.
+    const mode = modeOf(player);
+    const MODE_TEXT: Record<string, { label: string; blurb: string }> = {
+      standard: { label: "Standard", blurb: "Varath as it comes — trade, the Grand Exchange and staked duels are all open to you." },
+      ironman: { label: "Ironman", blurb: "Everything you have, you got yourself. No Grand Exchange, no trading, no staked duels." },
+      hardcore: { label: "Hardcore Ironman", blurb: "One life, still unspent. A death ends it — you would carry on as an Ironman, and the record would stand." },
+      ultimate: { label: "Ultimate Ironman", blurb: "No bank at all. What you carry is everything you own." },
+    };
+    const mt = MODE_TEXT[mode]!;
+    const hcd = player.hardcoreDeath;
+    const hcLine = hcd
+      ? `<div class="acct-death">Hardcore life spent at combat level ${hcd.combatLevel}, after ${Math.floor(hcd.playMs / 3_600_000)}h ${Math.floor((hcd.playMs % 3_600_000) / 60_000)}m. ${escapeHtml(hcd.cause)}</div>`
+      : "";
+    // Relaxing is one-way and permanent, so the button says so rather than
+    // asking twice with a dialog nobody reads.
+    const relax = mode === "standard"
+      ? `<div class="tab-note">There is nothing to give up. An account's mode is chosen at creation.</div>`
+      : `<button type="button" class="acct-relax" data-relax="standard">Give up the claim \u2014 become a Standard account</button>`
+        + `<div class="tab-note">Permanent and one-way. Varath's markets would open to you, and no account can ever take the claim back up.</div>`;
+    const acctBody =
+      `<div class="acct-badge mode-${mode}">${iconize(mode === "standard" ? "\ud83d\udee1\ufe0f" : mode === "ultimate" ? "\u2694\ufe0f" : mode === "hardcore" ? "\ud83d\udd25" : "\u26d3\ufe0f")} ${escapeHtml(mt.label)}</div>` +
+      `<div class="acct-blurb">${escapeHtml(mt.blurb)}</div>${hcLine}${relax}`;
+
     // Combat Achievements: OSRS's tiered per-boss tasks. Ordered by tier rather
     // than by first appearance, because the tier IS the difficulty statement —
     // "kill Vorlag without eating" and "kill the Quartermaster without eating"
@@ -2610,6 +2655,7 @@ export class Hud {
 
     this.recordsEl.innerHTML =
       section("bosslog", "Boss Log", `${bossSlain}/${bosses.length}`, bossBody) +
+      section("account", "Account", MODE_TEXT[mode]!.label, acctBody) +
       section("combatach", "Combat Achievements", `${caDone}/${caAll.length}`, caBody) +
       section("collection", "Collection Log", `${collCatsDone}/${collCatTotal} \u00b7 ${collPct}%`, collBody) +
       section("cape", "Cape of Varath", capeOwned ? "Earned" : `${capeMaxed}/${skillIds.length}`, capeBody) +

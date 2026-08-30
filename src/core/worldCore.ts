@@ -2366,6 +2366,7 @@ export function applyIntent(
       break;
     }
     case "GE_MOVE": {
+      if (ironGuard(player, "the Grand Exchange", events)) break;
       // The local side of a Grand Exchange deposit/withdraw. The client validates
       // against live state before dispatching, so a shortfall is a silent no-op.
       const amt = Math.floor(intent.amount);
@@ -2386,6 +2387,14 @@ export function applyIntent(
       break;
     }
     case "TRADE_APPLY": {
+      // The last line of defence: the client hides trade for an Ironman, but a
+      // hidden button is not a rule. Marking the id applied first means a
+      // refused trade can never be replayed as an accepted one.
+      if (isIronman(player)) {
+        if (!player.tradesApplied.includes(intent.tradeId)) player.tradesApplied.push(intent.tradeId);
+        ironGuard(player, "trading with other players", events);
+        break;
+      }
       // Settle a confirmed player trade: hand over what we offered, take in what
       // we were given. Keyed by tradeId so a re-poll (or a reload) can never
       // apply the same swap twice.
@@ -2424,7 +2433,25 @@ export function applyIntent(
       }
       break;
     }
+    case "SET_MODE": {
+      // One-way, toward less restriction. Giving up Ironman is a real decision
+      // a player is allowed to make; acquiring it after the fact is not, or the
+      // claim it makes would mean nothing.
+      if (!canSetMode(player, intent.mode)) {
+        events.push({ type: "LOG", message: "That is not a change you can make.", tone: "err" });
+        break;
+      }
+      player.mode = intent.mode;
+      events.push({
+        type: "LOG",
+        message: intent.mode === "standard"
+          ? "You set the Ironman's claim aside. Varath's markets are open to you again — and there is no going back."
+          : `Your account is now ${MODE_LABEL[intent.mode]}.`,
+      });
+      break;
+    }
     case "DUEL_STAKE": {
+      if (ironGuard(player, "staking a duel", events)) break;
       // Lock a duel wager into escrow: validate ownership, then move the gold
       // and items OUT of the pack onto player.duelStake. One stake at a time.
       if (player.duelStake) {
@@ -2515,11 +2542,13 @@ export function applyIntent(
       break;
     }
     case "DEPOSIT": {
+      if (modeOf(player) === "ultimate") break;
       if (!atStation(player, "bank", "the bank", events)) break;
       depositItem(player, intent.item, intent.qty);
       break;
     }
     case "WITHDRAW": {
+      if (modeOf(player) === "ultimate") break;
       if (!atStation(player, "bank", "the bank", events)) break;
       withdrawItem(player, intent.item, intent.qty ?? 1, events, intent.noted ?? false);
       break;
@@ -2940,6 +2969,88 @@ function tryPetDrop(
     events.push({ type: "LOG", message: `A companion has found you: ${def.name}!` });
     return;
   }
+}
+
+// ---------------------------------------------------------------------------
+// Account modes — OSRS's account types.
+//
+// An Ironman's whole claim is "everything I have, I got myself". That claim is
+// only worth something if the game enforces it, and it has to be enforced in
+// the CORE: a client-side hide leaves the intents reachable, and the one place
+// every route into the pack converges is here. So the gates sit on the intents
+// themselves — GE_MOVE, TRADE_APPLY, DUEL_STAKE, and the bank for Ultimate.
+//
+// The mode is chosen at creation and can be RELAXED but never tightened
+// (see canSetMode), so nobody can bank a hoard on a standard account and then
+// claim the restriction.
+// ---------------------------------------------------------------------------
+
+export type AccountMode = NonNullable<Player["mode"]>;
+
+/** How restricted each mode is. Higher restricts more; you may only ever move
+ *  down this ladder. `hardcore` and `ultimate` are siblings — both are Ironman
+ *  plus one extra stake — so neither can become the other. */
+const MODE_RANK: Record<AccountMode, number> = { standard: 0, ironman: 1, hardcore: 2, ultimate: 2 };
+
+/** The mode of an account, treating an absent field as standard. */
+export function modeOf(player: Player): AccountMode {
+  return player.mode ?? "standard";
+}
+
+/** Every mode except standard carries the Ironman restrictions. */
+export function isIronman(player: Player): boolean {
+  return modeOf(player) !== "standard";
+}
+
+/** May this account move to `next`? Only toward less restriction, and never
+ *  sideways between hardcore and ultimate. */
+export function canSetMode(player: Player, next: AccountMode): boolean {
+  const cur = modeOf(player);
+  if (cur === next) return false;
+  return MODE_RANK[next] < MODE_RANK[cur];
+}
+
+const MODE_LABEL: Record<AccountMode, string> = {
+  standard: "Standard",
+  ironman: "Ironman",
+  hardcore: "Hardcore Ironman",
+  ultimate: "Ultimate Ironman",
+};
+
+/** Refuse an intent an Ironman may not use, and say why. Returns true when the
+ *  caller should stop. */
+function ironGuard(player: Player, what: string, events: WorldEvent[]): boolean {
+  if (!isIronman(player)) return false;
+  events.push({
+    type: "LOG",
+    message: `${MODE_LABEL[modeOf(player)]}: ${what} is not for you. What you have, you get yourself.`,
+    tone: "err",
+  });
+  return true;
+}
+
+/** Spend a Hardcore life. The account keeps playing as a plain Ironman, and the
+ *  record of how the life ended is kept — that record IS the mode's reward. */
+function spendHardcoreLife(
+  state: WorldState,
+  content: Content,
+  cause: string,
+  events: WorldEvent[],
+): void {
+  const { player } = state;
+  if (modeOf(player) !== "hardcore") return;
+  player.mode = "ironman";
+  player.hardcoreDeath = {
+    cause,
+    combatLevel: combatLevel(player),
+    playMs: player.playMs,
+  };
+  void content;
+  events.push({
+    type: "LOG",
+    message: `Your Hardcore life is spent — ${cause} At combat level ${player.hardcoreDeath.combatLevel}. You continue as an Ironman; the record stands.`,
+    tone: "err",
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -3928,6 +4039,10 @@ function startInteraction(
     }
 
     case "bank":
+      if (modeOf(player) === "ultimate") {
+        events.push({ type: "LOG", message: "Ultimate Ironman: you keep no bank. What you carry is what you have.", tone: "err" });
+        break;
+      }
       player.station = { kind: "bank" };
       events.push({ type: "OPEN_BANK" });
       break;
@@ -8106,6 +8221,9 @@ function killPlayer(
   // A death ends any no-hit run in progress, by definition.
   abandonFight(state);
   const { player } = state;
+  // A Hardcore life is spent here, before anything else — the account keeps
+  // playing as an Ironman, so the rest of the death path runs unchanged.
+  spendHardcoreLife(state, content, cause, events);
   player.hp = 0;
   player.alive = false;
   player.respawnAt = ctx.now + PLAYER_RESPAWN;

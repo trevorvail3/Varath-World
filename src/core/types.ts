@@ -1807,6 +1807,20 @@ export interface Player {
   /** Combat-achievement feats earned, keyed "<bossId>:<feat>" — see FIGHT_FEATS
    *  in worldCore. Optional so old saves load; the core seeds it on first use. */
   combatFeats?: string[];
+  /**
+   * Account mode, OSRS's account types. Absent reads as "standard", so every
+   * existing save is a standard account without a migration.
+   *  - `ironman`  — no Grand Exchange, no player trade, no duel stakes. What you
+   *                 use, you made.
+   *  - `hardcore` — Ironman with one life: a death spends it and the account
+   *                 falls back to `ironman`, keeping the record of how it ended.
+   *  - `ultimate` — Ironman with no bank at all.
+   * Chosen at character creation. It can be relaxed (toward `standard`) but
+   * never tightened, so nobody can bank a hoard and then claim the restriction.
+   */
+  mode?: "standard" | "ironman" | "hardcore" | "ultimate";
+  /** How a Hardcore life ended, once it has — kept as the account's record. */
+  hardcoreDeath?: { cause: string; combatLevel: number; playMs: number };
   /** Total active play time in milliseconds (accumulated each tick). */
   playMs: number;
   /**
@@ -2105,6 +2119,13 @@ export interface CraftIntent {
  *  next kill trains). */
 /** "Swing this weapon a different way" — an index into the wielded weapon
  *  family's attack options. Supersedes SET_STYLE, which only chose a stance. */
+/** Relax the account mode. Only ever toward less restriction (see canSetMode) —
+ *  an Ironman may give up the claim, but nobody can acquire it after the fact. */
+export interface SetAccountModeIntent {
+  type: "SET_MODE";
+  mode: "standard" | "ironman" | "hardcore" | "ultimate";
+}
+
 export interface SetAttackOptionIntent {
   type: "SET_ATTACK_OPTION";
   option: number;
@@ -2472,6 +2493,7 @@ export type Intent =
   | CraftIntent
   | SetStyleIntent
   | SetAttackOptionIntent
+  | SetAccountModeIntent
   | CastSpellIntent
   | SetAutocastIntent
   | ToggleBlessingIntent

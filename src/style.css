@@ -3891,6 +3891,39 @@ button.inv-slot {
    hover tooltips do not exist on a phone, so the chase has to be readable. */
 .coll-missing { padding: 0 2px 4px; font-size: 10px; line-height: 1.35; color: var(--ink-dim, #9a8b74); }
 .coll-missing.done { color: #8fbf6a; }
+
+/* --- Account modes --------------------------------------------------------
+   The creator's mode picker, and the Records badge that carries the claim. */
+.creator-modes { display: flex; flex-wrap: wrap; gap: 4px; margin: 2px 0 4px; }
+.creator-mode {
+  flex: 1 1 auto; min-width: 68px; padding: 5px 6px; font: inherit; font-size: 11px;
+  color: var(--ink); background: rgba(30, 25, 19, 0.6);
+  border: 1px solid rgba(74, 61, 44, 0.7); border-radius: 4px; cursor: pointer;
+}
+.creator-mode:hover { border-color: rgba(201, 162, 74, 0.6); }
+.creator-mode.on { color: #f0c187; border-color: #c9a24a; background: rgba(201, 162, 74, 0.16); }
+.creator-mode-note { font-size: 10px; line-height: 1.4; color: #9a8b74; min-height: 28px; padding: 0 2px 2px; }
+
+.acct-badge {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 4px 9px; margin: 2px 0 5px; border-radius: 4px;
+  font-size: 12px; font-weight: 600; letter-spacing: 0.02em;
+  border: 1px solid rgba(74, 61, 44, 0.8); background: rgba(30, 25, 19, 0.6); color: var(--ink);
+}
+.acct-badge.mode-ironman { color: #cfd6dd; border-color: #7e8894; background: rgba(126, 136, 148, 0.14); }
+.acct-badge.mode-hardcore { color: #e8907a; border-color: #b4553c; background: rgba(180, 85, 60, 0.16); }
+.acct-badge.mode-ultimate { color: #e0d3a6; border-color: #b9992f; background: rgba(185, 153, 47, 0.14); }
+.acct-blurb { font-size: 11px; line-height: 1.45; color: #b7a88d; }
+.acct-death {
+  margin: 6px 0 2px; padding: 6px 8px; font-size: 11px; line-height: 1.45;
+  color: #e8907a; border-left: 2px solid #b4553c; background: rgba(180, 85, 60, 0.1);
+}
+.acct-relax {
+  display: block; width: 100%; margin: 8px 0 2px; padding: 6px 8px;
+  font: inherit; font-size: 11px; color: var(--ink); cursor: pointer;
+  background: rgba(30, 25, 19, 0.6); border: 1px solid rgba(74, 61, 44, 0.8); border-radius: 4px;
+}
+.acct-relax:hover { color: #e8907a; border-color: #b4553c; }
 .rec-subbody .rec-sub { border-top-color: rgba(74, 61, 44, 0.22); }
 .rec-subbody .rec-subhead { font-size: 11px; padding: 4px 2px; }
 

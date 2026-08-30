@@ -181,7 +181,10 @@ function boot(newChar: CreatedCharacter | null, cloudReady: boolean): void {
   const restored = hydratePlayer(state, content, readSave());
   // A brand-new character stamps its full look (name, colours, styles).
   if (newChar) {
-    state.player.appearance = { ...newChar };
+    const { mode, ...look } = newChar;
+    state.player.appearance = { ...look };
+    // The account mode is chosen once, at creation, and only here.
+    if (mode && mode !== "standard") state.player.mode = mode;
   }
 
   // Founder entitlement → the "founder" flag (server-authoritative; see

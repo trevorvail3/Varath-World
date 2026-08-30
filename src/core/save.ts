@@ -92,6 +92,12 @@ export interface SavedProgress {
   xpLamps?: number[];
   /** Collection log: item ids ever obtained. */
   collection?: string[];
+  /** Combat-achievement feats earned, keyed "<bossId>:<feat>". */
+  combatFeats?: string[];
+  /** Account mode: standard / ironman / hardcore / ultimate. */
+  mode?: string;
+  /** Where and to what a Hardcore life ended, once it has. */
+  hardcoreDeath?: { cause: string; combatLevel: number; playMs: number };
   /** Wall-clock time (Date.now ms) the free Recall is available again. */
   recallReadyEpoch?: number;
   /** Unlocked achievement ids. */
@@ -194,6 +200,9 @@ export function serializePlayer(state: WorldState): SavedProgress {
     trailLaps: player.trailLaps ?? 0,
     xpLamps: [...(player.xpLamps ?? [])],
     collection: [...(player.collection ?? [])],
+    combatFeats: [...(player.combatFeats ?? [])],
+    ...(player.mode && player.mode !== "standard" ? { mode: player.mode } : {}),
+    ...(player.hardcoreDeath ? { hardcoreDeath: { ...player.hardcoreDeath } } : {}),
     recallReadyEpoch: player.recallReadyEpoch ?? 0,
     appearance: { ...player.appearance },
     bounty: {
@@ -493,6 +502,24 @@ export function hydratePlayer(
     for (const id of Object.keys(player.bank) as ItemId[]) if ((player.bank[id] ?? 0) > 0) set.add(id);
     for (const id of Object.values(player.equipment)) if (id) set.add(id);
     player.collection = [...set];
+  }
+  // Combat-achievement feats. Unlike the collection log there is nothing to
+  // fold in from current state: a feat is a thing you did, not a thing you hold.
+  {
+    const saved = raw["combatFeats"];
+    if (Array.isArray(saved)) {
+      player.combatFeats = saved.filter((k): k is string => typeof k === "string");
+    }
+  }
+  // Account mode. An unknown or absent value reads as a standard account, so a
+  // corrupt field can never accidentally hand someone Hardcore's stakes.
+  {
+    const saved = raw["mode"];
+    if (saved === "ironman" || saved === "hardcore" || saved === "ultimate") player.mode = saved;
+    const death = raw["hardcoreDeath"] as { cause?: unknown; combatLevel?: unknown; playMs?: unknown } | undefined;
+    if (death && typeof death.cause === "string" && finiteNum(death.combatLevel) && finiteNum(death.playMs)) {
+      player.hardcoreDeath = { cause: death.cause, combatLevel: death.combatLevel, playMs: death.playMs };
+    }
   }
   const savedAch = raw["achievements"];
   if (Array.isArray(savedAch)) {

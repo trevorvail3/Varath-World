@@ -557,9 +557,47 @@ phase headless sims cannot cover.
   (whenever a kill lands with zero damage taken, "perfect" must be banked, and
   such a kill must actually happen), eating must falsify "unfed", and par must
   sit between 5% and 45% of level-matched fights.
-- **Ironman / Hardcore modes** — a save flag gating the Grand Exchange, P2P
-  trade and duel stakes, plus a death-is-final path. Small, and it pairs
-  naturally with the Phase 1 death rework.
+- ~~**Ironman / Hardcore modes**~~ **Done.** Four account types, chosen once at
+  character creation: **Standard**, **Ironman** (no Grand Exchange, no player
+  trade, no staked duels), **Hardcore** (Ironman + one life), and **Ultimate**
+  (Ironman + no bank at all).
+
+  **The gates are in the core, on the intents.** An Ironman's whole claim is
+  "everything I have, I got myself", and that claim is only worth something if
+  the game enforces it — a client-side hide leaves `GE_MOVE`, `TRADE_APPLY`,
+  `DUEL_STAKE` and the bank intents reachable to anyone who opens a console. The
+  client hides them too, but only so nobody negotiates a trade that was never
+  going to settle. A refused `TRADE_APPLY` still *marks its id applied*, so a
+  refusal cannot be replayed later as an acceptance.
+
+  **Hardcore spends its life inside `killPlayer`**, before anything else, so the
+  rest of the death path runs unchanged: the account falls back to `ironman` and
+  keeps `hardcoreDeath` — cause, combat level, play time. A later death cannot
+  overwrite that record. Status deaths (poison, venom) route through the same
+  function, so they count.
+
+  **The mode is one-way.** `canSetMode` permits movement only toward *less*
+  restriction, and never sideways between Hardcore and Ultimate (both are
+  Ironman plus one extra stake). An Ironman may give the claim up; nobody can
+  acquire it after banking a hoard.
+
+  **No migration.** `Player.mode` is optional and an absent value reads as
+  Standard, so every existing save is a Standard account and `SAVE_VERSION`
+  stays at 1.
+
+  **Fixed while wiring the save path:** `combatFeats` was added to `Player` last
+  increment but never to `save.ts`, so every combat achievement would have been
+  lost on reload. Now serialised and restored — and unlike the collection log
+  there is nothing to fold in from current state, because a feat is a thing you
+  did, not a thing you hold.
+
+  `sims/ironman.ts` exercises all four modes through the real intent path (the
+  same path a modified client would use): each gate blocks exactly the modes it
+  should and no others, a refused trade cannot be replayed, a Hardcore death
+  demotes and records exactly once, the 16 mode transitions match the one-way
+  rule, an absent `mode` reads as unrestricted, and — because of the
+  `combatFeats` bug above — every mode, the death record and the feats survive a
+  real `serializePlayer` → `hydratePlayer` round-trip.
 - **New gear tier + mastery beyond max.** `XP_CAP = 100M` already lets XP
   climb past level 100 (`src/content/xpCurve.ts:36-39`), so the prestige
   substrate exists; it needs a visible mastery layer on top.

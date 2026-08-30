@@ -10,12 +10,16 @@
  */
 
 import type { Appearance } from "../core/types.ts";
+import type { AccountMode } from "../core/worldCore.ts";
 import {
   BUILD_STYLES, CLOTH, DEFAULT_APPEARANCE, drawAvatar,
   FACIAL_STYLES, HAIR_STYLES, HAIRS, LEG_STYLES, SHOE_STYLES, SKINS, TOP_STYLES,
 } from "./avatar.ts";
 
-export type CreatedCharacter = Appearance;
+/** What the creator hands back: the look, plus the account mode chosen for the
+ *  life of the character. The mode is offered here and only here — an Ironman's
+ *  claim is that they started that way. */
+export type CreatedCharacter = Appearance & { mode?: AccountMode };
 
 /** Colour-field keys (string hex) and style-field keys (string id). */
 type ColorKey = "skin" | "hair" | "tunic" | "legColor" | "shoeColor";
@@ -24,6 +28,7 @@ type StyleKey = "hairStyle" | "facial" | "top" | "legs" | "shoes";
 export class CharacterCreator {
   private backdrop: HTMLElement;
   private draft: Appearance = { ...DEFAULT_APPEARANCE, name: "" };
+  private mode: AccountMode = "standard";
   private preview!: HTMLCanvasElement;
   private rowsEl!: HTMLElement;
   private taken: Set<string>;
@@ -61,6 +66,9 @@ export class CharacterCreator {
             <input class="creator-name" type="text" maxlength="16" placeholder="Your name" />
             <div class="creator-name-hint"></div>
             <div class="creator-rows"></div>
+            <label class="creator-label">Account</label>
+            <div class="creator-modes"></div>
+            <div class="creator-mode-note"></div>
           </div>
         </div>
         <div class="creator-nav">
@@ -104,6 +112,7 @@ export class CharacterCreator {
     const rows = this.backdrop.querySelector(".creator-rows") as HTMLElement;
     this.rowsEl = rows;
     this.buildRows();
+    this.buildModes();
 
     // "Surprise me" — a random pick per row + build, for players who'd rather
     // roll a look than dial one in (T7·07). Rebuilds every control + the preview.
@@ -127,7 +136,7 @@ export class CharacterCreator {
       if (goEl.disabled) return;
       if (this.draft.name.length < 1 || this.taken.has(this.draft.name.toLowerCase())) return;
       // No backend reservation — proceed as before (offline / local play).
-      if (!this.opts.reserveName) { this.close(); this.opts.onCreate({ ...this.draft }); return; }
+      if (!this.opts.reserveName) { this.close(); this.opts.onCreate(this.made()); return; }
       // Atomically claim the name; only "taken" blocks — offline/no-table falls
       // through so a network hiccup never traps the player at creation.
       const label = goEl.textContent;
@@ -139,7 +148,7 @@ export class CharacterCreator {
           return;
         }
         this.close();
-        this.opts.onCreate({ ...this.draft });
+        this.opts.onCreate(this.made());
       });
     });
 
@@ -147,6 +156,42 @@ export class CharacterCreator {
     const loop = (): void => { this.renderPreview(); this.raf = requestAnimationFrame(loop); };
     this.raf = requestAnimationFrame(loop);
     setTimeout(() => nameEl.focus(), 50);
+  }
+
+  /** The finished character: look plus mode (standard is left off entirely, so
+   *  a standard account persists exactly as it always did). */
+  private made(): CreatedCharacter {
+    return this.mode === "standard" ? { ...this.draft } : { ...this.draft, mode: this.mode };
+  }
+
+  /** The account-mode picker. Each mode is a permanent choice made here, so the
+   *  cost of each is spelled out rather than hidden behind a name. */
+  private buildModes(): void {
+    const wrap = this.backdrop.querySelector(".creator-modes") as HTMLElement;
+    const note = this.backdrop.querySelector(".creator-mode-note") as HTMLElement;
+    const MODES: { id: AccountMode; label: string; blurb: string }[] = [
+      { id: "standard", label: "Standard", blurb: "Varath as it comes. Trade, the Grand Exchange and staked duels are all open to you." },
+      { id: "ironman", label: "Ironman", blurb: "Everything you have, you get yourself. No Grand Exchange, no trading, no staked duels." },
+      { id: "hardcore", label: "Hardcore", blurb: "Ironman, and one life. A death spends it — you carry on as an Ironman, and the record of how it ended stands." },
+      { id: "ultimate", label: "Ultimate", blurb: "Ironman, and no bank at all. What you carry is everything you own." },
+    ];
+    for (const m of MODES) {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = `creator-mode${m.id === this.mode ? " on" : ""}`;
+      b.dataset["mode"] = m.id;
+      b.textContent = m.label;
+      b.addEventListener("pointerdown", (e) => {
+        e.stopPropagation();
+        this.mode = m.id;
+        for (const el of wrap.querySelectorAll(".creator-mode")) {
+          el.classList.toggle("on", (el as HTMLElement).dataset["mode"] === this.mode);
+        }
+        note.textContent = m.blurb;
+      });
+      wrap.appendChild(b);
+    }
+    note.textContent = MODES[0]!.blurb;
   }
 
   /** (Re)build every appearance row from the current draft. Called on open and
