@@ -1934,6 +1934,19 @@ export function drawWorld(
     }
   }
 
+  // Your grave, if one stands. Drawn from live state like the campfire above,
+  // and given a slow pulse — it is on a timer, and the one thing you need to
+  // read from across a field is "still there".
+  const grave = state.grave;
+  if (grave && inRegion(grave.x, grave.y) && !outside(grave.x, grave.y)) {
+    const gx = grave.x * TILE - cam.x + TILE / 2;
+    const gy = grave.y * TILE - cam.y + TILE / 2;
+    if (gx >= -TILE && gy >= -TILE && gx <= w + TILE && gy <= h + TILE) {
+      drawGrave(g, gx, gy, now);
+      lights.push([gx, gy]);
+    }
+  }
+
   // Agility: pulsing marker over the next obstacle to take.
   drawAgilityMarkers(g, state, content, cam, w, h, now, inRegion);
 
@@ -5873,6 +5886,51 @@ function drawForageSpot(
 }
 
 // --- Cooking fire: logs with animated flame ---
+/**
+ * A gravestone: a leaning headstone with a soft mourning glow.
+ *
+ * Deliberately loud — a grave is a timer you are racing, so it has to be
+ * findable from the edge of the screen rather than something you hunt for on
+ * the tile you think you died on.
+ */
+function drawGrave(g: CanvasRenderingContext2D, x: number, y: number, now: number): void {
+  const pulse = 0.5 + 0.5 * Math.sin(now / 620);
+  g.save();
+  // Ground shadow.
+  g.fillStyle = "rgba(0,0,0,0.35)";
+  g.beginPath();
+  g.ellipse(x, y + 9, 12, 5, 0, 0, Math.PI * 2);
+  g.fill();
+  // Mourning glow.
+  const glow = g.createRadialGradient(x, y, 2, x, y, 22);
+  glow.addColorStop(0, `rgba(150, 190, 220, ${0.20 + 0.14 * pulse})`);
+  glow.addColorStop(1, "rgba(150, 190, 220, 0)");
+  g.fillStyle = glow;
+  g.fillRect(x - 24, y - 24, 48, 48);
+  // The stone, leaning slightly — nobody set it straight.
+  g.translate(x, y);
+  g.rotate(-0.06);
+  g.fillStyle = "#6d6f78";
+  g.beginPath();
+  g.moveTo(-7, 8);
+  g.lineTo(-7, -6);
+  g.arc(0, -6, 7, Math.PI, 0);
+  g.lineTo(7, 8);
+  g.closePath();
+  g.fill();
+  g.strokeStyle = "rgba(0,0,0,0.5)";
+  g.lineWidth = 1;
+  g.stroke();
+  // A carved mark, so it reads as a grave and not a rock.
+  g.strokeStyle = "#3f424a";
+  g.lineWidth = 1.5;
+  g.beginPath();
+  g.moveTo(0, -8); g.lineTo(0, 1);
+  g.moveTo(-3.5, -5); g.lineTo(3.5, -5);
+  g.stroke();
+  g.restore();
+}
+
 function drawFire(g: CanvasRenderingContext2D, cx: number, cy: number, now: number): void {
   shadow(g, cx, cy + 11, 12, 4);
   g.strokeStyle = "#4a3320"; // logs

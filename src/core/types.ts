@@ -1902,6 +1902,24 @@ export interface WorldState {
   /** A player-lit campfire (Survivalist): burns for a while as a cooking source,
    *  then goes out. One at a time; runtime/session only — not persisted. */
   campfire?: { x: number; y: number; expiresAt: number } | null;
+  /**
+   * The player's gravestone: everything they were carrying that death took,
+   * waiting where they fell.
+   *
+   * Runtime-only, exactly like `campfire` — a save written before graves existed
+   * simply has none, and nothing needs migrating. There is only ever ONE: dying
+   * again while a grave stands collapses the old one, which is what makes a
+   * corpse run a decision rather than a stack of free retries.
+   */
+  grave?: {
+    x: number;
+    y: number;
+    items: { item: ItemId; qty: number }[];
+    gold: number;
+    expiresAt: number;
+    /** How many times you have died since this grave was raised. */
+    deaths: number;
+  } | null;
   /** timed-puzzle deadlines: group id → the ms by which the next correct lever
    *  must be thrown before the run resets. Runtime/session only — a timed puzzle
    *  simply restarts on reload, so it never needs persisting. */

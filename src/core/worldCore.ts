@@ -150,16 +150,28 @@ const FLEE_GRACE_MS = 2500; // after a move, aggressive monsters hold off this l
 const PURSUE_MS = 8000;      // how long the chase lasts after you flee
 const PURSUE_GIVEUP = 8;     // give up if the player gets this many tiles ahead
 const PURSUE_LEASH = 14;     // never chase further than this from its spawn tile
-// On death you drop a tenth of your coin (a real but gentle setback).
+// On death your carried COIN goes into the grave with everything else. There is
+// no longer a cap on it: a capped loss meant a veteran could haul a fortune
+// through the Marrow with a 250g worst case, which is not a risk, it is a
+// formality. The coin is recoverable, so the stake is the corpse run, not the
+// coin itself.
 const DEATH_GOLD_FRACTION = 0.1;
-const DEATH_GOLD_CAP = 250;
-// Item risk on death (see the death block in monsterSwing): worn gear is safe,
-// the 3 most valuable carried stacks are kept, the rest spills where you fell.
+// Item risk on death: worn gear is safe and the N most valuable carried stacks
+// are kept; everything else goes into the grave where you fell.
 const DEATH_ITEMS_KEPT = 3;
+// A lit protection blessing buys back one more kept stack — the reason to have
+// one running when you go somewhere that can kill you.
+const DEATH_ITEMS_KEPT_BLESSED = 4;
 // Total spill value under this is waived — new players never lose their pack.
 const DEATH_SPILL_MIN_VALUE = 200;
-// How long the spilled pile waits for its corpse run (vs 90s ordinary litter).
-const DEATH_SPILL_TTL = 5 * 60_000;
+// How long a grave stands before its contents are lost.
+const GRAVE_TTL = 15 * 60_000;
+// Every Devotion level adds this to the grave's life. Earned, never bought: a
+// gold-gated priest blessing would be out of reach for a self-sufficient
+// account, and "pay to keep your stuff" is the wrong lesson anyway.
+const GRAVE_TTL_PER_FAITH = 4_000;
+// Beyond this a grave doesn't get any longer, however devout you are.
+const GRAVE_TTL_MAX = 45 * 60_000;
 // The Shard of Orun is a rare drop, but this many kills without one guarantees
 // the next — so q_first_shard (and the whole main story) can't be RNG-walled.
 const SHARD_PITY = 250;
@@ -4987,6 +4999,19 @@ function stepTick(
     state.ground = state.ground.filter((g) => g.despawnAt > ctx.now);
   }
 
+  // A grave crumbles when its time runs out, taking what it held.
+  if (state.grave && ctx.now >= state.grave.expiresAt) {
+    const n = state.grave.items.length;
+    state.grave = null;
+    events.push({
+      type: "LOG",
+      message: n > 0
+        ? "Your grave has crumbled. What it held is gone."
+        : "Your grave has crumbled.",
+      tone: "err",
+    });
+  }
+
   // A lit campfire burns down to ash after its time is up.
   if (state.campfire && ctx.now >= state.campfire.expiresAt) {
     state.campfire = null;
@@ -5118,6 +5143,42 @@ function stepTick(
       // The fire may have burned out while we walked — only cook if it's still lit.
       if (state.campfire && state.campfire.x === c.x && state.campfire.y === c.y) {
         events.push({ type: "OPEN_CRAFT", station: "fire", objId: "campfire" });
+      }
+    }
+
+    // 2b) Standing on your own grave reclaims it. No intent, no menu: you have
+    // just run back across the map under whatever killed you, and the last thing
+    // that moment needs is a prompt. Partial reclaims are honest — a full pack
+    // takes what fits and the grave keeps the rest, still ticking.
+    if (player.alive && state.grave
+      && Math.round(player.pos.x) === state.grave.x
+      && Math.round(player.pos.y) === state.grave.y) {
+      const grave = state.grave;
+      let taken = 0;
+      const left: { item: ItemId; qty: number }[] = [];
+      for (const g of grave.items) {
+        if (canAddItem(player, g.item)) {
+          addItem(player, g.item, g.qty, events);
+          taken++;
+        } else {
+          left.push(g);
+        }
+      }
+      if (grave.gold > 0) {
+        player.gold += grave.gold;
+        events.push({ type: "LOG", message: `You take back ${grave.gold}g from your grave.` });
+      }
+      grave.items = left;
+      grave.gold = 0;
+      if (left.length === 0) {
+        state.grave = null;
+        if (taken > 0) events.push({ type: "LOG", message: "You recover everything. Your grave settles." });
+      } else {
+        events.push({
+          type: "LOG",
+          message: `No room for ${left.length} more stack${left.length === 1 ? "" : "s"} — your grave keeps them.`,
+          tone: "err",
+        });
       }
     }
 
@@ -7773,43 +7834,74 @@ function killPlayer(
   // Death clears what is burning through you — respawning is a fresh start, not
   // a fresh start that immediately kills you again.
   curePoison(player);
-  // Coin setback: a tenth of your carried gold (capped).
-  const lost = Math.min(DEATH_GOLD_CAP, Math.floor(player.gold * DEATH_GOLD_FRACTION));
-  if (lost > 0) player.gold -= lost;
-  // Item risk, OSRS-style: your gear stays on your back and your THREE most
-  // valuable carried stacks are kept — the rest spills where you fell, and
-  // you have a recovery window to run back for it. New players carry little,
-  // so this self-scales: trivial at level 5, a real corpse-run at the Wyrm.
+
   const px = Math.round(player.pos.x);
   const py = Math.round(player.pos.y);
+
+  // A protection blessing lit at the moment of death buys back one kept stack.
+  // Read BEFORE the blessing is cleared below.
+  const blessed = !!player.blessing;
+  const keep = blessed ? DEATH_ITEMS_KEPT_BLESSED : DEATH_ITEMS_KEPT;
+  player.blessing = null;
+
+  // Worn gear is safe. The most valuable carried stacks are kept; the rest goes
+  // into the grave, most valuable first, so what you keep is what you'd choose.
   const slots = player.inventory
     .map((s, i) => ({ s, i, v: s ? marketValue(content, s.item) * s.qty : -1 }))
     .filter((r) => r.s !== null)
     .sort((a, b) => b.v - a.v);
-  const spilled = slots.slice(DEATH_ITEMS_KEPT).filter((r) => r.v > 0);
-  // Below a pocket-change total the spill is waived — a newbie's first deaths
-  // sting (coin) but never strip their pack.
-  const spillValue = spilled.reduce((n, r) => n + r.v, 0);
-  let droppedCount = 0;
-  if (spillValue >= DEATH_SPILL_MIN_VALUE) {
-    for (const r of spilled) {
-      dropToGround(state, r.s!.item, r.s!.qty, px, py, ctx, true);
+  const atRisk = slots.slice(keep).filter((r) => r.v > 0);
+  // Below a pocket-change total nothing is taken at all — a newbie's first
+  // deaths sting but never strip their pack.
+  const riskValue = atRisk.reduce((n, r) => n + r.v, 0);
+  const takeItems = riskValue >= DEATH_SPILL_MIN_VALUE;
+
+  const buried: { item: ItemId; qty: number }[] = [];
+  if (takeItems) {
+    for (const r of atRisk) {
+      buried.push({ item: r.s!.item, qty: r.s!.qty });
       player.inventory[r.i] = null;
-      droppedCount++;
-    }
-    // Death drops get a LONGER window than ordinary litter — enough to
-    // respawn, re-gear and run back across the map.
-    for (const g of state.ground) {
-      if (g.x === px && g.y === py) g.despawnAt = ctx.now + DEATH_SPILL_TTL;
     }
   }
-  // Record the spill for the death overlay's reassurance line (0 = kept all).
-  player.deathSpillStacks = droppedCount;
-  const bits = [
-    lost > 0 ? `You lose ${lost}g` : "",
-    droppedCount > 0 ? `your pack spills where you fell (${droppedCount} stack${droppedCount === 1 ? "" : "s"} — run back within ${Math.round(DEATH_SPILL_TTL / 60000)} minutes!)` : "",
-  ].filter(Boolean).join(" and ");
-  events.push({ type: "LOG", message: `${cause}${bits ? ` ${bits}.` : ""}` });
+  const lost = Math.floor(player.gold * DEATH_GOLD_FRACTION);
+  if (lost > 0) player.gold -= lost;
+
+  // Dying again while a grave already stands COLLAPSES the old one. This is the
+  // whole weight of the system: a second death is not a second chance, and it is
+  // announced loudly rather than discovered later at an empty tile.
+  if (state.grave) {
+    events.push({
+      type: "LOG",
+      message: "Your old grave crumbles — whatever was in it is gone for good.",
+      tone: "err",
+    });
+  }
+
+  if (buried.length || lost > 0) {
+    const faith = skillLvl(player, "faith");
+    const ttl = Math.min(GRAVE_TTL_MAX, GRAVE_TTL + faith * GRAVE_TTL_PER_FAITH);
+    state.grave = {
+      x: px,
+      y: py,
+      items: buried,
+      gold: lost,
+      expiresAt: ctx.now + ttl,
+      deaths: (state.grave?.deaths ?? 0) + 1,
+    };
+  } else {
+    state.grave = null;
+  }
+
+  // Kept for the death overlay's reassurance line (0 = nothing was taken).
+  player.deathSpillStacks = buried.length;
+  const mins = state.grave ? Math.round((state.grave.expiresAt - ctx.now) / 60000) : 0;
+  const bits: string[] = [];
+  if (buried.length) bits.push(`${buried.length} stack${buried.length === 1 ? "" : "s"}`);
+  if (lost > 0) bits.push(`${lost}g`);
+  const tail = bits.length
+    ? ` Your grave holds ${bits.join(" and ")} — reach it within ${mins} minutes.`
+    : blessed ? " Your blessing held: you kept everything." : "";
+  events.push({ type: "LOG", message: `${cause}${tail}` });
   events.push({ type: "PLAYER_DIED" });
 }
 

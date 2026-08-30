@@ -267,6 +267,61 @@ body {
   text-overflow: ellipsis;
 }
 .hunt-chip.done { color: #9fd07a; border-color: rgba(140, 200, 110, 0.5); }
+
+/* Quick bar: the four things you do under pressure, one tap each. */
+.quickbar {
+  display: flex;
+  gap: 4px;
+  margin-top: 5px;
+}
+.qb-btn {
+  flex: 1 1 0;
+  min-width: 0;
+  /* 34px keeps the touch target usable without crowding the vitals stack. */
+  min-height: 34px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  padding: 3px 2px;
+  font-size: 9px;
+  line-height: 1.1;
+  border: 1px solid rgba(210, 116, 44, 0.35);
+  border-radius: 7px;
+  background: rgba(12, 14, 20, 0.62);
+  color: rgba(243, 239, 230, 0.9);
+  cursor: pointer;
+  overflow: hidden;
+}
+.qb-btn b { font-weight: 600; font-size: 9px; opacity: 0.85; }
+.qb-btn:active { transform: translateY(1px); }
+/* Unavailable, not absent: a bar whose buttons move around is worse than one
+   with a dead slot, because the muscle memory is the whole point. */
+.qb-btn.off { opacity: 0.38; }
+.qb-btn.live {
+  border-color: rgba(226, 160, 58, 0.85);
+  box-shadow: inset 0 0 8px rgba(226, 160, 58, 0.28);
+  color: #f0c070;
+}
+
+/* The grave chip: a countdown you are racing. */
+.grave-chip {
+  margin-top: 4px;
+  font-size: 11px;
+  padding: 2px 7px;
+  border: 1px solid rgba(150, 190, 220, 0.45);
+  border-radius: 10px;
+  color: #a8c4dc;
+  background: rgba(12, 14, 20, 0.55);
+  white-space: nowrap;
+}
+.grave-chip.urgent {
+  color: #e2a03a;
+  border-color: rgba(226, 160, 58, 0.7);
+  animation: gravePulse 1s ease-in-out infinite;
+}
+@keyframes gravePulse { 50% { opacity: 0.55; } }
 .hunt-chip.hidden { display: none; }
 
 /* The special-attack chip: charge readout that becomes a button at full. */
@@ -2422,6 +2477,11 @@ button.inv-slot {
 }
 
 @media (max-width: 520px) {
+  /* The vitals column is narrow on a phone: keep the quick bar's glyphs and
+     drop the labels rather than letting the four buttons wrap. */
+  .qb-btn { font-size: 0; min-height: 32px; }
+  .qb-btn b { display: none; }
+
   /* The stats sheet is nine rows plus a header — on a phone that competes with
      the equip grid for a 336px-tall dock. Tighten it rather than hide it: the
      numbers are the reason to open the tab. */

@@ -499,9 +499,33 @@ export class Game {
     // Escape closes the top-most open menu / pop-up (and only that one), so the
     // keyboard dismisses them deliberately rather than relying on an off-click.
     window.addEventListener("keydown", (e) => {
-      if (e.key !== "Escape") return;
-      for (const ui of [this.menu, this.dialogue, this.tension, this.records, this.worldMap, this.bank, this.shop, this.bounty]) {
-        if (ui.isOpen()) { ui.close(); break; }
+      if (e.key === "Escape") {
+        for (const ui of [this.menu, this.dialogue, this.tension, this.records, this.worldMap, this.bank, this.shop, this.bounty]) {
+          if (ui.isOpen()) { ui.close(); break; }
+        }
+        return;
+      }
+      // Everything below is a game shortcut, so bail out the moment the player
+      // is typing. The chat input stops propagation itself, but a global handler
+      // cannot rely on every current and future field remembering to.
+      const el = document.activeElement;
+      const tag = el?.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || (el as HTMLElement | null)?.isContentEditable) return;
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      // The quick bar, from the keyboard. Deliberately the same four actions as
+      // the on-screen bar rather than a second, larger vocabulary — one set of
+      // things to remember.
+      const key = e.key.toLowerCase();
+      const qb = key === "e" ? "eat" : key === "q" ? "style" : key === "b" ? "bless"
+        : (key === " " || e.code === "Space") ? "spec" : null;
+      if (qb) {
+        e.preventDefault();
+        this.hud.quickKey(qb);
+        return;
+      }
+      if (key === "r") {
+        e.preventDefault();
+        this.dispatch({ type: "TOGGLE_RUN" });
       }
     });
     window.addEventListener("pointercancel", (e) => this.pointers.delete(e.pointerId));

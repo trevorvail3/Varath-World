@@ -192,7 +192,13 @@ export class Hud {
   private invSlots: HTMLElement[] = [];
   private hpFill!: HTMLElement;
   private huntChip!: HTMLElement;
+  private graveChip!: HTMLElement;
   private specChip!: HTMLElement;
+  private quickbar!: HTMLElement;
+  /** The last blessing lit, so the quick bar can toggle it back on. */
+  private lastBlessing: string | null = null;
+  /** The last player state the HUD painted — what the quick bar acts on. */
+  private lastPlayer: Player | null = null;
   private clueChip!: HTMLElement;
   private hpBar!: HTMLElement;
   private hpNum!: HTMLElement;
@@ -409,10 +415,25 @@ export class Hud {
         </div>
       </div>
       <div class="hunt-chip hidden" title="Your active bounty task"></div>
+      <div class="grave-chip hidden" title="Your grave — reach it before it crumbles"></div>
       <button class="spec-chip hidden" type="button" title="Special attack — the bar charges as your blows land; tap at full to arm the next swing"></button>
-      <button class="clue-chip hidden" type="button" title="A trail scroll in your pack — tap to read its riddle again"></button>`;
+      <button class="clue-chip hidden" type="button" title="A trail scroll in your pack — tap to read its riddle again"></button>
+      <div class="quickbar">
+        <button class="qb-btn" data-qb="eat" type="button" title="Eat the best food in your pack (E)"></button>
+        <button class="qb-btn" data-qb="style" type="button" title="Cycle your attack style (Q)"></button>
+        <button class="qb-btn" data-qb="bless" type="button" title="Toggle your last blessing (B)"></button>
+        <button class="qb-btn" data-qb="spec" type="button" title="Arm your special attack (Space)"></button>
+      </div>`;
     this.huntChip = vitals.querySelector(".hunt-chip") as HTMLElement;
+    this.graveChip = vitals.querySelector(".grave-chip") as HTMLElement;
     this.specChip = vitals.querySelector(".spec-chip") as HTMLElement;
+    this.quickbar = vitals.querySelector(".quickbar") as HTMLElement;
+    for (const b of Array.from(this.quickbar.querySelectorAll<HTMLElement>(".qb-btn"))) {
+      b.addEventListener("click", (e) => {
+        e.stopPropagation();
+        this.quickAction(b.dataset["qb"] ?? "");
+      });
+    }
     this.specChip.addEventListener("click", (e) => {
       e.stopPropagation();
       this.dispatch({ type: "SPECIAL" });
@@ -1883,6 +1904,22 @@ export class Hud {
       this.huntChip.classList.add("hidden");
     }
 
+    // The grave chip: a live countdown, because a grave is a timer you are
+    // racing and the only thing worse than losing your pack is not knowing how
+    // long you had. Turns urgent under a minute.
+    const grave = state.grave;
+    if (grave) {
+      const secs = Math.max(0, Math.round((grave.expiresAt - state.tickNow) / 1000));
+      const time = `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, "0")}`;
+      const n = grave.items.length;
+      const what = n > 0 ? `${n} stack${n === 1 ? "" : "s"}` : `${grave.gold}g`;
+      this.graveChip.innerHTML = `${glyph("skull")} ${escapeHtml(`${what} · ${time}`)}`;
+      this.graveChip.classList.toggle("urgent", secs <= 60);
+      this.graveChip.classList.remove("hidden");
+    } else {
+      this.graveChip.classList.add("hidden");
+    }
+
     // The special-attack chip: charge readout under the vitals. Hidden until
     // the first blow lands; full and armed states get their own looks.
     const spec = Math.floor(player.spec ?? 0);
@@ -1967,6 +2004,7 @@ export class Hud {
     const cname = player.appearance?.name?.trim();
     this.charName.textContent = cname ? `${cname} of Ironvale` : "Wanderer of Ironvale";
     this.renderAttackOptions(player);
+    this.renderQuickbar(player);
 
     // Inventory
     for (let i = 0; i < this.invSlots.length; i++) {
@@ -2010,6 +2048,89 @@ export class Hud {
 
     // Quests
     if (this.questList) this.renderQuests(player);
+  }
+
+  /**
+   * The quick bar's four actions.
+   *
+   * Everything here is reachable elsewhere — in the pack, on the Character tab,
+   * in the spell list. The point is that in a fight none of those are reachable
+   * FAST, and the four things you actually do under pressure were each two taps
+   * and a tab switch away.
+   */
+  /** The quick bar, from the keyboard — same four actions as the buttons. */
+  quickKey(which: string): void {
+    this.quickAction(which);
+  }
+
+  private quickAction(which: string): void {
+    // The bar acts on the last state the HUD painted. The HUD has no live state
+    // handle of its own, and a button can only be pressed after a paint.
+    const player = this.lastPlayer;
+    if (!player) return;
+    switch (which) {
+      case "eat": {
+        // The best heal you are carrying, not the first — under pressure you
+        // reach for the strongest thing, and hunting for it is the tax this bar
+        // exists to remove.
+        let best = -1, bestHeal = 0;
+        for (let i = 0; i < player.inventory.length; i++) {
+          const slot = player.inventory[i];
+          const heals = slot ? this.content.items[slot.item]?.heals ?? 0 : 0;
+          if (heals > bestHeal) { bestHeal = heals; best = i; }
+        }
+        if (best >= 0) this.dispatch({ type: "EAT", slot: best });
+        break;
+      }
+      case "style": {
+        const wt = playerWepType(player, this.content);
+        const opts = WEAPON_STYLES[wt];
+        const cur = activeAttackOption(player, this.content);
+        const i = opts.findIndex((o) => o.id === cur.id);
+        this.dispatch({ type: "SET_ATTACK_OPTION", option: (i + 1) % opts.length });
+        break;
+      }
+      case "bless": {
+        // Toggling off remembers what was lit, so the same tap turns it back on.
+        const lit = player.blessing;
+        if (lit) this.lastBlessing = lit;
+        const target = lit ?? this.lastBlessing;
+        if (target) this.dispatch({ type: "TOGGLE_BLESSING", spell: target });
+        break;
+      }
+      case "spec":
+        this.dispatch({ type: "SPECIAL" });
+        break;
+    }
+  }
+
+  /** Repaint the quick bar: what each button would do right now, and whether it
+   *  can do it at all. A dead button is greyed rather than hidden — a bar whose
+   *  buttons move around is worse than one with a disabled slot. */
+  private renderQuickbar(player: Player): void {
+    this.lastPlayer = player;
+    if (!this.quickbar) return;
+    let bestHeal = 0;
+    for (const slot of player.inventory) {
+      const h = slot ? this.content.items[slot.item]?.heals ?? 0 : 0;
+      if (h > bestHeal) bestHeal = h;
+    }
+    if (player.blessing) this.lastBlessing = player.blessing;
+    const style = activeAttackOption(player, this.content);
+    const spec = Math.floor(player.spec ?? 0);
+    const cfg: Record<string, { html: string; on: boolean; live: boolean }> = {
+      eat: { html: `${glyph("meat")}<b>${bestHeal || ""}</b>`, on: bestHeal > 0, live: false },
+      style: { html: `${glyph("swords")}<b>${style.name}</b>`, on: true, live: false },
+      bless: { html: `${glyph("flask")}`, on: !!(player.blessing ?? this.lastBlessing), live: !!player.blessing },
+      spec: { html: `${glyph("bolt")}<b>${spec}</b>`, on: spec >= 100, live: !!player.specArmed },
+    };
+    for (const b of Array.from(this.quickbar.querySelectorAll<HTMLElement>(".qb-btn"))) {
+      const c = cfg[b.dataset["qb"] ?? ""];
+      if (!c) continue;
+      b.innerHTML = c.html;
+      b.classList.toggle("off", !c.on);
+      b.classList.toggle("live", c.live);
+    }
   }
 
   /**
