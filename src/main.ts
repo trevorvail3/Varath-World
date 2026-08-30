@@ -42,6 +42,7 @@ import {
   writeSave,
 } from "./client/storage.ts";
 import { CharacterCreator, type CreatedCharacter } from "./client/characterCreator.ts";
+import { DEFAULT_APPEARANCE } from "./client/avatar.ts";
 import { isNameAvailable, reserveName } from "./client/nameRegistry.ts";
 import { LoginUI } from "./client/loginUI.ts";
 import { currentUser, signOut } from "./client/supabase.ts";
@@ -71,6 +72,11 @@ function ctxAt(nowMs: number): Ctx {
   return { now: nowMs, rng: Math.random, epoch: Date.now() };
 }
 
+/** Automated-run flag: skips the sign-in gate and the opening cinematics, and
+ *  opens the `__varath` handle so a script can drive real intents. Read once so
+ *  every check agrees. */
+const TEST_MODE = new URLSearchParams(location.search).has("test");
+
 // --- Grab the page elements up front. ---
 const canvas = document.getElementById("game") as HTMLCanvasElement | null;
 const hudRoot = document.getElementById("hud") as HTMLElement | null;
@@ -84,6 +90,10 @@ if (!canvas || !hudRoot || !app) {
 //     in localStorage, so returning visitors skip straight past the login. ---
 function start(): void {
   audio.setMode("menu"); // the Varath theme plays over the menus
+  // Test seam (?test=1): skip the sign-in gate entirely and boot a purely local
+  // character. Automated screenshot runs need a deterministic, one-step start;
+  // the same flag also opens the `__varath` handle at the end of boot().
+  if (TEST_MODE) { playOffline(); return; }
   if (currentUser()) { void afterLogin(); return; }
   new LoginUI(app!, () => void afterLogin(), playOffline);
 }
@@ -96,6 +106,9 @@ const OFFLINE_ACCOUNT = "__offline__";
 function playOffline(): void {
   setCurrentAccount(OFFLINE_ACCOUNT);
   if (readSave()) { boot(null, false); return; }
+  // An automated run has nobody to work the colour creator, so it gets the
+  // default look under a fixed name.
+  if (TEST_MODE) { boot({ ...DEFAULT_APPEARANCE, name: "Testwalker" }, false); return; }
   new CharacterCreator(app!, { takenNames: [], onCreate: (c) => boot(c, false) });
 }
 
@@ -357,8 +370,11 @@ function boot(newChar: CreatedCharacter | null, cloudReady: boolean): void {
   ping("session_start");
   // Test seam (?test=1): expose the live pieces so an automated gameplay run
   // can drive real intents and assert on what the player would hear/see.
-  if (new URLSearchParams(location.search).has("test")) {
-    (window as unknown as Record<string, unknown>)["__varath"] = { game, bridge, audio, content };
+  if (TEST_MODE) {
+    (window as unknown as Record<string, unknown>)["__varath"] = {
+      game, bridge, audio, content,
+      teleport: (x: number, y: number) => game.teleport(x, y),
+    };
   }
 
   const enter = (): void => {
@@ -370,17 +386,18 @@ function boot(newChar: CreatedCharacter | null, cloudReady: boolean): void {
     // Start (or resume) the opening coach — start() self-guards on graduation
     // and on "looks advanced", so a player who quit mid-first-quest gets the
     // coach back, while veterans never see it again (Tier-0 fix).
-    guide.start(state.player);
+    if (!TEST_MODE) guide.start(state.player);
     // The First Steps checklist — a brand-new hero's guided tutorial. Self-guards
     // on completion and on "looks advanced", so it runs exactly once.
-    tutorial.start(state.player);
+    if (!TEST_MODE) tutorial.start(state.player);
     // A founder's one-time cache window — after the intro/primer, once the
     // player is actually standing in the world.
-    maybeShowFounderClaim(app!, state, dispatch);
+    if (!TEST_MODE) maybeShowFounderClaim(app!, state, dispatch);
   };
   // New characters get the atmosphere intro, then the controls primer, then the
   // world (where the contextual guide takes over). Returning players drop in.
-  if (restored) enter();
+  // An automated run wants the world, not the cinematics.
+  if (restored || TEST_MODE) enter();
   else new Intro(app!, INTRO_LINES, () => new Primer(app!, enter));
 }
 

@@ -24,7 +24,7 @@ import type {
 } from "../core/types.ts";
 import type { ContextMenu, MenuItem } from "./contextMenu.ts";
 import { itemIconSVG } from "./itemIcon.ts";
-import { setPerfMode, setBrightness } from "./render.ts";
+import { setPerfMode, setBrightness, getFrameMeter, setFrameMeter } from "./render.ts";
 import { audio } from "./audio.ts";
 import { reportBug } from "./ops.ts";
 import { glyph, iconize } from "./glyph.ts";
@@ -1068,6 +1068,10 @@ export class Hud {
             window.dispatchEvent(new Event("resize"));
           }),
           "Fewer effects and a lower render resolution for smoother play on slower machines."));
+
+        gameplay.appendChild(item(
+          toggleRow("Frame-time readout", getFrameMeter(), setFrameMeter),
+          "Shows how many milliseconds each painted frame costs, with the worst frame in the last couple of seconds. A diagnostic — handy for telling a slow machine from a slow scene."));
 
         // --- Accessibility ----------------------------------------------------
         const br = sliderRow("Brightness", 0.6, 2, 0.05, getBrightnessSetting(),

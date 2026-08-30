@@ -4721,3 +4721,24 @@ button.inv-slot {
 .skilldetail-close:hover {
   background: rgba(255, 255, 255, 0.08);
 }
+
+/* --- Frame-time readout -----------------------------------------------------
+   A diagnostic, so it sits quietly in a corner the game does not use, never
+   takes a pointer event, and is hidden from assistive tech. Tabular figures so
+   the number stops jittering as digits change width. */
+.frame-meter {
+  position: absolute;
+  top: 6px;
+  left: 8px;
+  z-index: 90;
+  padding: 2px 8px;
+  border: 1px solid var(--panel-edge);
+  border-radius: 8px;
+  background: rgba(18, 14, 10, 0.72);
+  color: var(--ink-dim);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+  user-select: none;
+}

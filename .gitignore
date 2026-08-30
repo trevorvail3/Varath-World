@@ -14,3 +14,6 @@ npm-debug.log*
 .idea/
 *.local
 vite.config.ts.timestamp-*.mjs
+
+# Screenshot sets (regenerate with `npm run shots`)
+shots/

@@ -44,7 +44,7 @@ import type { Guide } from "./guide.ts";
 import type { Tutorial } from "./tutorial.ts";
 import { Hud } from "./hud.ts";
 import { Minimap, WorldMapModal } from "./minimap.ts";
-import { biomeAt, Camera, drawWorld, interpTile, stepProgress, setCombatHits, setDrawDistance, setLootLabels, TILE, type HitFx } from "./render.ts";
+import { biomeAt, Camera, getFrameMeter, drawWorld, interpTile, stepProgress, setCombatHits, setDrawDistance, setLootLabels, TILE, type HitFx } from "./render.ts";
 import { CRIER_SHOUTS } from "./crier.ts";
 import { audio, type CreatureVoice, type Sfx } from "./audio.ts";
 import { currentGhosts, startPresence } from "./presence.ts";
@@ -398,6 +398,12 @@ export class Game {
   private levelUp: LevelUp;
   private activeSkill: ActiveSkill;
   private camInitialised = false;
+  /** Frame-time meter state: the readout element, a rolling mean, and the worst
+   *  frame in the current window (a mean alone hides the stutter that is felt). */
+  private meterEl: HTMLElement | null = null;
+  private meterMean = 0;
+  private meterWorst = 0;
+  private meterShownAt = 0;
   /** Real time of the previous rendered frame, for frame-rate-independent easing. */
   private lastFrameNow = 0;
   /** Fraction [0,1] through the current game tick, refreshed once per frame in
@@ -453,7 +459,7 @@ export class Game {
     private bridge: CoreBridge,
     private hud: Hud,
     private dialogue: Dialogue,
-    uiRoot: HTMLElement,
+    private uiRoot: HTMLElement,
     menu: ContextMenu,
     private guide: Guide,
     private tutorial: Tutorial,
@@ -719,6 +725,7 @@ export class Game {
     // 3) Paint the world (and its world-space overlays) under the zoom transform.
     //    The DPR is folded in here so one world pixel covers `zoom` CSS pixels at
     //    full device resolution; everything below works in world pixels.
+    const paintT0 = getFrameMeter() ? performance.now() : 0;
     const s = this.zoom * this.dpr;
     const [shx, shy] = this.shakeOffset(now);
     this.g.setTransform(s, 0, 0, s, shx, shy);
@@ -764,6 +771,31 @@ export class Game {
         this.viewH,
       );
     }
+
+    // 5) The frame-time readout, when it is switched on.
+    if (getFrameMeter()) this.updateMeter(performance.now() - paintT0, now);
+    else if (this.meterEl) { this.meterEl.remove(); this.meterEl = null; }
+  }
+
+  /** Fold this frame's paint cost into the rolling readout. The mean is an
+   *  exponential average (so it settles in about a second) and the worst frame
+   *  is kept for a two-second window, because a smooth mean with a 40ms spike in
+   *  it is not smooth. */
+  private updateMeter(ms: number, now: number): void {
+    this.meterMean = this.meterMean === 0 ? ms : this.meterMean + (ms - this.meterMean) * 0.06;
+    if (ms > this.meterWorst) this.meterWorst = ms;
+    if (now - this.meterShownAt < 250) return;
+    this.meterShownAt = now;
+    if (!this.meterEl) {
+      const el = document.createElement("div");
+      el.className = "frame-meter";
+      el.setAttribute("aria-hidden", "true"); // a diagnostic, not content
+      this.uiRoot.appendChild(el);
+      this.meterEl = el;
+    }
+    this.meterEl.textContent =
+      `${this.meterMean.toFixed(1)} ms  ·  peak ${this.meterWorst.toFixed(1)} ms`;
+    this.meterWorst = 0;
   }
 
   /** Current screen-shake translation in device pixels (decays over its life). */
@@ -825,6 +857,18 @@ export class Game {
       const maxY = OVERWORLD_HEIGHT * TILE - this.viewH;
       if (this.cam.y > maxY) this.cam.y = Math.max(0, maxY);
     }
+  }
+
+  /** Put the player on a tile and snap the camera to them, with no walk and no
+   *  ease. Used by the automated screenshot tour to visit places the renderer
+   *  should be judged on; it does not go through an intent, so it is a view
+   *  operation, not a game move. */
+  teleport(x: number, y: number): void {
+    const pl = this.bridge.state.player;
+    pl.pos = { x, y };
+    pl.prevPos = { x, y };
+    pl.path = [];
+    this.camInitialised = false; // snap rather than glide across the map
   }
 
   /** Current view zoom (1 = default). */

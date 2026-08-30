@@ -95,6 +95,23 @@ function darkFactor(): number { return Math.max(0, Math.min(1, 2 - brightness));
 // Performance mode: skip the purely-decorative ambient layers (birds,
 // butterflies, surfacing water life) that cost draw calls every frame but add
 // no gameplay. Paired with a lower render resolution in the loop.
+// The frame-time meter: a readout of how long a painted frame actually costs.
+// Off by default and purely a display preference, but it is the only honest way
+// to hold an art pass to a performance budget — without a number on screen,
+// "does it still feel smooth?" is a feeling. The flag lives here (with the other
+// render settings) and the loop does the measuring.
+const METER_KEY = "varath-frame-meter";
+let frameMeter = (() => {
+  try { return localStorage.getItem(METER_KEY) === "1"; } catch { return false; }
+})();
+/** Whether the frame-time readout is showing. */
+export function getFrameMeter(): boolean { return frameMeter; }
+/** Show or hide the frame-time readout (persisted). */
+export function setFrameMeter(on: boolean): void {
+  frameMeter = on;
+  try { localStorage.setItem(METER_KEY, on ? "1" : "0"); } catch { /* ignore */ }
+}
+
 let perfMode = false;
 export function setPerfMode(on: boolean): void {
   perfMode = on;
