@@ -903,9 +903,43 @@ schedule that does not cover the day. It also drives the real tick for 400 ticks
 to confirm they actually walk, and checks that an NPC *without* a routine is
 untouched.
 
-### Still to come
+### The eight wild zones — done
 
-8 new ungated zones.
+A camp is a place to stop on the way somewhere. A **zone** is somewhere you go:
+~19×19 of its own ground, twelve foes, six gatherables and a landmark at the
+heart. None is gated — no quest, no level, no key. **160 objects across eight.**
+
+**Their anchors were found, not chosen.** A search over v2 space for points at
+least 9 tiles clear of the six regions, Ironvale and its ring, the fourteen
+camps, the six towns, the sea and the Redrun — and at least 26 apart from each
+other — returns **exactly eight**. The last of the room the Greater World opened
+holds precisely the eight zones the spec asked for.
+
+**The shared kit came out of camps.ts** into `wildKit.ts`: the theme pools, the
+foe and node pickers, and a `bandAt()` fitted per place-type. Camps and zones are
+different sizes of the same idea, and a second copy of those pools would drift
+invisibly — a theme that quietly has nothing near a band produces a place of the
+wrong difficulty with no error anywhere.
+
+Which is exactly what `sims/zones.ts` caught. **The `drowned` pool started at
+level 48**, so Stillwater at band 38 was holding a level-61 bog knight. The fix
+is the pool, not the zone: a theme has to span the range or it can only ever be
+used in the far country. Two low-end members in, and the same table now serves a
+band-38 fen and a band-52 drowned wood correctly.
+
+Zones run band **20 → 68**, rising with distance (r > 0.9), on their own fit —
+the nearest zone sits *above* the camp ring beside it, which is the intent: a
+zone is somewhere to train, not a rest stop.
+
+`sims/zones.ts` also asserts each zone is worth the walk (≥10 foes, ≥5
+gatherables, a marker naming it), that nothing in one is flag-gated, that every
+object stands on ground with a walkable tile beside it, and that no zone
+overlaps a region, a town, a camp, the city or another zone.
+
+## Phase 4 is complete
+
+400×400 canvas · 14 camps · 6 towns · 8 zones · townsfolk keeping hours.
+1,409 overworld objects, all reachable.
 
 ## Phase 5 — Real multiplayer (capstone)
 

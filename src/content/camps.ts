@@ -29,8 +29,7 @@
  * RULE 3: pure data + a pure builder.
  */
 
-import { actions } from "./actions.ts";
-import { monsters } from "./monsters.ts";
+import { bandAt, foesFor, nodeFor, type NodeKind, type WildTheme } from "./wildKit.ts";
 import type { TileType, WorldObjectDef } from "../core/types.ts";
 
 export interface CampDef {
@@ -48,7 +47,7 @@ export interface CampDef {
   ry: number;
   /** What kind of thing holds this place. The specific foes are chosen from
    *  the theme's pool to match the camp's DERIVED band — see campBand. */
-  theme: CampTheme;
+  theme: WildTheme;
   /** Which KINDS of gatherable this place offers. Which tier of each is chosen
    *  to match the camp's band, the same way its foes are — a level-1 ashwood
    *  beside a level-60 foe is a node nobody would stop for. */
@@ -57,86 +56,14 @@ export interface CampDef {
   props?: { kind: "remains" | "ruin_prop" | "fence" | "cart" | "bone_cairn"; name: string; line?: string }[];
 }
 
-export type CampTheme = "outlaw" | "beast" | "wild" | "cult" | "drowned" | "deep";
-
 /**
- * Who holds what kind of place. Each pool spans the whole level range, and the
- * builder picks the members nearest the camp's band — so a theme is a statement
- * about CHARACTER ("outlaws hold this crossroads") and the band, which comes
- * from geography, decides how dangerous they are.
- */
-const THEME_POOL: Record<CampTheme, string[]> = {
-  outlaw: ["footpad", "cutpurse", "bandit", "poacher", "hired_blade", "highwayman", "outlaw_archer", "cutthroat", "marauder", "outlaw_captain", "redrun_brigand"],
-  beast: ["moor_rat", "hill_wolf", "red_deer", "wild_boar", "forest_bear", "greymane_boar", "mountain_lion", "ridge_wolf", "heartmoor_hound", "hollow_hound", "aerie_harpy"],
-  wild: ["gutter_spider", "warren_creeper", "stone_crawler", "mountain_troll", "dusk_stalker", "cave_crawler", "deep_bat", "mire_serpent", "river_serpent", "ancient_orc"],
-  cult: ["cult_acolyte", "hollow_hexling", "cult_zealot", "cult_magus", "court_wisp", "storm_wisp", "court_reliquarist", "warren_shade"],
-  drowned: ["marsh_lurker", "bog_knight", "drowned_thrall", "mire_serpent", "marrow_wraith", "drowned_magistrate"],
-  deep: ["spine_wraith", "barrow_sentinel", "deep_golem", "vault_sentinel", "vault_warden", "pale_wight", "sky_warder"],
-};
-
-/** The v2 centre of Ironvale — the point every camp's distance is measured from.
- *  Kept here as a plain number so this file stays free of map.ts (see header);
- *  the spread is uniform, so v2 distance is proportional to real distance. */
-const CITY_V2 = { x: 81.5, y: 78.5 };
-
-/**
- * A camp's difficulty band, DERIVED from how far out it is.
- *
- * Hand-assigning bands is how the first version of this table got it wrong: I
- * wrote them against a guessed geography, and `sims/camps.ts` measured the
- * correlation between distance and band at r=0.26 — the gradient the signposts
- * promise did not exist. Deriving it makes the promise true by construction:
- * the camp on Ironvale's doorstep is level ~10, the one at the far march ~60.
+ * A camp's band, from how far out it is. The curve is fitted to where the camps
+ * actually are — the nearest ~22 v2 tiles out, the furthest ~70 — so the near
+ * ring is level 12 and the far march ~62. Fitting it to 0..70 instead put a
+ * level-26 camp an hour from the gate, which is not a camp a new player can use.
  */
 export function campBand(vx: number, vy: number): number {
-  const d = Math.hypot(vx - CITY_V2.x, vy - CITY_V2.y);
-  // Fitted to where the camps actually are, not to a round number: the nearest
-  // sits ~22 v2 tiles out and the furthest ~70, so the curve is anchored to
-  // band 12 at the near ring and ~62 at the far march. Fitting it to 0..70
-  // instead put a level-26 camp an hour from the gate, which is not a camp a
-  // new player can use. Clamped so a camp placed beyond the far march cannot
-  // ask for a monster tier the game does not have.
-  return Math.max(8, Math.min(70, Math.round(12 + (d - 22) * 1.05)));
-}
-
-export type NodeKind = "tree" | "rock" | "forage_spot" | "fishing_spot";
-
-/** Which skill each node kind gathers, for picking a tier from the registry. */
-const NODE_SKILL: Record<NodeKind, string> = {
-  tree: "forestry", rock: "mining", forage_spot: "survivalist", fishing_spot: "fishing",
-};
-
-/**
- * The gatherable of `kind` whose level requirement sits closest to `band`.
- * Derived for the same reason the foes are: a hand-tiered node list drifts the
- * moment a camp's band changes, and a level-8 birch beside a level-63 harpy is
- * a node nobody would ever stop for.
- */
-function nodeFor(kind: NodeKind, band: number, nth: number): { resource: string; species?: string } {
-  const pool = actions
-    // A gather node has no INPUTS — you walk up and take what is there. Without
-    // this the survivalist pool offered "Strip Dusk Bark", which needs a
-    // deeproot log in hand: a node that silently refuses everyone who clicks it.
-    .filter((a) => a.skill === NODE_SKILL[kind] && !!a.produces
-      && !(a as { requires?: unknown }).requires && !(a as { requiresAny?: unknown }).requiresAny
-      && (kind !== "forage_spot" || a.group === "forage"))
-    .sort((a, b) => Math.abs((a.levelReq ?? 1) - band) - Math.abs((b.levelReq ?? 1) - band));
-  const pick = pool[nth % Math.max(1, Math.min(3, pool.length))] ?? pool[0]!;
-  // A tree's species is the second half of its action id (fell_greyoak →
-  // greyoak), which is what the renderer draws it as.
-  const species = kind === "tree" ? /^fell_(.+)$/.exec(pick.id)?.[1] : undefined;
-  return species ? { resource: pick.id, species } : { resource: pick.id };
-}
-
-/** The `n` foes from a theme whose levels sit closest to `band`. */
-function foesFor(theme: CampTheme, band: number, n: number): string[] {
-  const pool = [...THEME_POOL[theme]]
-    .filter((id) => !!monsters[id])
-    .sort((a, b) => Math.abs((monsters[a]!.level ?? 0) - band) - Math.abs((monsters[b]!.level ?? 0) - band));
-  const pick = pool.slice(0, Math.max(2, Math.min(3, pool.length)));
-  // Four spawns from up to three kinds, so a camp reads as a group rather than
-  // one of everything.
-  return Array.from({ length: n }, (_, i) => pick[i % pick.length]!);
+  return bandAt(vx, vy, 22, 70, 12, 62);
 }
 
 /**

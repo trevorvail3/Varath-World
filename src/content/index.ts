@@ -29,6 +29,7 @@ import { bountyGuides, bountyShop, bountyTasks, bountyUnlocks, huntingGrounds } 
 import { objects, playerSpawn } from "./spawns.ts";
 import { buildCampObjects } from "./camps.ts";
 import { buildTownObjects } from "./towns.ts";
+import { buildZoneObjects } from "./zones.ts";
 import { fromV2, spread } from "./map.ts";
 import { skills } from "./skills.ts";
 import { xpForLevel } from "./xpCurve.ts";
@@ -42,7 +43,9 @@ export const content: Content = {
     // The towns are laid into seats that are already busy, so the builder is
     // told which tiles are taken rather than guessing.
     const taken = new Set(withCamps.map((o) => `${o.x},${o.y}`));
-    return [...withCamps, ...buildTownObjects(fromV2, taken)];
+    const withTowns = [...withCamps, ...buildTownObjects(fromV2, taken)];
+    for (const o of withTowns) taken.add(`${o.x},${o.y}`);
+    return [...withTowns, ...buildZoneObjects(spread, taken)];
   })(),
   items,
   monsters,

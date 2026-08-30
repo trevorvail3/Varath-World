@@ -27,6 +27,7 @@
 import type { TileType, WorldMap } from "../core/types.ts";
 import { DUNGEON_LAYOUTS, type DungeonLayout } from "./dungeons.ts";
 import { CAMPS } from "./camps.ts";
+import { ZONES } from "./zones.ts";
 import { TOWNS, townClearing } from "./towns.ts";
 
 const WIDTH = 400;
@@ -715,6 +716,18 @@ function decode(): WorldMap {
   for (const c of CAMPS) {
     const at = spread(c.vx, c.vy);
     carve(at.x - c.rx - 3, at.y - c.ry - 3, at.x + c.rx + 3, at.y + c.ry + 3, c.floor);
+  }
+  // The eight wild zones: a broad patch of their own ground, painted before the
+  // camps' smaller clearings so a camp inside one would still read as a camp.
+  for (const z of ZONES) {
+    const at = spread(z.vx, z.vy);
+    const r = z.r + 2;
+    for (let y = at.y - r; y <= at.y + r; y++) {
+      for (let x = at.x - r; x <= at.x + r; x++) {
+        // Rounded, not square: a zone is country, not a carved-out box.
+        if (Math.hypot(x - at.x, y - at.y) <= r) set(x, y, z.floor);
+      }
+    }
   }
 
   const marrow = REGIONS.find((r) => r.key === "marrow")!;
