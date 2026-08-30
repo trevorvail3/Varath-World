@@ -204,7 +204,7 @@
       "ttkMs": 34300,
       "hitRate": 0.724,
       "dmgPerHit": 13.79,
-      "deathsPer100": 100,
+      "deathsPer100": 0,
       "timeouts": 0
     },
     {
@@ -294,7 +294,7 @@
       "ttkMs": 72100,
       "hitRate": 0.575,
       "dmgPerHit": 22.68,
-      "deathsPer100": 100,
+      "deathsPer100": 70,
       "timeouts": 0
     },
     {
@@ -324,7 +324,7 @@
       "ttkMs": 21700,
       "hitRate": 0.75,
       "dmgPerHit": 34.3,
-      "deathsPer100": 10,
+      "deathsPer100": 0,
       "timeouts": 0
     },
     {
@@ -364,7 +364,7 @@
       "ttkMs": 91300,
       "hitRate": 0.67,
       "dmgPerHit": 21.99,
-      "deathsPer100": 100,
+      "deathsPer100": 0,
       "timeouts": 0
     },
     {
@@ -644,7 +644,7 @@
       "ttkMs": 45100,
       "hitRate": 0.628,
       "dmgPerHit": 43.49,
-      "deathsPer100": 100,
+      "deathsPer100": 80,
       "timeouts": 0
     },
     {
@@ -764,7 +764,7 @@
       "ttkMs": 30700,
       "hitRate": 0.792,
       "dmgPerHit": 47.86,
-      "deathsPer100": 100,
+      "deathsPer100": 0,
       "timeouts": 0
     },
     {

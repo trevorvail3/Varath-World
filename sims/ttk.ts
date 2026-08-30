@@ -18,6 +18,12 @@
 import { content, makeWorld, SimClock, levelMatchedPlayer, round } from "./harness.ts";
 import { readFileSync } from "node:fs";
 import { applyIntent, tick } from "../src/core/worldCore.ts";
+import type { ItemId } from "../src/core/types.ts";
+
+/** The best heal in the game, and how many bites the survivability pass carries.
+ *  A boss trip is a pack of food; 20 bites is a realistic load. */
+const FOOD: ItemId = "health_elixir";
+const FOOD_SLOTS = 20;
 
 /** Seeds for the offence pass (TTK / hit rate) and the survivability pass. */
 const TTK_SEEDS = [7, 19, 43];
@@ -36,6 +42,12 @@ interface Fight { ttkMs: number | null; swings: number; hits: number; damage: nu
  * TTK. Without it the fight measures SURVIVABILITY. Keeping them apart matters:
  * removing the flat defence soak can leave TTK untouched while making the game
  * unsurvivable, and a single blended number would hide that.
+ *
+ * The survivability pass CARRIES AND EATS FOOD, because a player does. Measuring
+ * an unfed player who never eats and never retreats does not measure the game —
+ * it measures standing still until something kills you, which OSRS-style combat
+ * is designed to punish. Before food was added here, the pass read one boss as
+ * "70% lethal" when the honest answer was "you have to eat".
  */
 function fight(monsterId: string, objId: string, seed: number, heal: boolean): Fight {
   const clock = new SimClock(seed);
@@ -49,6 +61,8 @@ function fight(monsterId: string, objId: string, seed: number, heal: boolean): F
   // Several bosses only exist once a quest has revealed them. Grant the flag so
   // the sim can reach them; without it the INTERACT is a silent no-op.
   if (def.requiresFlag && !p.flags.includes(def.requiresFlag)) p.flags.push(def.requiresFlag);
+  // A pack of the best food, for the survivability pass to eat from.
+  if (!heal) for (let i = 0; i < FOOD_SLOTS; i++) p.inventory[i] = { item: FOOD, qty: 1 };
   p.pos = { x: def.x + 1, y: def.y };
   p.prevPos = { ...p.pos };
   p.path = [];
@@ -63,7 +77,16 @@ function fight(monsterId: string, objId: string, seed: number, heal: boolean): F
     // Make the player unkillable outright rather than just topping HP up: a boss
     // can land more than a full health bar inside one tick, and a death would
     // end the fight before it produced the TTK this pass exists to measure.
-    if (heal) { p.maxHp = 1_000_000; p.hp = 1_000_000; }
+    if (heal) {
+      p.maxHp = 1_000_000;
+      p.hp = 1_000_000;
+    } else if (p.hp < p.maxHp * 0.55) {
+      // Eat where a player would. The core enforces its own eat delay, so this
+      // cannot out-heal incoming damage — it just stops the pass from measuring
+      // a player who refuses to use their inventory.
+      const slot = p.inventory.findIndex((it) => it?.item === FOOD);
+      if (slot >= 0) applyIntent(state, content, { type: "EAT", slot }, clock.ctx());
+    }
     for (const e of tick(state, content, clock.ctx())) {
       if (e.type === "DAMAGE" && e.targetId === objId) {
         swings++;
