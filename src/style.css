@@ -664,9 +664,44 @@ body {
 
 .equip-stats {
   margin-top: 8px;
-  font-size: 12px;
+  font-size: 11px;
   color: var(--ember, #d2742c);
   letter-spacing: 0.02em;
+}
+
+/* Equipment Stats sheet — three columns: label, attack bonus, defence bonus. */
+.es-head,
+.es-row {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: 6px;
+  align-items: baseline;
+  padding: 1px 0;
+}
+.es-head {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  opacity: 0.65;
+  border-bottom: 1px solid rgba(210, 116, 44, 0.25);
+  margin-bottom: 2px;
+}
+.es-k { color: rgba(243, 239, 230, 0.75); }
+.es-a,
+.es-d,
+.es-v {
+  font-variant-numeric: tabular-nums;
+  min-width: 34px;
+  text-align: right;
+}
+/* The extras (Strength, Ranged str, Magic dmg, Grace) are single-value rows, so
+   they span the two numeric columns to stay aligned with the pairs above. */
+.es-extra { grid-template-columns: 1fr auto; }
+.es-extra .es-v { min-width: 74px; }
+.es-row:first-of-type.es-extra {
+  border-top: 1px solid rgba(210, 116, 44, 0.25);
+  margin-top: 3px;
+  padding-top: 4px;
 }
 
 /* Combat style selector */
@@ -2382,6 +2417,14 @@ button.inv-slot {
 }
 
 @media (max-width: 520px) {
+  /* The stats sheet is nine rows plus a header — on a phone that competes with
+     the equip grid for a 336px-tall dock. Tighten it rather than hide it: the
+     numbers are the reason to open the tab. */
+  .equip-stats { font-size: 10px; }
+  .es-head, .es-row { padding: 0; gap: 4px; }
+  .es-a, .es-d { min-width: 28px; }
+  .es-extra .es-v { min-width: 60px; }
+
   /* HP + Grace bars stay tucked under the minimap; JS sets the exact width. */
 
   /* Keep the bottom-left log and bottom-right dock from crowding each other. */

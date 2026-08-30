@@ -30,7 +30,7 @@ import { setPerfMode, setBrightness } from "./render.ts";
 import { audio } from "./audio.ts";
 import { reportBug } from "./ops.ts";
 import { glyph, iconize } from "./glyph.ts";
-import { bossMilestones, combatLevel, compassHint, DAILY_WINDOW_MS, DELVE_FULL_LOCKOUT_MS, equipRequirement, evalAchievement } from "../core/worldCore.ts";
+import { bossMilestones, combatLevel, compassHint, DAILY_WINDOW_MS, DELVE_FULL_LOCKOUT_MS, equipBonusTotal, equipRequirement, evalAchievement } from "../core/worldCore.ts";
 import { SkillDetailModal } from "./skillDetail.ts";
 import { LEVEL_CAP, XP_CAP } from "../content/xpCurve.ts";
 import { HiscoresUI } from "./hiscoresUI.ts";
@@ -1989,16 +1989,10 @@ export class Hud {
 
     // Equipment: fill worn slots, and total the bonuses underneath.
     this.lastEquipment = player.equipment;
-    let acc = 0;
-    let dmg = 0;
-    let def = 0;
     this.equipCells.forEach((icon, slot) => {
       const id = player.equipment[slot];
       if (id) {
         const item = this.content.items[id];
-        acc += item.acc ?? 0;
-        dmg += item.dmg ?? 0;
-        def += item.def ?? 0;
         icon.className = "equip-slot filled";
         icon.innerHTML = itemIconSVG(item);
         icon.title = `${item.name} — ${item.description}${item.sell ? ` · worth ${item.sell.toLocaleString()}g` : ""}`;
@@ -2013,12 +2007,42 @@ export class Hud {
         icon.title = "";
       }
     });
-    if (this.equipStats) {
-      this.equipStats.textContent = `Acc +${acc}  ·  Dmg +${dmg}  ·  Def +${def}`;
-    }
+    if (this.equipStats) this.renderEquipStats(player);
 
     // Quests
     if (this.questList) this.renderQuests(player);
+  }
+
+  /**
+   * The Equipment Stats sheet — OSRS's worn-gear screen.
+   *
+   * Gear now carries a ten-way attack/defence vector, so the old
+   * "Acc / Dmg / Def" line described almost none of what a piece actually does:
+   * it could not show that plate folds to magic or that robes fold to arrows,
+   * which is the whole point of the armour triangle. Read straight from the
+   * core's `equipBonusTotal` so the panel can never drift from the maths.
+   */
+  private renderEquipStats(player: Player): void {
+    if (!this.equipStats) return;
+    const b = equipBonusTotal(player, this.content);
+    const sign = (n: number): string => (n > 0 ? `+${n}` : String(n));
+    const row = (label: string, atk: number, dfn: number): string =>
+      `<div class="es-row"><span class="es-k">${label}</span>`
+      + `<span class="es-a">${sign(atk)}</span><span class="es-d">${sign(dfn)}</span></div>`;
+    const extra = (label: string, v: number): string =>
+      `<div class="es-row es-extra"><span class="es-k">${label}</span><span class="es-v">${sign(v)}</span></div>`;
+
+    this.equipStats.innerHTML =
+      `<div class="es-head"><span class="es-k"></span><span class="es-a">Attack</span><span class="es-d">Defence</span></div>`
+      + row("Stab", b.aStab, b.dStab)
+      + row("Slash", b.aSlash, b.dSlash)
+      + row("Crush", b.aCrush, b.dCrush)
+      + row("Magic", b.aMagic, b.dMagic)
+      + row("Ranged", b.aRange, b.dRange)
+      + extra("Strength", b.str)
+      + extra("Ranged str", b.rngStr)
+      + extra("Magic dmg", b.magDmg)
+      + extra("Grace", b.prayer);
   }
 
   /** Rebuild the quest log, split into Main Story / Faction / Side Quests. Each

@@ -72,6 +72,23 @@ export interface CoreBridge {
   tick(nowMs: number): WorldEvent[];
 }
 
+/**
+ * An OSRS hitsplat: a coloured lozenge with the number inside, pinned over the
+ * target rather than rising away from it.
+ *
+ * Kept OUT of the world's y-sorted sprite list on purpose — a splat must never
+ * be occluded by the thing it is reporting on. It is drawn in the overlay pass
+ * with the floats, which is already the "always on top" layer.
+ */
+interface Hitsplat {
+  x: number; // tile coords
+  y: number;
+  amount: number;
+  kind: "hit" | "zero" | "miss" | "poison" | "venom";
+  weak: boolean;
+  born: number;
+}
+
 interface FloatText {
   x: number; // tile coords
   y: number;
@@ -368,6 +385,7 @@ export class Game {
   private pointers = new Map<number, { x: number; y: number }>();
   private pinchDist = 0;
   private floats: FloatText[] = [];
+  private hitsplats: Hitsplat[] = [];
   private sparks: Spark[] = [];
   private rings: Ring[] = [];
   private puffs: Puff[] = [];
@@ -697,7 +715,9 @@ export class Game {
     this.drawRings(now);
     this.drawProjectiles(now);
     this.drawSparks(now);
+    this.drawTargetHealth();
     this.drawFloats(now);
+    this.drawHitsplats(now);
     this.drawSpeech(now);
     this.updateCrier(now);
     this.g.setTransform(1, 0, 0, 1, 0, 0); // back to device space for the HUD/minimap
@@ -1137,21 +1157,27 @@ export class Game {
             const main = this.bridge.state.player.equipment.mainhand;
             const mdef = main ? this.bridge.content.items[main] : undefined;
             const style = mdef?.ranged ? "bow" : mdef?.magic ? "magic" : "hit";
-            audio.play(ev.amount > 0 ? style : "miss");
+            // A LANDED blow for zero is not a whiff — it thuds off armour.
+            audio.play(ev.kind === "miss" ? "miss" : ev.amount > 0 ? style : "hit");
           }
           const pos = this.positionOf(ev.targetId);
           if (pos) {
-            // A weakness-exploiting hit reads in bright gold ("super effective"),
-            // a normal hit in red, a miss in grey — so the triangle is legible.
             const hit = ev.amount > 0;
-            const color = !hit ? "#9aa0a6" : ev.weak ? "#ffcf4a" : "#e2483a";
-            this.floats.push({
-              x: pos.x,
-              y: pos.y,
-              text: hit ? (ev.weak ? `${ev.amount}!` : String(ev.amount)) : "miss",
-              color,
-              born: now,
-              ...(ev.weak && hit ? { size: 16 } : {}),
+            // Combat damage now rolls from ZERO, so "0" and "miss" are different
+            // events that used to look identical. OSRS draws a landed nothing as
+            // a blue splat and a whiff as an empty one — that distinction is most
+            // of how the exchange reads, so it is drawn, not just logged.
+            const splatKind: Hitsplat["kind"] =
+              ev.kind === "poison" ? "poison"
+              : ev.kind === "venom" ? "venom"
+              : ev.kind === "miss" ? "miss"
+              : hit ? "hit" : "zero";
+            // Several blows can resolve on one 600ms tick. Stagger them so they
+            // read as a sequence rather than stacking into one illegible blob.
+            const sameTick = this.hitsplats.filter((h) => now - h.born < 40).length;
+            this.hitsplats.push({
+              x: pos.x, y: pos.y, amount: ev.amount,
+              kind: splatKind, weak: !!ev.weak, born: now + sameTick * 90,
             });
             this.sparks.push({
               x: pos.x, y: pos.y, born: now,
@@ -2306,6 +2332,101 @@ export class Game {
         g.stroke();
       }
       g.globalAlpha = 1;
+    }
+  }
+
+  /**
+   * A health bar over whatever you are fighting.
+   *
+   * Only the current target gets one — an overworld full of bars would be
+   * noise, and the one thing you need to read mid-fight is how close THIS is to
+   * dying. Drawn in the overlay pass so it is never occluded by the sprite it
+   * belongs to.
+   */
+  private drawTargetHealth(): void {
+    const id = this.combatTargetId;
+    if (!id) return;
+    const obj = this.bridge.state.objects[id];
+    const def = this.bridge.content.objects.find((o) => o.id === id);
+    if (!obj?.available || obj.hp === undefined || !def?.monster) return;
+    const max = this.bridge.content.monsters[def.monster]?.hp ?? 0;
+    if (max <= 0) return;
+    const pos = this.positionOf(id);
+    if (!pos) return;
+
+    const frac = Math.max(0, Math.min(1, obj.hp / max));
+    const w = 44, h = 5;
+    const px = pos.x * TILE + TILE / 2 - this.cam.x - w / 2;
+    const py = pos.y * TILE + TILE / 2 - this.cam.y - 34;
+    this.g.save();
+    this.g.fillStyle = "rgba(0,0,0,0.55)";
+    this.g.fillRect(px - 1, py - 1, w + 2, h + 2);
+    this.g.fillStyle = "#5c1f1a";
+    this.g.fillRect(px, py, w, h);
+    // Green down to a third, then amber, then red — the same reading the
+    // player's own vitals bar gives.
+    this.g.fillStyle = frac > 0.5 ? "#4c9a3f" : frac > 0.25 ? "#c9922a" : "#b4342a";
+    this.g.fillRect(px, py, w * frac, h);
+    this.g.restore();
+  }
+
+  /**
+   * OSRS hitsplats: a coloured lozenge over the target with the number in it.
+   *
+   * The colours carry the whole vocabulary of an exchange at a glance —
+   * red you hurt it, BLUE it landed and did nothing, grey it missed, gold you
+   * exploited its weakness. The blue is the important one: damage rolls from
+   * zero now, so "landed for 0" is a real and frequent outcome that would
+   * otherwise be indistinguishable from a whiff.
+   */
+  private drawHitsplats(now: number): void {
+    const LIFE = 700;
+    this.hitsplats = this.hitsplats.filter((h) => now - h.born < LIFE && now >= h.born);
+    for (const h of this.hitsplats) {
+      if (now < h.born) continue; // still staggered behind an earlier blow
+      const t = (now - h.born) / LIFE;
+      const px = h.x * TILE + TILE / 2 - this.cam.x;
+      // A short lift then a hold, so the number is readable rather than fleeing.
+      const py = h.y * TILE + TILE / 2 - this.cam.y - 10 - Math.min(1, t * 3) * 12;
+      const fill =
+        h.kind === "miss" ? "#5b626c"
+        : h.kind === "zero" ? "#2f6fd0"
+        : h.kind === "poison" ? "#3f9b4f"
+        : h.kind === "venom" ? "#6b3fa0"
+        : h.weak ? "#c98a12" : "#b4342a";
+      const label = h.kind === "miss" ? "" : String(h.amount);
+      const w = Math.max(22, 13 + label.length * 8);
+      const hgt = 17;
+      this.g.save();
+      // Hold full opacity most of the way, then fade — a splat that fades from
+      // the first frame is hard to read on a 600ms beat.
+      this.g.globalAlpha = t < 0.65 ? 1 : 1 - (t - 0.65) / 0.35;
+      this.g.translate(px, py);
+      // The lozenge.
+      this.g.beginPath();
+      this.g.ellipse(0, 0, w / 2, hgt / 2, 0, 0, Math.PI * 2);
+      this.g.fillStyle = fill;
+      this.g.fill();
+      this.g.lineWidth = 1;
+      this.g.strokeStyle = "rgba(0,0,0,0.55)";
+      this.g.stroke();
+      // A weakness hit gets a gold rim so the triangle stays legible even when
+      // the number itself is small.
+      if (h.weak && h.kind === "hit") {
+        this.g.lineWidth = 1.5;
+        this.g.strokeStyle = "#ffcf4a";
+        this.g.stroke();
+      }
+      if (label) {
+        this.g.font = "bold 12px 'Cinzel', serif";
+        this.g.textAlign = "center";
+        this.g.textBaseline = "middle";
+        this.g.fillStyle = "rgba(0,0,0,0.6)";
+        this.g.fillText(label, 0.5, 1);
+        this.g.fillStyle = "#f3efe6";
+        this.g.fillText(label, 0, 0.5);
+      }
+      this.g.restore();
     }
   }
 

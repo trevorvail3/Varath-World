@@ -2453,7 +2453,20 @@ export type WorldEvent =
   | { type: "ITEM_GAINED"; item: ItemId; qty: number }
   | { type: "INVENTORY_FULL" }
   | { type: "DIALOGUE"; npc: string; lines: string[] }
-  | { type: "DAMAGE"; targetId: string; amount: number; weak?: boolean }
+  /**
+   * A blow resolved. `kind` distinguishes outcomes that `amount` alone cannot:
+   * since damage rolls from zero, a LANDED hit for 0 and a MISS are both
+   * `amount: 0`, and OSRS draws them very differently — a blue nothing-splat
+   * versus a whiff. Required, so adding a new outcome makes every site that
+   * reports damage a compile error rather than a silent grey number.
+   */
+  | {
+      type: "DAMAGE";
+      targetId: string;
+      amount: number;
+      kind: "hit" | "miss" | "poison" | "venom";
+      weak?: boolean;
+    }
   | { type: "HEALED"; amount: number }
   | { type: "OBJECT_DEPLETED"; objId: string }
   | { type: "OBJECT_RESPAWNED"; objId: string }

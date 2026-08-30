@@ -7167,7 +7167,7 @@ function playerSwing(
       }
     } else player.spec = Math.min(SPEC_MAX, player.spec + SPEC_GAIN_PER_HIT);
     obj.hp -= dmg;
-    events.push({ type: "DAMAGE", targetId: obj.id, amount: dmg, weak: exploits });
+    events.push({ type: "DAMAGE", targetId: obj.id, amount: dmg, kind: "hit", weak: exploits });
     // A turning ward announces itself when this blow pushes the boss into a
     // deeper weakness phase (still alive) — telling you which style to swap to.
     if (obj.hp > 0) announceWardshift(stats, obj, events);
@@ -7201,13 +7201,13 @@ function playerSwing(
         const burn = Math.min(player.hp - 1, Math.max(1, Math.round(dmg * rec.frac)));
         if (burn > 0) {
           player.hp -= burn;
-          events.push({ type: "DAMAGE", targetId: "player", amount: burn });
+          events.push({ type: "DAMAGE", targetId: "player", amount: burn, kind: "hit" });
           if (ctx.rng() < 0.45) events.push({ type: "LOG", message: rec.tell });
         }
       }
     }
   } else {
-    events.push({ type: "DAMAGE", targetId: obj.id, amount: 0 });
+    events.push({ type: "DAMAGE", targetId: obj.id, amount: 0, kind: "miss" });
   }
 
   if (obj.hp <= 0) checkKill(state, content, def, obj, stats, ctx, events);
@@ -7348,7 +7348,7 @@ function castSpell(
       const top = Math.max(1, playerMaxHit(player, content));
       const dmg = Math.max(1, Math.round(top * (spell.dmgMult ?? 1)));
       obj.hp -= dmg;
-      events.push({ type: "DAMAGE", targetId: obj.id, amount: dmg, weak: true });
+      events.push({ type: "DAMAGE", targetId: obj.id, amount: dmg, kind: "hit", weak: true });
       events.push({ type: "LOG", message: `You cast ${spell.name}! (${dmg})` });
       grantXp(state, content, "faith", spell.xp, events);
       if (obj.hp <= 0) checkKill(state, content, def, obj, stats, ctx, events);
@@ -7674,7 +7674,7 @@ function monsterSwing(
     if (brace > 0) dmg = dmg && Math.max(1, Math.round(dmg * (1 - Math.min(0.6, brace))));
     const before = player.hp;
     player.hp -= dmg;
-    events.push({ type: "DAMAGE", targetId: "player", amount: dmg });
+    events.push({ type: "DAMAGE", targetId: "player", amount: dmg, kind: "hit" });
     // A one-time warning the moment you drop into the danger zone.
     const lowAt = player.maxHp * 0.3;
     if (before > lowAt && player.hp > 0 && player.hp <= lowAt) {
@@ -7688,7 +7688,7 @@ function monsterSwing(
       if (ctx.rng() < 0.4) events.push({ type: "LOG", message: ld.tell });
     }
   } else {
-    events.push({ type: "DAMAGE", targetId: "player", amount: 0 });
+    events.push({ type: "DAMAGE", targetId: "player", amount: 0, kind: "miss" });
   }
 
   if (player.hp <= 0) {
@@ -7988,7 +7988,7 @@ function resolveSlams(
     }
     if (player.equipment.boots === "pale_greaves") dmg = dmg && Math.max(1, Math.round(dmg * 0.9));
     player.hp -= dmg;
-    events.push({ type: "DAMAGE", targetId: "player", amount: dmg });
+    events.push({ type: "DAMAGE", targetId: "player", amount: dmg, kind: "hit" });
     events.push({ type: "LOG", message: `${def.name}'s ${slam.tiles ? "cleave catches" : "slam catches"} you square — ${dmg} damage!` });
     if (player.hp <= 0) {
       // Same stakes as any killing blow (coin + pack spill live in monsterSwing's
