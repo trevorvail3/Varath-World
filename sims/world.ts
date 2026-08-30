@@ -20,7 +20,7 @@ import { readFileSync } from "node:fs";
 import { content, makeWorld, SimClock } from "./harness.ts";
 import { buildWalkability } from "../src/core/worldCore.ts";
 import { findPath } from "../src/client/pathfinding.ts";
-import { CITY_SPAWN, OVERWORLD_HEIGHT, REGIONS, instanceRectAt } from "../src/content/map.ts";
+import { CITY_SPAWN, OVERWORLD_HEIGHT, REGIONS, SETTLEMENT_CLEARINGS, instanceRectAt } from "../src/content/map.ts";
 
 const fails: string[] = [];
 const check = (ok: boolean, msg: string): void => { if (!ok) fails.push(msg); };
@@ -123,6 +123,40 @@ for (let i = 0; i < REGIONS.length; i++) {
     const a = REGIONS[i]!, b = REGIONS[j]!;
     const over = a.nx < b.nx + b.w && b.nx < a.nx + a.w && a.ny < b.ny + b.h && b.ny < a.ny + a.h;
     check(!over, `regions "${a.key}" and "${b.key}" overlap on the canvas`);
+  }
+}
+
+// --- Things must stand where they BELONG, not merely somewhere reachable ----
+// Reachability is not the same question as placement, and the Greater World
+// expansion proved it: `SPAWN_FIXUP` pins ~44 objects to final coordinates and
+// `newPois` authors ~200 more in final coordinates, both bypassing `remap()`.
+// The expansion moved the map out from under all of them. Every one stayed
+// perfectly reachable — and the starting Knucklestone Quarry ended up 226 tiles
+// from the opening spawn, while all six region traders stood up to 235 tiles
+// from the shops they keep. Nothing here noticed, because nothing here asked.
+{
+  // A shopkeeper has to be findable from the shop's own settlement.
+  const towns = SETTLEMENT_CLEARINGS.map((c) => ({ cx: (c.x0 + c.x1) / 2, cy: (c.y0 + c.y1) / 2 }));
+  for (const shop of content.shops) {
+    if (!shop.npc) continue;
+    const keeper = content.objects.find((o) => o.id === shop.npc);
+    check(!!keeper, `shop "${shop.id}" names keeper "${shop.npc}", who has no spawn`);
+    if (!keeper) continue;
+    // Region shops belong to a settlement; Ironvale's belong to the city.
+    const nearest = Math.min(...towns.map((t) => Math.hypot(keeper.x - t.cx, keeper.y - t.cy)));
+    const toCity = Math.hypot(keeper.x - CITY_SPAWN.x, keeper.y - CITY_SPAWN.y);
+    check(
+      Math.min(nearest, toCity) <= 40,
+      `${shop.npc} stands ${Math.round(Math.min(nearest, toCity))} tiles from any settlement — nobody will find that shop`,
+    );
+  }
+  // The opening quarry is the first mining a new player does; it belongs beside
+  // the spawn, not across the world.
+  const quarry = content.objects.filter((o) => o.kind === "rock" && /^rock_\d+$/.test(o.id));
+  check(quarry.length > 0, "the starting quarry has no rocks");
+  for (const r of quarry) {
+    const d = Math.hypot(r.x - CITY_SPAWN.x, r.y - CITY_SPAWN.y);
+    check(d <= 90, `${r.id} is ${Math.round(d)} tiles from the opening spawn`);
   }
 }
 

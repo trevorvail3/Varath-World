@@ -13,7 +13,7 @@
  */
 
 import type { WorldObjectDef } from "../core/types.ts";
-import { HOMES, BACKYARDS, DUNGEONS, homeLayout, remap, map, CITY, PIER } from "./map.ts";
+import { HOMES, BACKYARDS, DUNGEONS, fromV2, homeLayout, remap, map, spread, CITY, PIER } from "./map.ts";
 
 const SCATTER_BLOCKED = new Set(["water", "mountain", "cave_wall", "deep", "wall", "plank"]);
 function tileWalkable(x: number, y: number): boolean {
@@ -222,11 +222,24 @@ const SPAWN_FIXUP: Record<string, { x: number; y: number }> = {
  *  doubled canvas. Applied to every hand-authored spawn so they land on the
  *  same terrain the map's remap() shifted that terrain to. */
 function remapObject(o: WorldObjectDef): WorldObjectDef {
-  // The Varathian Trail rings the whole outskirts, crossing every region — its
-  // checkpoints (and the Trailkeeper) are authored directly in final map
-  // coordinates, so they skip the per-region remap entirely.
-  if (o.id.startsWith("trail_")) return { ...o };
-  const p = SPAWN_FIXUP[o.id] ?? remap(o.x, o.y);
+  // The Varathian Trail RINGS the whole outskirts, crossing every region, so it
+  // is authored in v2 final coordinates and skips the per-region remap: routing
+  // its checkpoints individually would hand neighbouring points on the same
+  // ring different translations and tear the loop apart. It spreads as one
+  // shape instead — which it did not do at all until the Greater World
+  // expansion left the Trailkeeper 83 tiles from anywhere.
+  if (o.id.startsWith("trail_")) {
+    const p = spread(o.x, o.y);
+    const out: WorldObjectDef = { ...o, x: p.x, y: p.y };
+    if (o.target) out.target = spread(o.target.x, o.target.y);
+    if (o.exit) out.exit = spread(o.exit.x, o.exit.y);
+    return out;
+  }
+  // A fixup is authored in the OLD FINAL space, not the legacy one, so it needs
+  // fromV2 rather than remap. Without that the Greater World expansion moved the
+  // map out from under every pinned object and left it standing where it was.
+  const fix = SPAWN_FIXUP[o.id];
+  const p = fix ? fromV2(fix.x, fix.y) : remap(o.x, o.y);
   const out: WorldObjectDef = { ...o, x: p.x, y: p.y };
   if (o.target) out.target = remap(o.target.x, o.target.y);   // portal/door teleport tile
   if (o.exit) out.exit = remap(o.exit.x, o.exit.y);           // agility obstacle far side
@@ -1659,9 +1672,11 @@ const rawObjects: WorldObjectDef[] = [
   // build footings + doors are generated from the shared floorplan below.
 ];
 
-/** New points of interest filling the wide open country the doubled map opened
- *  up — authored directly in NEW canvas coordinates (so they are NOT re-mapped),
- *  each on the matching terrain patch carved in map.ts. */
+/** Points of interest filling the open country — authored in the v2 (160×164)
+ *  final space, so they skip the legacy `remap()` and go through `fromV2()`
+ *  instead. They were NOT re-homed at all until the Greater World expansion
+ *  exposed it: this block holds all six region traders, and every one of them
+ *  was left standing up to 235 tiles from the shop they keep. */
 const newPois: WorldObjectDef[] = [
   // Wayfarers' Crossroads (NW) — a ruined waystation where the north & west roads meet.
   { id: "poi_cross_sign", kind: "signpost", x: 40, y: 43, name: "Wayfarers' Crossroads", lines: ["A ruined waystation where the north and west roads cross. Travellers rest here — and so do those who prey on them."] },
@@ -1877,7 +1892,11 @@ const newPois: WorldObjectDef[] = [
   // -- Far frontiers (the map's wild edges) --
   { id: "fz_shrine_w", kind: "shrine", x: 6, y: 66, name: "The Last Fencepost", find: { flag: "searched_last_fence", found: "Wired to the fencepost's base against the weather, a wayfarer's tin: a few coins and a scrawled note. 'Turned back here. Good ground behind, only wood ahead. No shame in it.' Somebody made the edge and chose home.", gold: 400 }, lines: ["The last fencepost of the settled country, the wire long gone. This is a boundary, not a doorway — folk farm right up to here and no further, and sleep sound for it. Past it is only wood."] },
   { id: "fz_shrine_far_s", kind: "shrine", x: 54, y: 150, name: "The Ashen Reach", find: { flag: "searched_ashen_reach", found: "At the marker where the warm ground gives out, the cult keeps a cairn — and tucked in it, an offering-bowl of embercite left for whoever comes this far. You take it and turn back, as the cult means you to.", item: "embercite_ore", qty: 3, gold: 200 }, lines: ["Where the warm ground gives out to cold ash. The cult keeps a marker here — the edge of their reach, and anyone's. South is only ash and wind; this is the turning-place, not the way on."] },
-  { id: "fz_bear_far", kind: "monster", monster: "forest_bear", x: 150, y: 138, name: "Forest Bear" },
+  // Authored at (150,138), which is open sea — the shore at that column is y120.
+  // snapSpawn quietly rescued it while the canvas was small enough for land to
+  // be within its search radius; the Greater World's sea is 2.2x wider and it
+  // could not. Moved onto the coastal strip it was always meant to be on.
+  { id: "fz_bear_far", kind: "monster", monster: "forest_bear", x: 140, y: 112, name: "Forest Bear" },
   { id: "fz_deer_far1", kind: "monster", monster: "red_deer", x: 42, y: 150, name: "Red Deer" },
   { id: "fz_deer_far2", kind: "monster", monster: "red_deer", x: 66, y: 150, name: "Red Deer" },
 
@@ -2858,7 +2877,7 @@ const ninthBellObjects: WorldObjectDef[] = [
 
 export const objects: WorldObjectDef[] = [
   ...rawObjects.map(remapObject),
-  ...newPois.map(scatterFill),
+  ...newPois.map((o) => ({ ...o, ...fromV2(o.x, o.y) })).map(scatterFill),
   ...buildHousing(),
   ...buildDungeonSites(),
   ...buildDungeonDressing(),

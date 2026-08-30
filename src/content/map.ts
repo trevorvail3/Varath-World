@@ -530,6 +530,42 @@ function regionShift(vx: number, vy: number): { dx: number; dy: number } {
   return { dx: home.nx - v2.vx, dy: home.ny - v2.vy };
 }
 
+/**
+ * Re-home a coordinate authored in the OLD FINAL (v2, 160×164) space onto the
+ * Greater World — whichever of the three spaces it belongs to.
+ *
+ * This exists because `SPAWN_FIXUP` in spawns.ts pins ~44 objects to final
+ * coordinates, bypassing `remap()` entirely, and those coordinates were written
+ * for the v2 canvas. The expansion moved the world around them and left them
+ * where they were: the starting Knucklestone Quarry, whose own comment says it
+ * sits "a few tiles from the opening spawn", ended up **226 tiles** from it, and
+ * all six region traders were stranded up to 235 tiles from the shops they keep.
+ *
+ * `sims/world.ts` did not catch it because the objects were still *reachable* —
+ * reachability is not the same question as "is this where it belongs".
+ */
+export function fromV2(x: number, y: number): { x: number; y: number } {
+  // Regions first, and by CONTAINMENT rather than proximity: the Spine's vault
+  // at v2 (62,34) sits inside the Spine box and must ride the Spine, while the
+  // Knucklestone Quarry at (38,35) is barely 9 tiles west of that same box and
+  // belongs to the city. A nearest-region rule cannot tell those apart.
+  for (const r of REGION_V2) {
+    if (x >= r.vx - 2 && x < r.vx + r.w + 2 && y >= r.vy - 2 && y < r.vy + r.h + 2) {
+      const home = REGIONS.find((p) => p.key === r.key)!;
+      return { x: x + (home.nx - r.vx), y: y + (home.ny - r.vy) };
+    }
+  }
+  // Then the central complex: the city, the Knuckle Hills that wrap it, and the
+  // outlying hamlets. It is hand-built and moves rigidly, so everything in this
+  // box travels by the one delta.
+  if (x >= 20 && x <= 110 && y >= 25 && y <= 110) {
+    return { x: x + CENTRAL_DELTA.dx, y: y + CENTRAL_DELTA.dy };
+  }
+  // Anything else is open country, and spreads with it.
+  const o = spread(x, y);
+  return { x: o.x, y: o.y };
+}
+
 /** A village keeps its size and rides its region's translation. */
 export const SETTLEMENT_CLEARINGS = SETTLEMENT_CLEARINGS_V2.map((c) => {
   const d = regionShift(c.x0, c.y0);

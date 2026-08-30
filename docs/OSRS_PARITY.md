@@ -764,6 +764,43 @@ costs tiles, because every prop and every standing foe blocks the square it is
 on. The failure that assertion exists for is a region going missing, which is
 thousands of tiles, not a hundred.
 
+### What the expansion actually broke
+
+Setting out to build the region towns turned up that the Greater World
+expansion had **stranded a large slice of the world's content**, and shipped it
+to `main`. Three separate blocks bypass `remap()` because they are authored in
+the **v2 final** space rather than the legacy one, and nothing re-homed them:
+
+| Block | Size | Symptom |
+|---|---|---|
+| `SPAWN_FIXUP` | 44 objects | the starting Knucklestone Quarry — "a few tiles from the opening spawn" per its own comment — sat **226 tiles** from it |
+| `newPois` | ~200 objects | **all six region traders** stood up to **235 tiles** from the shops they keep |
+| `trail_*` | 25 objects | the Varathian Trail ring, Trailkeeper included, left where it was |
+
+**`sims/world.ts` passed through all of it**, because reachability is not the
+same question as placement: every one of those objects was perfectly walkable-to,
+just in the wrong place. A trader alone in a field is reachable.
+
+All three now go through a new `fromV2()`, which routes a v2-final coordinate by
+**which of the three spaces it belongs to** — regions by containment (not
+proximity: the Spine's vault at v2 (62,34) is inside the Spine box while the
+Knucklestone Quarry at (38,35) is nine tiles west of it and belongs to the city),
+then the central complex, then open country. The trail is the exception and
+spreads *as one shape*, because routing its checkpoints individually would hand
+neighbouring points on the same ring different translations and tear the loop
+apart.
+
+`sims/world.ts` now asks the placement question too: every shop's keeper must
+stand within 40 tiles of a settlement or the city, and the opening quarry within
+90 of the spawn. Both would have caught this on the commit that caused it.
+
+It also surfaced a **pre-existing** mis-authoring: `fz_bear_far` was placed at
+v2 (150,138), which is open sea — the shore at that column is y120. `snapSpawn`
+had been quietly rescuing it while the canvas was small enough for land to be
+within its search radius; a sea 2.2× wider put land out of range and the bear
+became visible as unreachable. Moved onto the coastal strip it was always meant
+to be on.
+
 ### Three gates that were never gates
 
 Auditing the sim suite during this increment turned up something worse than any
