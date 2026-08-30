@@ -356,6 +356,84 @@ small keybinding table rather than another `if (e.key === …)` chain.
 
 ---
 
+---
+
+# What actually landed, and what it cost
+
+*(Recorded after building WS0–WS3. Gates: `npx tsc --noEmit` clean, `sims/tick.ts`,
+`sims/rates.ts`, `sims/bonus.ts`, `sims/ttk.ts --check`.)*
+
+## Two planned steps turned out to be unnecessary
+
+The gather tool ladder and craft cadence were both going to be redesigned for the
+600ms tick. Neither needed it. The real defect was that gathering and crafting
+rescheduled with `= ctx.now + interval` against the discrete tick clock, so every
+step rounded **up** and the error compounded. Combat already accumulated with
+`+=`. Making the others match keeps the *average* interval exact even though each
+swing lands on a tick boundary — all 16 distinct gather intervals survive.
+
+Worth noting the approach that was approved and then abandoned: moving the tool
+ladder into *success chance* could not have worked. Success is capped at 0.95 by
+level 100 regardless of tool, so success chance can carry a ~5% ladder at most —
+not the 2.22× the intervals give.
+
+## Three deliberate deviations from OSRS, all preserving earlier decisions
+
+This codebase had already tried and rejected several OSRS behaviours. Where that
+was recorded in a comment, the earlier decision won:
+
+| OSRS | Varath keeps | Why |
+|---|---|---|
+| Flat +3 stance bonus | Multiplicative stance on the effective level | The `STYLE_MODS` comment records that a flat +3 was considered and rejected for a tradeoff you feel mid-fight |
+| Magic damage as a percentage | A flat add | A percentage ladder for nine staves is churn without a payoff |
+| Run at 2× walk | *(overridden — now 2× walk)* | Trevor's explicit call, against the earlier "felt too fast" note. **The most likely thing in this work to be reverted on feel.** |
+
+## The measured cost of WS2
+
+`npx tsx sims/ttk.ts --check`, against the recorded baseline:
+
+| | |
+|---|---|
+| Median TTK ratio | **1.000** |
+| Within 10% of before | 24/80 monsters |
+| Beyond 2× either way | 1 (`ashen_wyrm`, 0.48×) |
+| Mean death rate | 15.1% → 16.4% |
+| Median damage output | **+7%** |
+
+**The aggregate is preserved; individual monsters are re-rated.** Two separate
+effects are mixed in that "24/80":
+
+- **Measurement granularity.** Time-to-kill on a short fight is heavily
+  quantized — a 7-second kill is about three swings, so one swing either way
+  reads as a 40% move. Several monsters cluster at exactly 1.49× and 0.50× for
+  this reason alone. The unquantized measure (hit rate × damage per landed hit,
+  reported alongside) is the one to trust.
+- **Genuine re-rating.** A single linear conversion of 85 hand-tuned monster
+  `acc`/`def` values onto OSRS's roll scale cannot reproduce the old ratio
+  curve's shape everywhere, and the armour triangle re-rates every matchup by
+  design. Monsters move by up to ~1.8× in damage output.
+
+Tightening this further would mean per-monster correction factors — which is
+hand-authoring 85 monsters by another name, and would defeat the point of a
+derived conversion. **The open call is whether the aggregate is good enough or
+the roster wants a re-tune pass.** Three monsters became notably deadlier and are
+the first place to look: `hollow_warden` (10% → 50% deaths), `hollow_prophet`
+(0% → 70%), `green_baron` (0% → 30%).
+
+## Still outstanding in Phase 1
+
+- **WS3's Equipment Stats panel** — the sheet is derived and live in the core, but
+  the Character tab still shows the old `Acc / Dmg / Def` line, which now
+  under-describes what gear does.
+- **WS4** attack options, **WS5** status effects, **WS6** hitsplats, **WS7** death
+  and the quick-action strip.
+
+⚠️ Until WS6 lands, a zero-damage hit renders as a miss — there is no blue
+0-splat yet. Combat will *look* less responsive than it is; judge it on
+time-to-kill, not on feedback.
+
+---
+
 # The roadmap after Phase 1
 
 Ordering is deliberate: parity first, so nothing built later has to be
