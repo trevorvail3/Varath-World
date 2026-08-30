@@ -12,6 +12,7 @@
  * and nothing in the game surfaces it.
  */
 
+import { readFileSync } from "node:fs";
 import { content, makeWorld, SimClock, round, TICK_MS } from "./harness.ts";
 import { applyIntent, tick, buildWalkability } from "../src/core/worldCore.ts";
 import type { Vec2, WorldState } from "../src/core/types.ts";
@@ -205,7 +206,31 @@ const out = {
   },
 };
 
-if (process.argv.includes("--json")) {
+if (process.argv.includes("--check")) {
+  // As with rates, `--check` did not exist here until the Greater World work:
+  // the flag was accepted and ignored, so every "tick passes" was the table.
+  const base = JSON.parse(readFileSync("sims/baseline.tick.json", "utf8")) as typeof out;
+  const fails: string[] = [];
+  const near = (a: number | null, b: number | null, tol: number, what: string): void => {
+    if (a === null || b === null) { if (a !== b) fails.push(`${what}: ${b} -> ${a}`); return; }
+    if (Math.abs(a - b) > tol) fails.push(`${what}: ${b} -> ${a}`);
+  };
+  if (out.tickMs !== base.tickMs) fails.push(`TICK_MS ${base.tickMs} -> ${out.tickMs}`);
+  near(out.ticksPerMinute, base.ticksPerMinute, 1, "ticks per minute");
+  near(out.walk.tilesPerSec, base.walk.tilesPerSec, 0.05, "walk speed");
+  near(out.run.tilesPerSec, base.run.tilesPerSec, 0.05, "run speed");
+  // Pursuit is the one that says whether a monster can still catch you — the
+  // whole point of the 600ms migration was that walking does not outrun it.
+  near(out.pursuit.pctInReachVsWalking, base.pursuit.pctInReachVsWalking, 20, "pursuit vs walking");
+  near(out.pursuit.pctInReachVsRunning, base.pursuit.pctInReachVsRunning, 20, "pursuit vs running");
+  console.log(`TICK_MS=${out.tickMs} walk ${out.walk.tilesPerSec} run ${out.run.tilesPerSec} pursuit ${out.pursuit.pctInReachVsWalking}%/${out.pursuit.pctInReachVsRunning}%`);
+  if (fails.length) {
+    console.error(`\nFAIL (${fails.length}):`);
+    for (const f of fails) console.error("  - " + f);
+    process.exit(1);
+  }
+  console.log("\nPASS");
+} else if (process.argv.includes("--json")) {
   console.log(JSON.stringify(out, null, 2));
 } else {
   console.log(`TICK_MS=${out.tickMs}`);

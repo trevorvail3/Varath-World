@@ -6,6 +6,7 @@
  *
  *   npx tsx sims/rates.ts            # print a table
  *   npx tsx sims/rates.ts --json     # emit the fixture
+ *   npx tsx sims/rates.ts --check    # assert against the fixture
  *
  * The player's pack is emptied every tick so a full inventory never throttles
  * the measurement — we are measuring cadence, not carrying capacity.
@@ -17,10 +18,12 @@
  * roughly +/-10% run-to-run noise, with occasional outliers past 30%. Assert
  * intervalMs exactly; treat perMin as a smoke test, not a tolerance.
  *
- * The committed baseline fixtures were recorded at TICK_MS = 200, before the
- * 600ms migration.
+ * `--check` did not exist until the Greater World work, which meant every
+ * "rates --check unchanged" reported for months was the plain table with the
+ * flag silently ignored. The baseline is now recorded at the live TICK_MS.
  */
 
+import { readFileSync } from "node:fs";
 import { content, makeWorld, SimClock, setLevel, round, TICK_MS } from "./harness.ts";
 import { applyIntent, tick } from "../src/core/worldCore.ts";
 import type { ItemId, WorldState } from "../src/core/types.ts";
@@ -157,7 +160,33 @@ function run(): Row[] {
 }
 
 const rows = run();
-if (process.argv.includes("--json")) {
+if (process.argv.includes("--check")) {
+  const base = JSON.parse(readFileSync("sims/baseline.rates.json", "utf8")) as { tickMs: number; rows: typeof rows };
+  const fails: string[] = [];
+  const key = (r: { skill: string; tool: string; level: number }): string => `${r.skill}/${r.tool}/${r.level}`;
+  const byKey = new Map(base.rows.map((r) => [key(r), r]));
+  if (base.tickMs !== TICK_MS) fails.push(`baseline recorded at TICK_MS=${base.tickMs}, running at ${TICK_MS}`);
+  for (const r of rows) {
+    const o = byKey.get(key(r));
+    if (!o) { fails.push(`${key(r)} is not in the baseline`); continue; }
+    // intervalMs is deterministic and is the real guard (see the header).
+    if (r.intervalMs !== o.intervalMs) fails.push(`${key(r)} interval ${o.intervalMs}ms -> ${r.intervalMs}ms`);
+    // perMin carries depletion/respawn noise, so it is only a smoke test.
+    if (r.perMin !== null && o.perMin !== null && o.perMin > 0) {
+      const ratio = r.perMin / o.perMin;
+      if (ratio < 0.6 || ratio > 1.6) fails.push(`${key(r)} throughput ${o.perMin.toFixed(2)} -> ${r.perMin.toFixed(2)}/min`);
+    }
+  }
+  for (const o of base.rows) if (!rows.some((r) => key(r) === key(o))) fails.push(`${key(o)} vanished from the ladder`);
+  console.log(`rows ${rows.length} · TICK_MS=${TICK_MS}`);
+  if (fails.length) {
+    console.error(`\nFAIL (${fails.length}):`);
+    for (const f of fails.slice(0, 20)) console.error("  - " + f);
+    if (fails.length > 20) console.error(`  … and ${fails.length - 20} more`);
+    process.exit(1);
+  }
+  console.log("\nPASS");
+} else if (process.argv.includes("--json")) {
   console.log(JSON.stringify({ tickMs: TICK_MS, minutes: MINUTES, rows }, null, 2));
 } else {
   console.log(`TICK_MS=${TICK_MS}  window=${MINUTES}min`);

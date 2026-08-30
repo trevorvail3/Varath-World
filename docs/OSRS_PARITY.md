@@ -764,6 +764,34 @@ costs tiles, because every prop and every standing foe blocks the square it is
 on. The failure that assertion exists for is a region going missing, which is
 thousands of tiles, not a hundred.
 
+### Three gates that were never gates
+
+Auditing the sim suite during this increment turned up something worse than any
+of the content bugs above: **`ttk --check`, `rates --check` and `tick` never
+failed.**
+
+- `ttk --check` printed a verdict and returned 0 whatever the numbers said —
+  its own comment said so, and I read past it for months.
+- `rates` and `tick` had **no `--check` mode at all**. The flag was accepted and
+  silently ignored, so every "rates --check unchanged" was the plain table.
+
+Every increment in this document that reported those three as passing was
+reporting an exit code that could not have been anything else. The measurements
+quoted were real; calling them gates was not.
+
+All three now assert and exit non-zero:
+
+| Sim | Asserts |
+|---|---|
+| `ttk --check` | median damage output within 25%; at most 4 monsters beyond 2.5×; mean death rate not more than doubled (nor +8 points) |
+| `rates --check` | every `intervalMs` **exactly** (it is deterministic — the header always said to assert it); throughput within 0.6–1.6× as a smoke test; no row added or vanished |
+| `tick --check` | `TICK_MS`, ticks/minute, walk and run tiles/s within 0.05, pursuit within 20 points |
+
+`ttk`'s seeds went from 3 to 6 for the same reason `styles`' did: the measured
+output ratio swung 1.03 → 1.22 across map-only changes touching no combat code,
+because a bigger world ticks more objects before a fight starts and shifts the
+RNG stream. All three baselines were re-recorded at the live code.
+
 ### Still to come
 
 The six region seats grown into real towns, 8 new ungated zones, NPC daily

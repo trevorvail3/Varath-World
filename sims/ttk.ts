@@ -26,7 +26,12 @@ const FOOD: ItemId = "health_elixir";
 const FOOD_SLOTS = 20;
 
 /** Seeds for the offence pass (TTK / hit rate) and the survivability pass. */
-const TTK_SEEDS = [7, 19, 43];
+// Six, not three. Three was enough while the world was fixed, but the measured
+// output ratio swung 1.03 -> 1.22 across map-only changes that touched no
+// combat code at all: a bigger world ticks more objects before a fight starts,
+// which shifts the RNG stream. A number that moves 20% on a map edit is not
+// telling anyone anything about combat.
+const TTK_SEEDS = [7, 19, 43, 61, 97, 131];
 const DEATH_SEEDS = [2, 5, 11, 17, 23, 31, 41, 53, 61, 71];
 const FIGHT_LIMIT_MS = 5 * 60_000;
 const SLICE_MS = 100;
@@ -151,10 +156,17 @@ function run(): Row[] {
 const rows = run();
 
 /**
- * `--check` compares this run against the committed baseline and reports how far
- * combat has moved. It prints a verdict rather than throwing: a formula change is
- * EXPECTED to move individual monsters, and the question is whether the roster as
- * a whole still sits where it did.
+ * `--check` compares this run against the committed baseline and ASSERTS that
+ * the roster as a whole still sits where it did.
+ *
+ * It used to only print. That was a mistake with a long tail: every increment
+ * for months reported "ttk --check passes" on the strength of an exit code that
+ * was always 0 whatever the numbers said. A check nobody can fail is a comment.
+ *
+ * The tolerances are deliberately loose — a formula change is EXPECTED to move
+ * individual monsters, and the question this file answers is whether the whole
+ * roster moved. Re-record the baseline (`--json`) whenever a combat change is
+ * intended, and let this catch the ones that are not.
  */
 if (process.argv.includes("--check")) {
   const base: { rows: Row[] } = JSON.parse(readFileSync("sims/baseline.ttk.json", "utf8"));
@@ -195,6 +207,26 @@ if (process.argv.includes("--check")) {
   console.log(`within 10% / 25%      ${oWithin10}/${output.length}  ${oWithin25}/${output.length}`);
   const worst = [...output].sort((a, b) => Math.abs(b.r - 1) - Math.abs(a.r - 1)).slice(0, 8);
   console.log(`most moved            ${worst.map((x) => `${x.monster} ${x.r.toFixed(2)}x`).join(", ")}`);
+
+  const fails: string[] = [];
+  const fail = (ok: boolean, msg: string): void => { if (!ok) fails.push(msg); };
+  // The roster's centre of mass. Damage output rather than TTK, because TTK on
+  // a short fight is quantized into a handful of swings.
+  fail(Math.abs(oMed - 1) <= 0.25, `median damage output moved to ${oMed.toFixed(3)}x`);
+  // A few monsters may move a long way; the roster may not.
+  const far = output.filter((x) => x.r > 2.5 || x.r < 0.4);
+  fail(far.length <= 4, `${far.length} monsters moved beyond 2.5x: ${far.slice(0, 8).map((x) => `${x.monster} ${x.r.toFixed(2)}x`).join(", ")}`);
+  // Survivability is the half TTK cannot see: the roster can keep its
+  // time-to-kill exactly while becoming unplayable.
+  const d0 = meanDeath(base.rows), d1 = meanDeath(rows);
+  fail(d1 <= Math.max(d0 * 2, d0 + 8), `mean death rate rose from ${d0.toFixed(1)}% to ${d1.toFixed(1)}%`);
+
+  if (fails.length) {
+    console.error(`\nFAIL (${fails.length}):`);
+    for (const f of fails) console.error("  - " + f);
+    process.exit(1);
+  }
+  console.log("\nPASS");
 } else if (process.argv.includes("--json")) {
   console.log(JSON.stringify({ ttkSeeds: TTK_SEEDS, deathSeeds: DEATH_SEEDS, rows }, null, 2));
 } else {

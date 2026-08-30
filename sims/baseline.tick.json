@@ -1,20 +1,20 @@
 {
-  "tickMs": 200,
-  "ticksPerMinute": 299,
+  "tickMs": 600,
+  "ticksPerMinute": 99,
   "catchUpTicksAfter700msStall": 1,
   "walk": {
-    "ms": 6816,
-    "ticks": 34,
-    "tilesPerSec": 1.761
+    "ms": 7216,
+    "ticks": 12,
+    "tilesPerSec": 1.663
   },
   "run": {
-    "ms": 4624,
-    "ticks": 23,
-    "tilesPerSec": 2.595
+    "ms": 3616,
+    "ticks": 6,
+    "tilesPerSec": 3.319
   },
   "pursuit": {
     "monster": "rat_2",
-    "pctInReachVsWalking": 69.2,
-    "pctInReachVsRunning": 69.2
+    "pctInReachVsWalking": 100,
+    "pctInReachVsRunning": 0
   }
 }
