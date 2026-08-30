@@ -1562,21 +1562,26 @@ function wieldGatherTool(
     return level >= (TOOL_TIER_REQS[d.tier ?? 1] ?? 1);
   };
 
-  // Already holding a usable tool of this kind?
+  // What's already in hand, if it's a usable tool of this kind.
   const inHand = player.equipment.mainhand;
-  if (usable(inHand)) return content.items[inHand!].tier ?? 1;
+  const heldTier = usable(inHand) ? (content.items[inHand!].tier ?? 1) : -1;
 
-  // Otherwise wield the best usable one from the pack (swap with whatever's
-  // in hand). Tools are unique per tier, so this is a clean 1-for-1 swap.
+  // Find the best usable tool in the pack. We look even when a usable tool is
+  // already in hand: returning early on ANY usable tool meant a better tool in
+  // the pack was silently ignored, so — because every character starts with a
+  // hatchet equipped — buying a better hatchet did nothing at all until you
+  // equipped it by hand. Pickaxes only escaped this because the starting
+  // mainhand holds a hatchet, forcing the pack scan.
   let bestIdx = -1;
-  let bestTier = -1;
+  let bestTier = heldTier;
   for (let i = 0; i < player.inventory.length; i++) {
     const slot = player.inventory[i];
     if (!slot || !usable(slot.item)) continue;
     const t = content.items[slot.item].tier ?? 1;
     if (t > bestTier) { bestTier = t; bestIdx = i; }
   }
-  if (bestIdx === -1) return null;
+  // Nothing in the pack beats what we're holding — keep holding it.
+  if (bestIdx === -1) return heldTier === -1 ? null : heldTier;
 
   const toolId = player.inventory[bestIdx]!.item;
   const displaced = player.equipment.mainhand;
