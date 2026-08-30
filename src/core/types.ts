@@ -1804,6 +1804,9 @@ export interface Player {
   bossKills: Record<string, number>;
   /** Claimed boss kill-milestone keys ("<bossId>:<kills>"). */
   bossMilestonesClaimed: string[];
+  /** Combat-achievement feats earned, keyed "<bossId>:<feat>" — see FIGHT_FEATS
+   *  in worldCore. Optional so old saves load; the core seeds it on first use. */
+  combatFeats?: string[];
   /** Total active play time in milliseconds (accumulated each tick). */
   playMs: number;
   /**
@@ -1889,6 +1892,11 @@ export interface WorldState {
   objects: Record<string, WorldObjectState>;
   /** Loot on the floor (kill drops), awaiting pickup. Transient; not saved. */
   ground: GroundItem[];
+  /** The live boss-fight record behind combat achievements: opens on the first
+   *  blow struck at a boss, closes on the kill. Transient and deliberately so —
+   *  a half-finished no-hit run must not survive a reload. Only the feats it
+   *  earns persist, on `Player.combatFeats`. */
+  fight?: { boss: string; startedAt: number; hurt: number; ate: number };
   /** Incrementing id for ground piles. */
   groundSeq: number;
   /** Per-shop remaining stock (shopId → item → units left). Time-gated so a shop
@@ -2672,7 +2680,11 @@ export type AchievementCond =
   /** Kills of one boss (player.bossKills), for boss achievements/diaries. */
   | { type: "bossKills"; boss: string; count: number }
   /** Bounty contracts claimed (player.bounty.tasksDone). */
-  | { type: "bountyTasks"; count: number };
+  | { type: "bountyTasks"; count: number }
+  /** One combat-achievement feat against one boss (player.combatFeats). */
+  | { type: "combatFeat"; boss: string; feat: string }
+  /** How many combat-achievement feats have been earned in total. */
+  | { type: "combatFeats"; count: number };
 
 export interface AchievementDef {
   id: string;

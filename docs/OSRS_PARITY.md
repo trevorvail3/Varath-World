@@ -520,8 +520,43 @@ phase headless sims cannot cover.
   (667/667), so an item added without a source fails the sim instead of quietly
   locking the cape.
 
-- **Combat achievements** — tiered per boss, reusing `AchievementCond` and the
-  Phase 1 combat events.
+- ~~**Combat achievements**~~ **Done.** `src/content/combatAchievements.ts`
+  derives **67 tasks** from the boss roster: four per reachable boss (felled /
+  untouched / no provisions / swift) plus three ladder capstones, tiered
+  Easy→Master by the boss's own combat level. They are appended to
+  `content.achievements`, so they flow through the existing evaluator, unlock
+  check and Records UI with no special-casing.
+
+  **What had to be built.** A kill count measures patience; these measure play,
+  and that needs something the game never recorded — what happened *during* one
+  fight. `WorldState.fight` opens on the first blow struck at a boss and closes
+  on the kill, tracking damage taken and heals eaten. It lives on WorldState,
+  not Player, so **no save format change** and a half-finished no-hit run cannot
+  survive a reload. Only the earned feats persist (`Player.combatFeats`,
+  optional so old saves load). Dying abandons the run, and so does the boss's
+  35% relocation heal — otherwise you could whittle a boss across several trips,
+  healing between them, and still claim you were never hit.
+
+  **The par time needed two constants, not one.** `sims/feats.ts --fit` measured
+  a level-matched player needing **~190ms per point** of a level-23 boss's HP
+  and **~10ms** per point of a level-95 one — the player fighting the later boss
+  is enormously stronger. A flat ms-per-HP par would hand every high-level boss
+  the feat for free and put every low-level one out of reach, splitting the
+  ladder by boss level instead of by how well you fought. So par is
+  `hp × A × level^−B`, fitted to `A=200, B=0.38`: **5 of 16** level-matched
+  fights beat it, which is the intended bar — provably attainable at every tier,
+  still asking something of you.
+
+  **Ironvale's Cape was deliberately left alone.** Its promise is "every
+  achievement", written when that meant the 41 hand-authored ones. Folding in 67
+  derived tasks including a no-hit Vorlag kill would silently redefine what it
+  asks, so `maybeGrantCompletionCape` now filters them out; combat achievements
+  are their own ladder with their own capstone (Grandmaster of Arms).
+
+  `sims/feats.ts` guards it: the recorder is tested through the real core
+  (whenever a kill lands with zero damage taken, "perfect" must be banked, and
+  such a kill must actually happen), eating must falsify "unfed", and par must
+  sit between 5% and 45% of level-matched fights.
 - **Ironman / Hardcore modes** — a save flag gating the Grand Exchange, P2P
   trade and duel stakes, plus a death-is-final path. Small, and it pairs
   naturally with the Phase 1 death rework.

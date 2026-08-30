@@ -2253,7 +2253,7 @@ export function applyIntent(
     }
     case "EAT": {
       if (notedGuard(player, intent.slot, events)) break;
-      eatSlot(player, content, intent.slot, ctx, events);
+      eatSlot(state, content, intent.slot, ctx, events);
       break;
     }
     case "PICKUP": {
@@ -2942,6 +2942,105 @@ function tryPetDrop(
   }
 }
 
+// ---------------------------------------------------------------------------
+// Combat achievements — OSRS's tiered per-boss tasks.
+//
+// A kill count is a measure of patience; a combat achievement is a measure of
+// play. "Kill it" and "kill it without being hit once" are different games, and
+// only the second says anything about how well you fought. That needs something
+// the game has never recorded: what happened DURING one fight.
+//
+// The recorder opens on the first blow struck against a boss and closes on the
+// kill. It lives on WorldState, not Player, so no save format changes and a
+// fight cannot survive a reload — you cannot bank a half-finished no-hit run.
+// Only the earned feats persist (player.combatFeats), because those are the
+// record. Switching bosses, dying, or being killed abandons the run.
+// ---------------------------------------------------------------------------
+
+/** Par time for a "swift" kill: `hp * A * level^-B` milliseconds.
+ *
+ *  A flat milliseconds-per-HP par does not work, and sims/feats.ts --fit shows
+ *  why: a level-matched player needs ~190ms per point of a level-23 boss's
+ *  health and ~10ms per point of a level-95 one, because the player fighting the
+ *  later boss is enormously stronger. One constant would hand every high-level
+ *  boss the feat for free and put every low-level one out of reach, splitting
+ *  the ladder by the boss's level instead of by how well you fought. So par
+ *  falls off with the boss's level too. Both constants are fitted by
+ *  sims/feats.ts --fit against measured level-matched times, targeting a third
+ *  of those fights beating par. */
+const SWIFT_PAR_A = 200;
+const SWIFT_PAR_B = 0.38;
+
+/** The feats one boss fight can earn, in the order they are checked. */
+const FIGHT_FEATS = ["perfect", "unfed", "swift"] as const;
+export type FightFeat = (typeof FIGHT_FEATS)[number];
+
+/** The key a feat is recorded under: "<bossId>:<feat>". */
+export function featKey(boss: string, feat: FightFeat): string {
+  return `${boss}:${feat}`;
+}
+
+/** Milliseconds a swift kill of this boss must beat. */
+export function swiftParMs(stats: MonsterStats): number {
+  const lvl = Math.max(1, stats.level ?? 1);
+  return Math.round(stats.hp * SWIFT_PAR_A * Math.pow(lvl, -SWIFT_PAR_B));
+}
+
+/** Open (or keep) the fight record for a boss the player has just struck. */
+function openFight(state: WorldState, stats: MonsterStats, ctx: Ctx): void {
+  if (!stats.boss) return;
+  const live = state.fight;
+  if (live && live.boss === stats.id) return;
+  state.fight = { boss: stats.id, startedAt: ctx.now, hurt: 0, ate: 0 };
+}
+
+/** Abandon the record. A run you walked away from is not a run you finished. */
+function abandonFight(state: WorldState): void {
+  delete state.fight;
+}
+
+/** Note harm taken, if a boss fight is live. Any source counts — a poison tick
+ *  and a slam are both "you got hit", which is what the feat claims. */
+function noteFightHurt(state: WorldState, amount: number): void {
+  if (state.fight && amount > 0) state.fight.hurt += amount;
+}
+
+/** Note food or a healing draught, if a boss fight is live. */
+function noteFightAte(state: WorldState): void {
+  if (state.fight) state.fight.ate += 1;
+}
+
+/** Close the record on a boss kill and bank whatever it earned. */
+function closeFight(
+  state: WorldState,
+  content: Content,
+  stats: MonsterStats,
+  ctx: Ctx,
+  events: WorldEvent[],
+): void {
+  const log = state.fight;
+  delete state.fight;
+  if (!stats.boss || !log || log.boss !== stats.id) return;
+  const player = state.player;
+  const earned: FightFeat[] = [];
+  if (log.hurt === 0) earned.push("perfect");
+  if (log.ate === 0) earned.push("unfed");
+  if (ctx.now - log.startedAt <= swiftParMs(stats)) earned.push("swift");
+  const feats = (player.combatFeats ??= []);
+  const label: Record<FightFeat, string> = {
+    perfect: "without taking a scratch",
+    unfed: "without eating a bite",
+    swift: `in under ${Math.round(swiftParMs(stats) / 1000)}s`,
+  };
+  for (const f of earned) {
+    const key = featKey(stats.id, f);
+    if (feats.includes(key)) continue;
+    feats.push(key);
+    events.push({ type: "LOG", message: `Combat achievement — ${stats.name} felled ${label[f]}.` });
+  }
+  void content;
+}
+
 /** Chance, per successful skill action, of a piece of that skill's gathering
  *  outfit. The four sets (Prospector / Lumberjack / Angler / Farmer) carry
  *  meta.skillBonus and existed in the catalogue with NO way to obtain them; this
@@ -3304,12 +3403,13 @@ function startCraft(
 
 /** Eat the food in a slot, restoring HP (no-op if it's not food or full). */
 function eatSlot(
-  player: Player,
+  state: WorldState,
   content: Content,
   slot: number,
   ctx: Ctx,
   events: WorldEvent[],
 ): void {
+  const player = state.player;
   const data = player.inventory[slot];
   if (!data) return;
   const def = content.items[data.item];
@@ -3353,7 +3453,7 @@ function eatSlot(
     const before = player.hp;
     player.hp = Math.min(player.maxHp, player.hp + amount);
     const healed = player.hp - before;
-    if (healed > 0) events.push({ type: "HEALED", amount: healed });
+    if (healed > 0) { events.push({ type: "HEALED", amount: healed }); noteFightAte(state); }
     msg += ` (+${amount}${sealed ? ", the Seal's share included" : ""})`;
   }
   if (canBuff) {
@@ -5197,6 +5297,7 @@ function stepTick(
     const bite = tickPoison(player, ctx);
     if (bite) {
       player.hp = Math.max(0, player.hp - bite.dmg);
+      noteFightHurt(state, bite.dmg);
       events.push({ type: "DAMAGE", targetId: "player", amount: bite.dmg, kind: bite.kind });
       if (player.hp <= 0) {
         killPlayerByStatus(state, content, ctx, events, bite.kind);
@@ -6307,6 +6408,10 @@ export function evalAchievement(
       return done(player.bossKills[cond.boss] ?? 0, cond.count);
     case "bountyTasks":
       return done(player.bounty?.tasksDone ?? 0, cond.count);
+    case "combatFeat":
+      return done((player.combatFeats ?? []).includes(`${cond.boss}:${cond.feat}`) ? 1 : 0, 1);
+    case "combatFeats":
+      return done((player.combatFeats ?? []).length, cond.count);
   }
 }
 
@@ -6386,7 +6491,13 @@ function ownsCompletionCape(player: Player): boolean {
 function maybeGrantCompletionCape(state: WorldState, content: Content, events: WorldEvent[]): void {
   const { player } = state;
   if (ownsCompletionCape(player)) return;
-  if (player.achievements.length < content.achievements.length) return;
+  // The cape's promise is "every achievement in the game", and it was written
+  // when that meant the hand-authored list. Combat achievements are a separate,
+  // derived ladder with its own capstone (Grandmaster of Arms), so they are
+  // deliberately NOT folded into this gate — adding 67 tasks including a no-hit
+  // Vorlag kill would silently redefine what the cape asks for.
+  const capeGoals = content.achievements.filter((a) => !a.category.startsWith("Combat: "));
+  if (capeGoals.some((a) => !player.achievements.includes(a.id))) return;
   const { done, total } = collectionProgress(player, content);
   if (total === 0 || done < total) return;
   player.bank["cape_ironvale"] = (player.bank["cape_ironvale"] ?? 0) + 1;
@@ -7577,6 +7688,7 @@ function playerSwing(
       }
     } else player.spec = Math.min(SPEC_MAX, player.spec + SPEC_GAIN_PER_HIT);
     obj.hp -= dmg;
+    openFight(state, stats, ctx);
     events.push({ type: "DAMAGE", targetId: obj.id, amount: dmg, kind: "hit", weak: exploits });
     // A turning ward announces itself when this blow pushes the boss into a
     // deeper weakness phase (still alive) — telling you which style to swap to.
@@ -7670,6 +7782,7 @@ function checkKill(
   }
   player.stats.monstersSlain += 1;
   if (stats.boss) player.bossKills[stats.id] = (player.bossKills[stats.id] ?? 0) + 1;
+  closeFight(state, content, stats, ctx, events);
   // A trail scroll can be tucked in any creature's remains (tier by level).
   rollClueDrop(state, content, stats, ctx, events);
   // Bounty quarry sheds the odd Herblore secondary, seed, or grimy herb.
@@ -7990,6 +8103,8 @@ function killPlayer(
   events: WorldEvent[],
   cause: string,
 ): void {
+  // A death ends any no-hit run in progress, by definition.
+  abandonFight(state);
   const { player } = state;
   player.hp = 0;
   player.alive = false;
@@ -8208,6 +8323,7 @@ function monsterSwing(
     }
     const before = player.hp;
     player.hp -= dmg;
+    noteFightHurt(state, dmg);
     events.push({ type: "DAMAGE", targetId: "player", amount: dmg, kind: "hit" });
     // A one-time warning the moment you drop into the danger zone.
     const lowAt = player.maxHp * 0.3;
@@ -8261,6 +8377,10 @@ function moveWorldBoss(state: WorldState, content: Content, ctx: Ctx, events: Wo
   if (obj.available && stats) {
     obj.hp = Math.min(stats.hp, (obj.hp ?? stats.hp) + Math.round(stats.hp * 0.35));
     obj.enraged = false; obj.slam = null; obj.swings = 0;
+    // Its fight state resets, so the combat-achievement run resets with it —
+    // otherwise you could whittle a boss across several trips, healing between
+    // them, and still claim you never took a hit.
+    if (state.fight?.boss === stats.id) abandonFight(state);
   }
   events.push({ type: "WORLD_BOSS_MOVED", name: def.name, hint: compassHint(content, next) });
 }
@@ -8478,6 +8598,7 @@ function resolveSlams(
     }
     if (player.equipment.boots === "pale_greaves") dmg = dmg && Math.max(1, Math.round(dmg * 0.9));
     player.hp -= dmg;
+    noteFightHurt(state, dmg);
     events.push({ type: "DAMAGE", targetId: "player", amount: dmg, kind: "hit" });
     events.push({ type: "LOG", message: `${def.name}'s ${slam.tiles ? "cleave catches" : "slam catches"} you square — ${dmg} damage!` });
     if (player.hp <= 0) {

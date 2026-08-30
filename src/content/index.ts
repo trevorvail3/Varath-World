@@ -14,6 +14,7 @@ import { monsters } from "./monsters.ts";
 import { buildEquipBonuses } from "./equipBonus.ts";
 import { thieveTargets } from "./thieving.ts";
 import { buildCollectionLog } from "./collectionLog.ts";
+import { buildCombatAchievements } from "./combatAchievements.ts";
 import { quests } from "./quests.ts";
 import { spells } from "./spells.ts";
 import { lore } from "./lore.ts";
@@ -70,6 +71,9 @@ export const content: Content = {
 // container tables and the action registry), so it is filled in after the object
 // literal rather than inside it.
 content.collectionLog = buildCollectionLog(content);
+// Combat achievements are derived from the boss roster and appended to the
+// hand-authored list, so they flow through the same evaluator and the same UI.
+content.achievements = [...content.achievements, ...buildCombatAchievements(content)];
 
 /** The player's starting tile, re-exported for main.ts to place them. */
 export const playerStart = playerSpawn;

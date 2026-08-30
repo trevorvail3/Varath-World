@@ -2355,7 +2355,8 @@ export class Hud {
       player.inventory.some((s) => s?.item === id) ||
       (player.bank[id] ?? 0) > 0;
     const compOwned = comps.filter(ownedOf).length;
-    const achTotal = this.content.achievements.length;
+    const achTotal = this.content.achievements.filter((a) => !a.category.startsWith("Combat: ")).length;
+    const caAll = this.content.achievements.filter((a) => a.category.startsWith("Combat: "));
     const loreTotal = this.content.lore.length;
     // Cape of Varath — the all-100 completion goal, now tracked here as an achievement.
     const skillIds = Object.keys(this.content.skills) as SkillId[];
@@ -2374,6 +2375,7 @@ export class Hud {
       bossKillSig, player.bossMilestonesClaimed.length,
       capeMaxed, capeOwned ? 1 : 0,
       (player.collection ?? []).length,
+      (player.combatFeats ?? []).length,
       [...this.openSecs].sort().join(","),
     ].join("|");
     if (!force && sig === this.recordsSig) return;
@@ -2401,10 +2403,14 @@ export class Hud {
     };
 
     // Achievements, grouped by category, each category collapsible.
+    // Combat achievements are derived per boss and get their own section below;
+    // 67 of them inside the general list would drown the 41 hand-authored ones.
+    const isCombatCa = (c: string): boolean => c.startsWith("Combat: ");
+    const plainAch = this.content.achievements.filter((a) => !isCombatCa(a.category));
     const achCats: string[] = [];
-    for (const a of this.content.achievements) if (!achCats.includes(a.category)) achCats.push(a.category);
+    for (const a of plainAch) if (!achCats.includes(a.category)) achCats.push(a.category);
     const achBody = achCats.map((cat) => {
-      const rows = this.content.achievements.filter((x) => x.category === cat);
+      const rows = plainAch.filter((x) => x.category === cat);
       const done = rows.filter((a) => player.achievements.includes(a.id)).length;
       return subSection(`ach:${cat}`, cat, `${done}/${rows.length}`, () =>
         rows.map((a) => {
@@ -2569,6 +2575,33 @@ export class Hud {
       `<div class="mastery-row">${iconize("🕳️")} Deepest Delve — ${depth > 0 ? `<b>Depth ${depth}</b>` : "not yet past the gauntlet"}</div>` +
       `<div class="mastery-row">${iconize("⚔️")} Duel ladder — ${dRating !== undefined ? `Rating <b>${dRating}</b> · best streak <b>${dBest}</b> · ${dW}W/${dL}L` : "step into the ring to earn a rating"}</div>`;
 
+    // Combat Achievements: OSRS's tiered per-boss tasks. Ordered by tier rather
+    // than by first appearance, because the tier IS the difficulty statement —
+    // "kill Vorlag without eating" and "kill the Quartermaster without eating"
+    // are not the same ask.
+    const CA_ORDER = ["Easy", "Medium", "Hard", "Elite", "Master", "Ladder"];
+    const caCats = CA_ORDER
+      .map((t) => `Combat: ${t}`)
+      .filter((c) => caAll.some((a) => a.category === c));
+    const caDone = caAll.filter((a) => player.achievements.includes(a.id)).length;
+    const caBody = caCats.map((cat) => {
+      const rows = caAll.filter((x) => x.category === cat);
+      const done = rows.filter((a) => player.achievements.includes(a.id)).length;
+      const label = cat.slice("Combat: ".length);
+      return subSection(`ca:${cat}`, label, `${done}/${rows.length}`, () =>
+        rows.map((a) => {
+          const isDone = player.achievements.includes(a.id);
+          const ev = evalAchievement(player, this.content, a.cond);
+          const right = isDone
+            ? `<span class="achieve-check">\u2713</span>`
+            : ev.target > 1
+              ? `<span class="achieve-prog">${Math.min(ev.cur, ev.target).toLocaleString()} / ${ev.target.toLocaleString()}</span>`
+              : `<span class="achieve-lock">${iconize("\ud83d\udd12")}</span>`;
+          return `<div class="achieve-row ${isDone ? "done" : ""}"><span class="achieve-ic">${iconize(isDone ? a.icon : "\ud83d\udd12")}</span><span class="achieve-info"><span class="achieve-name">${escapeHtml(a.name)}</span><span class="achieve-desc">${escapeHtml(a.desc)}</span></span>${right}</div>`;
+        }).join(""));
+    }).join("") +
+      `<div class="tab-note">Every boss carries four tasks: fell it, fell it untouched, fell it without eating, and fell it inside its par time. Tiers follow the boss's own combat level \u2014 the same task is a different ask on Vorlag.</div>`;
+
     // The top-level sections.
     const section = (key: string, title: string, count: string, body: string): string => {
       const open = this.openSecs.has(key);
@@ -2577,6 +2610,7 @@ export class Hud {
 
     this.recordsEl.innerHTML =
       section("bosslog", "Boss Log", `${bossSlain}/${bosses.length}`, bossBody) +
+      section("combatach", "Combat Achievements", `${caDone}/${caAll.length}`, caBody) +
       section("collection", "Collection Log", `${collCatsDone}/${collCatTotal} \u00b7 ${collPct}%`, collBody) +
       section("cape", "Cape of Varath", capeOwned ? "Earned" : `${capeMaxed}/${skillIds.length}`, capeBody) +
       section("mastery", "Mastery & Ladders", totalStars > 0 ? `${totalStars}★` : (depth > 0 ? `Depth ${depth}` : "—"), masteryBody) +
