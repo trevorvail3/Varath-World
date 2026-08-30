@@ -420,17 +420,26 @@ the roster wants a re-tune pass.** Three monsters became notably deadlier and ar
 the first place to look: `hollow_warden` (10% → 50% deaths), `hollow_prophet`
 (0% → 70%), `green_baron` (0% → 30%).
 
-## Still outstanding in Phase 1
+## Phase 1 is complete
 
-- **WS3's Equipment Stats panel** — the sheet is derived and live in the core, but
-  the Character tab still shows the old `Acc / Dmg / Def` line, which now
-  under-describes what gear does.
-- **WS4** attack options, **WS5** status effects, **WS6** hitsplats, **WS7** death
-  and the quick-action strip.
+All seven workstreams shipped. `npm run sim:tick | sim:rates | sim:ttk | sim:bonus | sim:styles | sim:status | sim:death` are the gates; `tsc --noEmit` and `npm run build` are clean.
 
-⚠️ Until WS6 lands, a zero-damage hit renders as a miss — there is no blue
-0-splat yet. Combat will *look* less responsive than it is; judge it on
-time-to-kill, not on feedback.
+| WS | What landed |
+|---|---|
+| 0 | Sim harness + committed baselines — the only regression net this repo has |
+| 1 | 600ms OSRS tick; walk 1 tile/tick, run 2 |
+| 2 | OSRS accuracy and damage rolls, damage from zero |
+| 3 | Ten-way equipment bonus vector, armour triangle, Equipment Stats sheet |
+| 4 | Per-weapon attack options — the triangle as a live mid-fight decision |
+| 5 | Poison, venom, antidote |
+| 6 | Hitsplats, blue zero, target health bars |
+| 7 | Gravestones, uncapped coin risk, the quick bar |
+
+**Five live bugs were found and fixed along the way**, none of them the thing being built at the time: a fishing rod's tier applied only to the first cast; a better gathering tool in the pack was ignored whenever a usable one was equipped; the player-death path existed twice, and the boss-slam copy quietly skipped the pack loss; `playerSwing` read the weapon's fixed style rather than the chosen attack option, leaving WS4 inert; and the survivability sim was measuring a player who never ate.
+
+**The measurement lesson worth carrying into Phase 2.** Three times an alarming number turned out to be the instrument rather than the game — an unfed player reading as "70% lethal", a venom test whose subject was being killed by `syncMaxHp` clamping, a TTK spread that was mostly swing-count granularity on short fights. Check what the sim is actually doing before changing tuned content on its word.
+
+**Still open, and only feel can settle it:** run at 3.33 tiles/s. It reverses a decision this codebase had previously made on feel, it is the cheapest thing here to revert, and no sim can judge it.
 
 ---
 
