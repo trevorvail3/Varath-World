@@ -13,7 +13,7 @@
 
 import { content, playerStart } from "../src/content/index.ts";
 import { mulberry32 } from "../src/core/duelCore.ts";
-import { createWorld, tick, TICK_MS, equipRequirement } from "../src/core/worldCore.ts";
+import { createWorld, tick, TICK_MS, equipRequirement, HUNT_GATES } from "../src/core/worldCore.ts";
 import { xpForLevel } from "../src/content/xpCurve.ts";
 import type { Ctx, ItemId, Player, SkillId, WorldState } from "../src/core/types.ts";
 
@@ -95,6 +95,17 @@ export function levelMatchedPlayer(state: WorldState, level: number): Player {
   const { player } = state;
   for (const s of ["vitality", "edge", "vigour", "ward", "draw", "faith"] as SkillId[]) {
     setLevel(player, s, level);
+  }
+  // Bounty is a GATE, not a combat stat: several monsters refuse to be fought
+  // below a Bounty requirement ("it takes Bounty 20 to hunt a Warren Creeper").
+  // Max it so the gate never silently excludes a monster from a balance sim.
+  setLevel(player, "bounty", 100);
+  // Same for the Slayer-style tool gates: a couple of monsters cannot be harmed
+  // at all without a consumable or its permanent mastery. Granting the masteries
+  // (read from the real table, so this can't drift) removes the gate without
+  // touching any combat stat.
+  for (const gate of Object.values(HUNT_GATES)) {
+    if (!player.bounty.unlocks.includes(gate.unlock)) player.bounty.unlocks.push(gate.unlock);
   }
   player.maxHp = 10 + levelOf(player, "vitality");
   player.hp = player.maxHp;

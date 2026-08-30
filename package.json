@@ -10,7 +10,8 @@
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
     "sim:rates": "tsx sims/rates.ts",
-    "sim:tick": "tsx sims/tick.ts"
+    "sim:tick": "tsx sims/tick.ts",
+    "sim:ttk": "tsx sims/ttk.ts"
   },
   "devDependencies": {
     "@types/node": "^26.4.0",

@@ -1,0 +1,821 @@
+{
+  "ttkSeeds": [
+    7,
+    19,
+    43
+  ],
+  "deathSeeds": [
+    2,
+    5,
+    11,
+    17,
+    23,
+    31,
+    41,
+    53,
+    61,
+    71
+  ],
+  "rows": [
+    {
+      "monster": "moor_rat",
+      "level": 1,
+      "hp": 10,
+      "ttkMs": 7300,
+      "hitRate": 1,
+      "dmgPerHit": 4.63,
+      "deathsPer100": 0,
+      "timeouts": 0
+    },
+    {
+      "monster": "footpad",
+      "level": 4,
+      "hp": 25,
+      "ttkMs": 12100,
+      "hitRate": 0.882,
+      "dmgPerHit": 5.6,
+      "deathsPer100": 0,
+      "timeouts": 0
+    },
+    {
+      "monster": "sewer_rat",
+      "level": 4,
+      "hp": 14,
+      "ttkMs": 7300,
+      "hitRate": 1,
+      "dmgPerHit": 5.2,
+      "deathsPer100": 0,
+      "timeouts": 0
+    },
+    {
+      "monster": "hill_wolf",
+      "level": 5,
+      "hp": 30,
+      "ttkMs": 14500,
+      "hitRate": 0.833,
+      "dmgPerHit": 6.67,
+      "deathsPer100": 0,
+      "timeouts": 0
+    },
+    {
+      "monster": "cutpurse",
+      "level": 7,
+      "hp": 40,
+      "ttkMs": 19300,
+      "hitRate": 0.75,
+      "dmgPerHit": 6.94,
+      "deathsPer100": 0,
+      "timeouts": 0
+    },
+    {
+      "monster": "red_deer",
+      "level": 8,
+      "hp": 45,
+      "ttkMs": 21700,
+      "hitRate": 0.75,
+      "dmgPerHit": 6.81,
+      "deathsPer100": 0,
+      "timeouts": 0
+    },
+    {
+      "monster": "gutter_spider",
+      "level": 9,
+      "hp": 30,
+      "ttkMs": 12100,
+      "hitRate": 0.867,
+      "dmgPerHit": 8.15,
+      "deathsPer100": 0,
+      "timeouts": 0
+    },
+    {
+      "monster": "wild_boar",
+      "level": 12,
+      "hp": 60,
+      "ttkMs": 5500,
+      "hitRate": 0.769,
+      "dmgPerHit": 20.4,
+      "deathsPer100": 0,
+      "timeouts": 0
+    },
+    {
+      "monster": "bandit",
+      "level": 12,
+      "hp": 65,
+      "ttkMs": 7300,
+      "hitRate": 0.786,
+      "dmgPerHit": 22.27,
+      "deathsPer100": 0,
+      "timeouts": 0
+    },
+    {
+      "monster": "sewer_kobold",
+      "level": 15,
+      "hp": 55,
+      "ttkMs": 5500,
+      "hitRate": 1,
+      "dmgPerHit": 24.78,
+      "deathsPer100": 0,
+      "timeouts": 0
+    },
+    {
+      "monster": "hired_blade",
+      "level": 15,
+      "hp": 48,
+      "ttkMs": 3700,
+      "hitRate": 1,
+      "dmgPerHit": 25.71,
+      "deathsPer100": 0,
+      "timeouts": 0
+    },
+    {
+      "monster": "poacher",
+      "level": 16,
+      "hp": 85,
+      "ttkMs": 12700,
+      "hitRate": 0.85,
+      "dmgPerHit": 17.53,
+      "deathsPer100": 0,
+      "timeouts": 0
+    },
+    {
+      "monster": "field_farmer",
+      "level": 18,
+      "hp": 90,
+      "ttkMs": 9100,
+      "hitRate": 0.813,
+      "dmgPerHit": 24.85,
+      "deathsPer100": 0,
+      "timeouts": 0
+    },
+    {
+      "monster": "town_guard",
+      "level": 21,
+      "hp": 120,
+      "ttkMs": 19900,
+      "hitRate": 0.563,
+      "dmgPerHit": 21.67,
+      "deathsPer100": 0,
+      "timeouts": 0
+    },
+    {
+      "monster": "cult_acolyte",
+      "level": 22,
+      "hp": 100,
+      "ttkMs": 9100,
+      "hitRate": 0.733,
+      "dmgPerHit": 30.64,
+      "deathsPer100": 0,
+      "timeouts": 0
+    },
+    {
+      "monster": "forest_bear",
+      "level": 22,
+      "hp": 110,
+      "ttkMs": 14500,
+      "hitRate": 0.63,
+      "dmgPerHit": 21.76,
+      "deathsPer100": 0,
+      "timeouts": 0
+    },
+    {
+      "monster": "highwayman",
+      "level": 22,
+      "hp": 115,
+      "ttkMs": 7300,
+      "hitRate": 0.923,
+      "dmgPerHit": 30.75,
+      "deathsPer100": 0,
+      "timeouts": 0
+    },
+    {
+      "monster": "sewer_sludge",
+      "level": 22,
+      "hp": 95,
+      "ttkMs": 9100,
+      "hitRate": 0.933,
+      "dmgPerHit": 22.79,
+      "deathsPer100": 0,
+      "timeouts": 0
+    },
+    {
+      "monster": "quartermaster_brann",
+      "level": 23,
+      "hp": 190,
+      "ttkMs": 34300,
+      "hitRate": 0.724,
+      "dmgPerHit": 13.79,
+      "deathsPer100": 100,
+      "timeouts": 0
+    },
+    {
+      "monster": "greymane_boar",
+      "level": 25,
+      "hp": 145,
+      "ttkMs": 24100,
+      "hitRate": 0.677,
+      "dmgPerHit": 22.29,
+      "deathsPer100": 0,
+      "timeouts": 0
+    },
+    {
+      "monster": "outlaw_archer",
+      "level": 26,
+      "hp": 125,
+      "ttkMs": 16900,
+      "hitRate": 0.842,
+      "dmgPerHit": 26.88,
+      "deathsPer100": 0,
+      "timeouts": 0
+    },
+    {
+      "monster": "mountain_lion",
+      "level": 26,
+      "hp": 120,
+      "ttkMs": 16900,
+      "hitRate": 0.895,
+      "dmgPerHit": 25.12,
+      "deathsPer100": 0,
+      "timeouts": 0
+    },
+    {
+      "monster": "hollow_hexling",
+      "level": 26,
+      "hp": 90,
+      "ttkMs": 14500,
+      "hitRate": 0.706,
+      "dmgPerHit": 24.58,
+      "deathsPer100": 0,
+      "timeouts": 0
+    },
+    {
+      "monster": "ridge_wolf",
+      "level": 28,
+      "hp": 85,
+      "ttkMs": 9700,
+      "hitRate": 1,
+      "dmgPerHit": 21.77,
+      "deathsPer100": 0,
+      "timeouts": 0
+    },
+    {
+      "monster": "warren_creeper",
+      "level": 30,
+      "hp": 150,
+      "ttkMs": 12700,
+      "hitRate": 0.609,
+      "dmgPerHit": 35.93,
+      "deathsPer100": 0,
+      "timeouts": 0
+    },
+    {
+      "monster": "cutthroat",
+      "level": 32,
+      "hp": 160,
+      "ttkMs": 7300,
+      "hitRate": 1,
+      "dmgPerHit": 47,
+      "deathsPer100": 0,
+      "timeouts": 0
+    },
+    {
+      "monster": "stone_crawler",
+      "level": 35,
+      "hp": 120,
+      "ttkMs": 10900,
+      "hitRate": 0.765,
+      "dmgPerHit": 32.54,
+      "deathsPer100": 0,
+      "timeouts": 0
+    },
+    {
+      "monster": "ashen_widow",
+      "level": 35,
+      "hp": 420,
+      "ttkMs": 72100,
+      "hitRate": 0.575,
+      "dmgPerHit": 22.68,
+      "deathsPer100": 100,
+      "timeouts": 0
+    },
+    {
+      "monster": "ironvale_guard",
+      "level": 38,
+      "hp": 200,
+      "ttkMs": 12700,
+      "hitRate": 0.667,
+      "dmgPerHit": 51.93,
+      "deathsPer100": 0,
+      "timeouts": 0
+    },
+    {
+      "monster": "master_farmer",
+      "level": 38,
+      "hp": 155,
+      "ttkMs": 5500,
+      "hitRate": 1,
+      "dmgPerHit": 52.5,
+      "deathsPer100": 0,
+      "timeouts": 0
+    },
+    {
+      "monster": "hollow_warden",
+      "level": 38,
+      "hp": 265,
+      "ttkMs": 21700,
+      "hitRate": 0.75,
+      "dmgPerHit": 34.3,
+      "deathsPer100": 10,
+      "timeouts": 0
+    },
+    {
+      "monster": "marauder",
+      "level": 40,
+      "hp": 210,
+      "ttkMs": 21700,
+      "hitRate": 0.846,
+      "dmgPerHit": 29.86,
+      "deathsPer100": 0,
+      "timeouts": 0
+    },
+    {
+      "monster": "cult_zealot",
+      "level": 42,
+      "hp": 185,
+      "ttkMs": 21700,
+      "hitRate": 0.6,
+      "dmgPerHit": 32.94,
+      "deathsPer100": 0,
+      "timeouts": 0
+    },
+    {
+      "monster": "mountain_troll",
+      "level": 42,
+      "hp": 200,
+      "ttkMs": 19300,
+      "hitRate": 0.833,
+      "dmgPerHit": 31.75,
+      "deathsPer100": 0,
+      "timeouts": 0
+    },
+    {
+      "monster": "bog_warden",
+      "level": 42,
+      "hp": 485,
+      "ttkMs": 91300,
+      "hitRate": 0.67,
+      "dmgPerHit": 21.99,
+      "deathsPer100": 100,
+      "timeouts": 0
+    },
+    {
+      "monster": "spine_wraith",
+      "level": 45,
+      "hp": 110,
+      "ttkMs": 4900,
+      "hitRate": 0.875,
+      "dmgPerHit": 58.71,
+      "deathsPer100": 0,
+      "timeouts": 0
+    },
+    {
+      "monster": "marsh_lurker",
+      "level": 48,
+      "hp": 155,
+      "ttkMs": 12100,
+      "hitRate": 0.882,
+      "dmgPerHit": 34.6,
+      "deathsPer100": 0,
+      "timeouts": 0
+    },
+    {
+      "monster": "outlaw_captain",
+      "level": 48,
+      "hp": 310,
+      "ttkMs": 31300,
+      "hitRate": 0.732,
+      "dmgPerHit": 32.4,
+      "deathsPer100": 0,
+      "timeouts": 0
+    },
+    {
+      "monster": "dusk_stalker",
+      "level": 50,
+      "hp": 260,
+      "ttkMs": 12700,
+      "hitRate": 0.762,
+      "dmgPerHit": 54.56,
+      "deathsPer100": 0,
+      "timeouts": 0
+    },
+    {
+      "monster": "barrow_sentinel",
+      "level": 52,
+      "hp": 130,
+      "ttkMs": 5500,
+      "hitRate": 0.75,
+      "dmgPerHit": 51.22,
+      "deathsPer100": 0,
+      "timeouts": 0
+    },
+    {
+      "monster": "heartmoor_hound",
+      "level": 55,
+      "hp": 145,
+      "ttkMs": 3700,
+      "hitRate": 1,
+      "dmgPerHit": 84.17,
+      "deathsPer100": 0,
+      "timeouts": 0
+    },
+    {
+      "monster": "cave_crawler",
+      "level": 55,
+      "hp": 155,
+      "ttkMs": 7300,
+      "hitRate": 0.818,
+      "dmgPerHit": 56.56,
+      "deathsPer100": 0,
+      "timeouts": 0
+    },
+    {
+      "monster": "deep_bat",
+      "level": 58,
+      "hp": 105,
+      "ttkMs": 5500,
+      "hitRate": 0.818,
+      "dmgPerHit": 51.22,
+      "deathsPer100": 0,
+      "timeouts": 0
+    },
+    {
+      "monster": "green_baron",
+      "level": 58,
+      "hp": 530,
+      "ttkMs": 25300,
+      "hitRate": 0.729,
+      "dmgPerHit": 48.11,
+      "deathsPer100": 0,
+      "timeouts": 0
+    },
+    {
+      "monster": "drowned_thrall",
+      "level": 58,
+      "hp": 95,
+      "ttkMs": 3700,
+      "hitRate": 1,
+      "dmgPerHit": 52.57,
+      "deathsPer100": 0,
+      "timeouts": 0
+    },
+    {
+      "monster": "cult_magus",
+      "level": 59,
+      "hp": 260,
+      "ttkMs": 10900,
+      "hitRate": 0.842,
+      "dmgPerHit": 56.69,
+      "deathsPer100": 0,
+      "timeouts": 0
+    },
+    {
+      "monster": "deep_golem",
+      "level": 60,
+      "hp": 310,
+      "ttkMs": 18100,
+      "hitRate": 0.704,
+      "dmgPerHit": 54.68,
+      "deathsPer100": 0,
+      "timeouts": 0
+    },
+    {
+      "monster": "spine_warlord",
+      "level": 60,
+      "hp": 440,
+      "ttkMs": 12700,
+      "hitRate": 0.81,
+      "dmgPerHit": 81.88,
+      "deathsPer100": 0,
+      "timeouts": 0
+    },
+    {
+      "monster": "barrow_king",
+      "level": 60,
+      "hp": 280,
+      "ttkMs": 10900,
+      "hitRate": 0.944,
+      "dmgPerHit": 54.12,
+      "deathsPer100": 0,
+      "timeouts": 0
+    },
+    {
+      "monster": "bog_knight",
+      "level": 61,
+      "hp": 220,
+      "ttkMs": 7300,
+      "hitRate": 0.929,
+      "dmgPerHit": 52.69,
+      "deathsPer100": 0,
+      "timeouts": 0
+    },
+    {
+      "monster": "river_serpent",
+      "level": 61,
+      "hp": 225,
+      "ttkMs": 10900,
+      "hitRate": 0.765,
+      "dmgPerHit": 61.92,
+      "deathsPer100": 0,
+      "timeouts": 0
+    },
+    {
+      "monster": "hollow_prophet",
+      "level": 62,
+      "hp": 615,
+      "ttkMs": 50500,
+      "hitRate": 0.628,
+      "dmgPerHit": 40.02,
+      "deathsPer100": 0,
+      "timeouts": 0
+    },
+    {
+      "monster": "vault_sentinel",
+      "level": 62,
+      "hp": 160,
+      "ttkMs": 10900,
+      "hitRate": 0.667,
+      "dmgPerHit": 53.4,
+      "deathsPer100": 0,
+      "timeouts": 0
+    },
+    {
+      "monster": "court_wisp",
+      "level": 62,
+      "hp": 85,
+      "ttkMs": 5500,
+      "hitRate": 0.75,
+      "dmgPerHit": 50.5,
+      "deathsPer100": 0,
+      "timeouts": 0
+    },
+    {
+      "monster": "redrun_brigand",
+      "level": 63,
+      "hp": 215,
+      "ttkMs": 10900,
+      "hitRate": 0.737,
+      "dmgPerHit": 54.5,
+      "deathsPer100": 0,
+      "timeouts": 0
+    },
+    {
+      "monster": "mire_serpent",
+      "level": 64,
+      "hp": 185,
+      "ttkMs": 7300,
+      "hitRate": 1,
+      "dmgPerHit": 53.91,
+      "deathsPer100": 0,
+      "timeouts": 0
+    },
+    {
+      "monster": "marrow_wraith",
+      "level": 64,
+      "hp": 140,
+      "ttkMs": 3700,
+      "hitRate": 0.778,
+      "dmgPerHit": 64.29,
+      "deathsPer100": 0,
+      "timeouts": 0
+    },
+    {
+      "monster": "aerie_harpy",
+      "level": 64,
+      "hp": 90,
+      "ttkMs": 3700,
+      "hitRate": 1,
+      "dmgPerHit": 62.17,
+      "deathsPer100": 0,
+      "timeouts": 0
+    },
+    {
+      "monster": "ancient_orc",
+      "level": 65,
+      "hp": 280,
+      "ttkMs": 10900,
+      "hitRate": 0.647,
+      "dmgPerHit": 91.36,
+      "deathsPer100": 0,
+      "timeouts": 0
+    },
+    {
+      "monster": "court_reliquarist",
+      "level": 68,
+      "hp": 180,
+      "ttkMs": 9100,
+      "hitRate": 0.786,
+      "dmgPerHit": 58.36,
+      "deathsPer100": 0,
+      "timeouts": 0
+    },
+    {
+      "monster": "storm_wisp",
+      "level": 68,
+      "hp": 88,
+      "ttkMs": 3700,
+      "hitRate": 1,
+      "dmgPerHit": 49.83,
+      "deathsPer100": 0,
+      "timeouts": 0
+    },
+    {
+      "monster": "hollow_hound",
+      "level": 68,
+      "hp": 400,
+      "ttkMs": 10900,
+      "hitRate": 0.882,
+      "dmgPerHit": 91.33,
+      "deathsPer100": 0,
+      "timeouts": 0
+    },
+    {
+      "monster": "boneman",
+      "level": 69,
+      "hp": 750,
+      "ttkMs": 45100,
+      "hitRate": 0.628,
+      "dmgPerHit": 43.49,
+      "deathsPer100": 100,
+      "timeouts": 0
+    },
+    {
+      "monster": "vault_warden",
+      "level": 70,
+      "hp": 340,
+      "ttkMs": 10900,
+      "hitRate": 0.889,
+      "dmgPerHit": 65.75,
+      "deathsPer100": 0,
+      "timeouts": 0
+    },
+    {
+      "monster": "marrow_keeper",
+      "level": 72,
+      "hp": 770,
+      "ttkMs": 48700,
+      "hitRate": 0.725,
+      "dmgPerHit": 41.24,
+      "deathsPer100": 100,
+      "timeouts": 0
+    },
+    {
+      "monster": "sky_warder",
+      "level": 72,
+      "hp": 200,
+      "ttkMs": 5500,
+      "hitRate": 1,
+      "dmgPerHit": 70.5,
+      "deathsPer100": 0,
+      "timeouts": 0
+    },
+    {
+      "monster": "pale_wight",
+      "level": 75,
+      "hp": 120,
+      "ttkMs": 3700,
+      "hitRate": 1,
+      "dmgPerHit": 69,
+      "deathsPer100": 0,
+      "timeouts": 0
+    },
+    {
+      "monster": "drowned_magistrate",
+      "level": 76,
+      "hp": 400,
+      "ttkMs": 12700,
+      "hitRate": 0.952,
+      "dmgPerHit": 67.85,
+      "deathsPer100": 0,
+      "timeouts": 0
+    },
+    {
+      "monster": "storm_herald",
+      "level": 80,
+      "hp": 440,
+      "ttkMs": 16300,
+      "hitRate": 0.724,
+      "dmgPerHit": 65.48,
+      "deathsPer100": 0,
+      "timeouts": 0
+    },
+    {
+      "monster": "pale_gatekeeper",
+      "level": 82,
+      "hp": 280,
+      "ttkMs": 9100,
+      "hitRate": 0.933,
+      "dmgPerHit": 71.43,
+      "deathsPer100": 0,
+      "timeouts": 0
+    },
+    {
+      "monster": "warren_shade",
+      "level": 84,
+      "hp": 540,
+      "ttkMs": 23500,
+      "hitRate": 0.718,
+      "dmgPerHit": 63.25,
+      "deathsPer100": 0,
+      "timeouts": 0
+    },
+    {
+      "monster": "pale_herald",
+      "level": 86,
+      "hp": 320,
+      "ttkMs": 10900,
+      "hitRate": 1,
+      "dmgPerHit": 61.41,
+      "deathsPer100": 0,
+      "timeouts": 0
+    },
+    {
+      "monster": "greyback",
+      "level": 88,
+      "hp": 1500,
+      "ttkMs": 39700,
+      "hitRate": 0.688,
+      "dmgPerHit": 105.59,
+      "deathsPer100": 100,
+      "timeouts": 0
+    },
+    {
+      "monster": "ashen_wyrm",
+      "level": 90,
+      "hp": 1365,
+      "ttkMs": 37900,
+      "hitRate": 0.65,
+      "dmgPerHit": 111.33,
+      "deathsPer100": 100,
+      "timeouts": 0
+    },
+    {
+      "monster": "pale_warden",
+      "level": 92,
+      "hp": 650,
+      "ttkMs": 30700,
+      "hitRate": 0.792,
+      "dmgPerHit": 47.86,
+      "deathsPer100": 100,
+      "timeouts": 0
+    },
+    {
+      "monster": "delve_horror",
+      "level": 95,
+      "hp": 1250,
+      "ttkMs": 27100,
+      "hitRate": 0.795,
+      "dmgPerHit": 115.23,
+      "deathsPer100": 100,
+      "timeouts": 0
+    },
+    {
+      "monster": "dread_ferryman",
+      "level": 98,
+      "hp": 1055,
+      "ttkMs": 21700,
+      "hitRate": 0.857,
+      "dmgPerHit": 112.63,
+      "deathsPer100": 100,
+      "timeouts": 0
+    },
+    {
+      "monster": "iron_maw",
+      "level": 100,
+      "hp": 740,
+      "ttkMs": 14500,
+      "hitRate": 0.808,
+      "dmgPerHit": 113.1,
+      "deathsPer100": 0,
+      "timeouts": 0
+    },
+    {
+      "monster": "gaunt_below",
+      "level": 110,
+      "hp": 2000,
+      "ttkMs": 111700,
+      "hitRate": 0.669,
+      "dmgPerHit": 52.23,
+      "deathsPer100": 100,
+      "timeouts": 0
+    },
+    {
+      "monster": "vorlag",
+      "level": 125,
+      "hp": 2600,
+      "ttkMs": 154900,
+      "hitRate": 0.656,
+      "dmgPerHit": 46.93,
+      "deathsPer100": 100,
+      "timeouts": 0
+    }
+  ]
+}
