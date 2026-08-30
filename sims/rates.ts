@@ -9,6 +9,16 @@
  *
  * The player's pack is emptied every tick so a full inventory never throttles
  * the measurement — we are measuring cadence, not carrying capacity.
+ *
+ * WHICH NUMBER TO TRUST: `intervalMs` is deterministic and is the real guard —
+ * it is the swing cadence the core chose, and the thing tick quantization
+ * distorts. `perMin` is sustained throughput on a SINGLE node, so it is
+ * dominated by depletion/respawn RNG; even averaged over three seeds it carries
+ * roughly +/-10% run-to-run noise, with occasional outliers past 30%. Assert
+ * intervalMs exactly; treat perMin as a smoke test, not a tolerance.
+ *
+ * The committed baseline fixtures were recorded at TICK_MS = 200, before the
+ * 600ms migration.
  */
 
 import { content, makeWorld, SimClock, setLevel, round, TICK_MS } from "./harness.ts";

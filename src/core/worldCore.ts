@@ -21,6 +21,7 @@
 
 import type {
   AchievementCond,
+  Activity,
   BountyTaskDef,
   CombatStyle,
   Content,
@@ -55,27 +56,32 @@ import type {
 // Times are in milliseconds.
 // ---------------------------------------------------------------------------
 
-// The base game tick. The whole simulation advances in discrete steps of this
-// length; combat, gathering and respawns all land on this beat. It's finer than
-// OSRS's 0.6s so that MOVEMENT speed can be tuned independently of a rigid "1 vs
-// 2 tiles per tick" (which locked run at exactly 2× walk and felt too fast). A
-// tile step still takes a whole number of ticks — see the *_STEP_TICKS below.
-export const TICK_MS = 200;
-// A single tick() call runs at most this many sub-ticks of catch-up after a long
+// The base game tick — OSRS's 0.6s. The whole simulation advances in discrete
+// steps of this length; movement, combat, gathering and respawns all land on
+// this beat.
+//
+// This was 200ms, deliberately finer than OSRS so movement speed could be tuned
+// off the rigid "1 vs 2 tiles per tick" grid. That freedom is given up on
+// purpose: on a 600ms tick a tile step IS a tick, and running is exactly two
+// tiles per tick, the way OSRS does it. The cost is that run returns to 2× walk
+// (3.33 tiles/s), which an earlier pass had reduced to 2.5 for feel.
+export const TICK_MS = 600;
+// A single tick() call runs at most this many ticks of catch-up after a long
 // frame (GC pause, backgrounded tab), so a stall can't trigger a spiral of death.
-const MAX_CATCHUP = 8;
+const MAX_CATCHUP = 4;
 
-// Movement cadence: how many base ticks ONE tile step takes. The player always
-// hops a whole tile per step (crisp, never sub-tile); the step's DURATION sets
-// the speed and is interpolated on the client so motion stays smooth.
-//   walk 3 ticks = 600ms/tile ≈ 1.67 tiles/s   (unchanged — this felt good)
-//   run  2 ticks = 400ms/tile ≈ 2.50 tiles/s   (was 3.33; ~1.5× walk, like OSRS-lite)
+// Movement cadence: how many tiles ONE tick advances you. A tile step always
+// takes exactly one tick, so speed is expressed in TILES PER TICK — you cannot
+// spend less than a tick on a step, which is why running moves two tiles rather
+// than taking fewer ticks per tile.
+//   walk  1 tile /tick = 600ms/tile ≈ 1.67 tiles/s  (unchanged)
+//   run   2 tiles/tick = 300ms/tile ≈ 3.33 tiles/s  (2× walk, as in OSRS)
 // A mount travels at run pace WITHOUT spending run energy — its travel perk.
-const WALK_STEP_TICKS = 3;
-const RUN_STEP_TICKS = 2;
-const MOUNT_STEP_TICKS = 2;
+const WALK_TILES_PER_TICK = 1;
+const RUN_TILES_PER_TICK = 2;
+const MOUNT_TILES_PER_TICK = 2;
 // Wandering creatures glide a tile over this many ticks (a relaxed amble).
-export const NPC_STEP_TICKS = 3;
+export const NPC_STEP_TICKS = 1;
 
 // Run/walk (OSRS-style): running takes fewer ticks per tile but drains run energy
 // per tile travelled; energy recovers while walking or standing still. Walking is
@@ -184,8 +190,8 @@ const WANDER = {
   /** Wander walk speed (tiles/sec) — a slow, unhurried amble. */
   speed: 1.05,
   /** Idle pause between steps is a random ms in [pauseMin, pauseMax]. */
-  pauseMin: 1900,
-  pauseMax: 5200,
+  pauseMin: 1800,
+  pauseMax: 5400,
 };
 
 // `deplete` is the chance, on a successful gather, that the node runs out and
@@ -1524,6 +1530,7 @@ function beginGather(
     actionId: action.id,
     nextActionAt: ctx.now + baseInterval,
     actionInterval: baseInterval,
+    speedMult,
   };
   return true;
 }
@@ -4775,7 +4782,9 @@ export function tick(
   if (!state.tickNow) { state.tickNow = ctx.now; state.lastTick = ctx.now; state.tickAcc = 0; }
   // Real time elapsed since the last call, clamped so a backgrounded tab doesn't
   // dump minutes of catch-up at once.
-  const elapsed = Math.min(Math.max(ctx.now - state.lastTick, 0), 250);
+  // The cap must exceed TICK_MS, or a single call could never bank a whole tick
+  // and the sim would fall permanently behind after any stall.
+  const elapsed = Math.min(Math.max(ctx.now - state.lastTick, 0), TICK_MS * 2);
   state.lastTick = ctx.now;
   state.tickAcc += elapsed;
   let steps = 0;
@@ -5128,7 +5137,16 @@ function wanderCreatures(
           if (Math.max(Math.abs(nx - def.x), Math.abs(ny - def.y)) > leash) continue;
           if (!walk(nx, ny) || (nx === pTile.x && ny === pTile.y)) continue;
           if (occupied.has(`${nx},${ny}`)) continue;
-          obj.wanderTarget = { x: nx, y: ny };
+          // A CHASER COMMITS ITS STEP IN THE SAME TICK, unlike the idle amble
+          // below which reserves a tile now and hops onto it next tick. That
+          // reserve-then-hop costs two ticks per tile: fine as pacing for a
+          // wandering creature, fatal for a chase — at one tile per two ticks a
+          // pursuer moves at HALF the player's walking speed and could never
+          // catch anyone, while aggro and the pursuit timer carried on as normal
+          // with nothing to show the chase had stopped working.
+          obj.prevPos = { x: obj.pos.x, y: obj.pos.y };
+          obj.pos = { x: nx, y: ny };
+          obj.moveStartTick = state.tickCount;
           occupied.add(`${nx},${ny}`);
           break;
         }
@@ -5271,30 +5289,44 @@ function agilityRegenMult(player: Player): number {
 }
 
 /**
- * Take ONE tile step along the path. The step's DURATION (in base ticks) sets the
- * speed — walk/run/mount cadences — and is recorded on the player so the client
- * interpolates prevPos→pos smoothly across it. Snaps to whole tiles (never
- * sub-tile). Returns 1 if the step was run on foot (spends run energy), else 0.
+ * Advance one TICK along the path: one tile walking, two running or mounted.
+ * `prevPos` spans the whole hop and `stepDurTicks` is always 1, so the client
+ * interpolates the (possibly two-tile) segment smoothly across the tick. Snaps
+ * to whole tiles, never sub-tile. Returns the number of tiles covered on foot
+ * while sprinting (each of which spends run energy).
  */
 function stepMovement(state: WorldState, player: Player): number {
   const sprinting = player.running && player.energy > 0 && !player.winded;
   const mounted = !!player.equipment.mount;
-  const dur = mounted ? MOUNT_STEP_TICKS : sprinting ? RUN_STEP_TICKS : WALK_STEP_TICKS;
-  const target = player.path.shift()!;
+  const tiles = mounted
+    ? MOUNT_TILES_PER_TICK
+    : sprinting ? RUN_TILES_PER_TICK : WALK_TILES_PER_TICK;
+
   player.prevPos = { x: player.pos.x, y: player.pos.y };
-  player.pos = { x: target.x, y: target.y };
   player.stepStartTick = state.tickCount;
-  player.stepDurTicks = dur;
-  // Mount travel is free; only on-foot sprinting spends run energy (per tile).
-  if (sprinting && !mounted) {
-    // The Herald's Storm-Mantle (Skyreach unique): the wind carries some of
-    // your weight — running drains 30% less energy.
-    const mantle = player.equipment.cape === "storm_mantle" ? 0.7 : 1;
-    player.energy = Math.max(0, player.energy - ENERGY_DRAIN * agilityDrainMult(player) * mantle);
-    if (player.energy <= 0) player.winded = true; // out of breath — walk to recover
-    return 1;
+  player.stepDurTicks = 1;
+
+  let sprinted = 0;
+  for (let i = 0; i < tiles && player.path.length > 0; i++) {
+    const target = player.path.shift()!;
+    player.pos = { x: target.x, y: target.y };
+    // Mount travel is free; only on-foot sprinting spends run energy, and it is
+    // spent PER TILE — so what a full energy bar buys is a fixed distance, not a
+    // fixed duration. That is the quantity that stays constant across the tick
+    // change even though running now covers ground faster.
+    if (sprinting && !mounted) {
+      // The Herald's Storm-Mantle (Skyreach unique): the wind carries some of
+      // your weight — running drains 30% less energy.
+      const mantle = player.equipment.cape === "storm_mantle" ? 0.7 : 1;
+      player.energy = Math.max(0, player.energy - ENERGY_DRAIN * agilityDrainMult(player) * mantle);
+      sprinted++;
+      if (player.energy <= 0) {
+        player.winded = true; // out of breath mid-stride — the rest of the tick is a walk
+        break;
+      }
+    }
   }
-  return 0;
+  return sprinted;
 }
 
 function processActivity(
@@ -5467,9 +5499,30 @@ function gatherStep(
   }
   // Fishing reels on a per-catch timer scaled to the spot's fish; other skills
   // use the activity interval (already adjusted for tool tier).
-  act.nextActionAt = ctx.now + (fishing
-    ? fishCatchInterval(action.levelReq ?? 1, ctx)
-    : (act.actionInterval || beh.interval));
+  //
+  // ACCUMULATE (`+=`), never `= ctx.now + …`. `ctx.now` is the discrete tick
+  // clock, so resetting against it rounds every swing UP to the next tick and
+  // the error compounds instead of averaging out — which silently flattens the
+  // whole tool-tier ladder onto a couple of values. Accumulating keeps the
+  // AVERAGE interval exact even though each swing lands on a tick boundary.
+  const step = fishing
+    ? Math.round(fishCatchInterval(action.levelReq ?? 1, ctx) * (act.speedMult ?? 1))
+    : (act.actionInterval || beh.interval);
+  act.nextActionAt += step;
+  // Fallen more than a whole step behind (a stall, or a paused activity)? Resync
+  // rather than banking a burst of catch-up actions.
+  if (act.nextActionAt < ctx.now) act.nextActionAt = ctx.now + step;
+}
+
+/**
+ * Move a crafting activity's clock on by one step. Accumulates rather than
+ * resetting against `ctx.now` — see the note in `gatherStep`: `ctx.now` is the
+ * discrete tick clock, so resetting rounds every step up to the next tick and
+ * the error compounds instead of averaging out.
+ */
+function advanceCraftClock(act: Activity, step: number, ctx: Ctx): void {
+  act.nextActionAt += step;
+  if (act.nextActionAt < ctx.now) act.nextActionAt = ctx.now + step;
 }
 
 /**
@@ -5512,7 +5565,7 @@ function processCraft(
   if (action.skill === "cooking" && ctx.rng() < cookBurnChance(player, action)) {
     if (canAddItem(player, "burnt_food")) addItem(player, "burnt_food", 1, events);
     events.push({ type: "LOG", message: `You burn the ${content.items[action.produces].name}.` });
-    act.nextActionAt = ctx.now + craftInterval(action);
+    advanceCraftClock(act, craftInterval(action), ctx);
     return;
   }
   grantXp(state, content, action.skill, action.xp, events);
@@ -5522,7 +5575,7 @@ function processCraft(
     message: `You make ${content.items[action.produces].name}.`,
   });
   tryPetDrop(state, content, action.skill, ctx, events);
-  act.nextActionAt = ctx.now + craftInterval(action);
+  advanceCraftClock(act, craftInterval(action), ctx);
 }
 
 // Cooking burn: highest at the recipe's own level, falling linearly to 0 once

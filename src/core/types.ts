@@ -1444,6 +1444,13 @@ export interface Activity {
   nextActionAt: number;
   /** How long one swing/roll takes (ms) — lets the client show progress. */
   actionInterval: number;
+  /**
+   * Gathering only: the tool-tier / tincture / cape speed multiplier that was
+   * applied when the activity began. Fishing re-rolls its interval per catch, so
+   * it needs the multiplier again on every reschedule — without it, the rod tier
+   * and the gathering tincture only ever applied to the FIRST cast.
+   */
+  speedMult?: number;
 }
 
 /**
