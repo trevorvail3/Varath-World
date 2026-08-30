@@ -23,5 +23,5 @@
     "exactOptionalPropertyTypes": true,
     "forceConsistentCasingInFileNames": true
   },
-  "include": ["src", "server"]
+  "include": ["src", "server", "sims"]
 }

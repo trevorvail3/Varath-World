@@ -1,0 +1,20 @@
+{
+  "tickMs": 200,
+  "ticksPerMinute": 299,
+  "catchUpTicksAfter700msStall": 1,
+  "walk": {
+    "ms": 6816,
+    "ticks": 34,
+    "tilesPerSec": 1.761
+  },
+  "run": {
+    "ms": 4624,
+    "ticks": 23,
+    "tilesPerSec": 2.595
+  },
+  "pursuit": {
+    "monster": "rat_2",
+    "pctInReachVsWalking": 69.2,
+    "pctInReachVsRunning": 69.2
+  }
+}

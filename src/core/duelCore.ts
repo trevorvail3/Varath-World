@@ -125,6 +125,28 @@ export function duelSeed(duelId: string): number {
   return (h >>> 0) || 1;
 }
 
+/**
+ * A standalone mulberry32 generator: `mulberry32(seed)` returns an rng closure
+ * suitable for a `Ctx`. Used by the headless sims under `sims/`, which need a
+ * deterministic `ctx.rng` so a run is reproducible.
+ *
+ * NOTE: this deliberately duplicates the five lines of arithmetic in `nextRng`
+ * below rather than having `nextRng` delegate to it. `nextRng` keeps its state
+ * on `DuelState.rngState` because that field is serialized and folded into the
+ * lockstep desync hash — routing it through a closure would decouple the two.
+ * If you change the algorithm, change BOTH.
+ */
+export function mulberry32(seed: number): () => number {
+  let s = seed | 0;
+  return () => {
+    s = (s + 0x6d2b79f5) | 0;
+    let t = s;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
 function nextRng(state: DuelState): number {
   // mulberry32 — tiny, fast, and identical everywhere.
   state.rngState = (state.rngState + 0x6d2b79f5) | 0;

@@ -1,0 +1,262 @@
+{
+  "tickMs": 200,
+  "minutes": 10,
+  "rows": [
+    {
+      "skill": "mining",
+      "tier": 1,
+      "tool": "pickaxe_1",
+      "level": 50,
+      "intervalMs": 1500,
+      "perMin": 15.9
+    },
+    {
+      "skill": "mining",
+      "tier": 1,
+      "tool": "pickaxe_1",
+      "level": 100,
+      "intervalMs": 1500,
+      "perMin": 16.6
+    },
+    {
+      "skill": "mining",
+      "tier": 3,
+      "tool": "pickaxe_3",
+      "level": 50,
+      "intervalMs": 1290,
+      "perMin": 16.43
+    },
+    {
+      "skill": "mining",
+      "tier": 3,
+      "tool": "pickaxe_3",
+      "level": 100,
+      "intervalMs": 1290,
+      "perMin": 19.53
+    },
+    {
+      "skill": "mining",
+      "tier": 4,
+      "tool": "pickaxe_4",
+      "level": 50,
+      "intervalMs": 1170,
+      "perMin": 16.63
+    },
+    {
+      "skill": "mining",
+      "tier": 4,
+      "tool": "pickaxe_4",
+      "level": 100,
+      "intervalMs": 1170,
+      "perMin": 19.37
+    },
+    {
+      "skill": "mining",
+      "tier": 5,
+      "tool": "pickaxe_5",
+      "level": 50,
+      "intervalMs": 1080,
+      "perMin": 16.63
+    },
+    {
+      "skill": "mining",
+      "tier": 5,
+      "tool": "pickaxe_5",
+      "level": 100,
+      "intervalMs": 1080,
+      "perMin": 19.37
+    },
+    {
+      "skill": "mining",
+      "tier": 6,
+      "tool": "pickaxe_6",
+      "level": 50,
+      "intervalMs": 990,
+      "perMin": 18.2
+    },
+    {
+      "skill": "mining",
+      "tier": 6,
+      "tool": "pickaxe_6",
+      "level": 100,
+      "intervalMs": 990,
+      "perMin": 20.63
+    },
+    {
+      "skill": "mining",
+      "tier": 7,
+      "tool": "pickaxe_7",
+      "level": 50,
+      "intervalMs": 900,
+      "perMin": 18.2
+    },
+    {
+      "skill": "mining",
+      "tier": 7,
+      "tool": "pickaxe_7",
+      "level": 100,
+      "intervalMs": 900,
+      "perMin": 20.63
+    },
+    {
+      "skill": "mining",
+      "tier": 9,
+      "tool": "pickaxe_9",
+      "level": 50,
+      "intervalMs": 750,
+      "perMin": 20.63
+    },
+    {
+      "skill": "mining",
+      "tier": 9,
+      "tool": "pickaxe_9",
+      "level": 100,
+      "intervalMs": 750,
+      "perMin": 22
+    },
+    {
+      "skill": "mining",
+      "tier": 10,
+      "tool": "pickaxe_10",
+      "level": 50,
+      "intervalMs": 675,
+      "perMin": 20.63
+    },
+    {
+      "skill": "mining",
+      "tier": 10,
+      "tool": "pickaxe_10",
+      "level": 100,
+      "intervalMs": 675,
+      "perMin": 22
+    },
+    {
+      "skill": "forestry",
+      "tier": 1,
+      "tool": "hatchet_1",
+      "level": 50,
+      "intervalMs": 1400,
+      "perMin": 18.67
+    },
+    {
+      "skill": "forestry",
+      "tier": 1,
+      "tool": "hatchet_1",
+      "level": 100,
+      "intervalMs": 1400,
+      "perMin": 21.6
+    },
+    {
+      "skill": "forestry",
+      "tier": 3,
+      "tool": "hatchet_3",
+      "level": 50,
+      "intervalMs": 1204,
+      "perMin": 18.13
+    },
+    {
+      "skill": "forestry",
+      "tier": 3,
+      "tool": "hatchet_3",
+      "level": 100,
+      "intervalMs": 1204,
+      "perMin": 18.97
+    },
+    {
+      "skill": "forestry",
+      "tier": 4,
+      "tool": "hatchet_4",
+      "level": 50,
+      "intervalMs": 1092,
+      "perMin": 20.3
+    },
+    {
+      "skill": "forestry",
+      "tier": 4,
+      "tool": "hatchet_4",
+      "level": 100,
+      "intervalMs": 1092,
+      "perMin": 22.63
+    },
+    {
+      "skill": "forestry",
+      "tier": 5,
+      "tool": "hatchet_5",
+      "level": 50,
+      "intervalMs": 1008,
+      "perMin": 19.87
+    },
+    {
+      "skill": "forestry",
+      "tier": 5,
+      "tool": "hatchet_5",
+      "level": 100,
+      "intervalMs": 1008,
+      "perMin": 19.57
+    },
+    {
+      "skill": "forestry",
+      "tier": 6,
+      "tool": "hatchet_6",
+      "level": 50,
+      "intervalMs": 924,
+      "perMin": 20.33
+    },
+    {
+      "skill": "forestry",
+      "tier": 6,
+      "tool": "hatchet_6",
+      "level": 100,
+      "intervalMs": 924,
+      "perMin": 24.8
+    },
+    {
+      "skill": "forestry",
+      "tier": 7,
+      "tool": "hatchet_7",
+      "level": 50,
+      "intervalMs": 840,
+      "perMin": 20.33
+    },
+    {
+      "skill": "forestry",
+      "tier": 7,
+      "tool": "hatchet_7",
+      "level": 100,
+      "intervalMs": 840,
+      "perMin": 24.8
+    },
+    {
+      "skill": "forestry",
+      "tier": 9,
+      "tool": "hatchet_9",
+      "level": 50,
+      "intervalMs": 700,
+      "perMin": 22.2
+    },
+    {
+      "skill": "forestry",
+      "tier": 9,
+      "tool": "hatchet_9",
+      "level": 100,
+      "intervalMs": 700,
+      "perMin": 24.67
+    },
+    {
+      "skill": "forestry",
+      "tier": 10,
+      "tool": "hatchet_10",
+      "level": 50,
+      "intervalMs": 630,
+      "perMin": 22.2
+    },
+    {
+      "skill": "forestry",
+      "tier": 10,
+      "tool": "hatchet_10",
+      "level": 100,
+      "intervalMs": 630,
+      "perMin": 24.67
+    }
+  ]
+}
