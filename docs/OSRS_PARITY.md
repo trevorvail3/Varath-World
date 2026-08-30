@@ -829,10 +829,51 @@ output ratio swung 1.03 → 1.22 across map-only changes touching no combat code
 because a bigger world ticks more objects before a fight starts and shifts the
 RNG stream. All three baselines were re-recorded at the live code.
 
+### The six region seats — done
+
+Each seat was a 9×9 yard with two cottages, a trader and a fire: somewhere you
+pass through. On the Greater World a region is an hour's walk from Ironvale, and
+a walk that long has to end somewhere worth reaching. Each now has a **bank, two
+to three working stations, and four to six folk**, generated from
+`src/content/towns.ts` — 36 objects across the six.
+
+**A generated street was built and then taken out again**, which is the finding
+worth recording. These seats are *already dense* — trader, waystone, fire,
+banner, guard, questfolk, ore, cairns — and every layout laid across that ground
+walled some of it in. Successive attempts sealed Frostgate's signpost,
+Mirehold's Calder, the Deeps guard, a Lodgehold cairn and a Deeplight ore rock
+inside cottages. Enlarging the town and moving the street to the outer ring
+moved the problem rather than solving it.
+
+What actually makes a seat a town is what a traveller can **do** there — bank,
+restock, use a station, talk to somebody — and none of that needs a wall. The
+cottages stay as authored; the town is added as objects, which cannot seal
+anything in.
+
+Three smaller things it forced:
+
+- **A town's anchor is transformed once**, and everything offsets from it. Doing
+  it per-point put Deeplight's signpost 21 tiles outside its own town, because a
+  seat straddles the edge of its region's box and its west approach took a
+  different branch of `fromV2` than its centre. Same lesson as the pier deck.
+- **The builder is handed the occupied tiles** by `content/index.ts`, which can
+  see the spawns the table cannot. Without it Emberhearth's herb-wife stood on a
+  dead snag and Lodgehold's workbench inside a pine.
+- **Generated ids are prefixed `seat_`, not `town_`** — seven hand-authored NPCs
+  already use `town_`, and a prefix meaning two things is a filter waiting to be
+  written wrong, as it immediately was.
+
+`sims/towns.ts` asserts every seat has a bank, at least two other stations, at
+least three folk, its shop's keeper actually standing in it, exactly one of each
+station (the table omits a bank where the seat already keeps one — Deeplight and
+Mirehold — and a sawmill at Lodgehold), nothing generated sealed in, and nothing
+generated sharing a tile with a hand-authored spawn. It reads the **shipped**
+objects rather than re-deriving them, because a re-derivation without the
+occupancy set tests a layout the game never uses.
+
 ### Still to come
 
-The six region seats grown into real towns, 8 new ungated zones, NPC daily
-routines.
+8 new ungated zones, NPC daily routines.
 
 ## Phase 5 — Real multiplayer (capstone)
 

@@ -28,7 +28,8 @@ import { furniture, surfaces } from "./furniture.ts";
 import { bountyGuides, bountyShop, bountyTasks, bountyUnlocks, huntingGrounds } from "./bounty.ts";
 import { objects, playerSpawn } from "./spawns.ts";
 import { buildCampObjects } from "./camps.ts";
-import { spread } from "./map.ts";
+import { buildTownObjects } from "./towns.ts";
+import { fromV2, spread } from "./map.ts";
 import { skills } from "./skills.ts";
 import { xpForLevel } from "./xpCurve.ts";
 import { PIER_FISH, PIER_RECORDS } from "./pier.ts";
@@ -36,7 +37,13 @@ import { PIER_FISH, PIER_RECORDS } from "./pier.ts";
 export const content: Content = {
   map,
   respawnPoint: CITY_SPAWN,
-  objects: [...objects, ...buildCampObjects(spread)],
+  objects: (() => {
+    const withCamps = [...objects, ...buildCampObjects(spread)];
+    // The towns are laid into seats that are already busy, so the builder is
+    // told which tiles are taken rather than guessing.
+    const taken = new Set(withCamps.map((o) => `${o.x},${o.y}`));
+    return [...withCamps, ...buildTownObjects(fromV2, taken)];
+  })(),
   items,
   monsters,
   // Derived once at boot from `items` — the OSRS-style attack/defence vector

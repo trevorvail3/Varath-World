@@ -27,6 +27,7 @@
 import type { TileType, WorldMap } from "../core/types.ts";
 import { DUNGEON_LAYOUTS, type DungeonLayout } from "./dungeons.ts";
 import { CAMPS } from "./camps.ts";
+import { TOWNS, townClearing } from "./towns.ts";
 
 const WIDTH = 400;
 /** The overworld is rows 0–163; below it are sealed bands of boss arenas and,
@@ -486,49 +487,15 @@ export const BUILDINGS: Building[] = BUILDINGS_LEGACY.map((b) => {
 // --- Region settlements: a small village at each far region's road-edge, so a
 // region is a place you arrive at (a shop + a few folk) and not just terrain.
 // Cleared yards (carved in decode after the region paint) + cottage footprints.
-const SETTLEMENT_CLEARINGS_V2: { x0: number; y0: number; x1: number; y1: number; floor: TileType }[] = [
-  { x0: 46, y0: 14, x1: 54, y1: 22, floor: "stone" },   // Spine — Frostgate (the pass camp)
-  { x0: 121, y0: 21, x1: 129, y1: 29, floor: "cave" },  // Marrow — Deeplight (delvers' outpost)
-  { x0: 142, y0: 101, x1: 150, y1: 109, floor: "sand" },// Redrun — Saltreach (fishing village on the tide-line, east bank)
-  { x0: 73, y0: 137, x1: 81, y1: 145, floor: "ash" },   // Ashfen — Emberhearth (warm-flats camp)
-  { x0: 11, y0: 135, x1: 19, y1: 143, floor: "dirt" },  // Heartmoor — Mirehold (moor hamlet)
-  { x0: 9, y0: 77, x1: 17, y1: 85, floor: "dirt" },     // Greyoak — Lodgehold (foresters' steading)
-];
+// The six region seats. Their cleared ground and their streets both come from
+// the town table now (content/towns.ts) — a seat was a 9x9 yard with two
+// cottages, and on a world this size the end of an hour's walk has to be a
+// place you can bank, restock and use a station.
+const TOWN_CLEARINGS = TOWNS.map((t) => townClearing(t, fromV2));
 // Each pair is set as an L around a shared hearth-yard — one cottage along the
 // top, the second below and to the east with its door turned WEST to face the
 // yard — so the settlement reads as folk living around a fire, not two sheds
 // dropped side by side in a field.
-/**
- * Move something authored in v2 space that BELONGS TO A REGION.
- *
- * This must be the region's own translation, not the world spread. A region
- * moves rigidly — every rock, monster and cottage inside it keeps its exact
- * relative place — and `remap()` carries its spawns by that translation. A
- * village moved by the spread instead would drift away from the guards standing
- * in it: the first run of this expansion put Mirehold's clearing 11 tiles east
- * of its own gate guard, who was left standing in open bog.
- *
- * Region membership is by nearest v2 box rather than strict containment,
- * because these structures sit at a region's ROAD-EDGE and several are a tile
- * or two outside it by design.
- */
-function regionShift(vx: number, vy: number): { dx: number; dy: number } {
-  let best: { key: string; d: number } | null = null;
-  for (const r of REGION_V2) {
-    const dx = Math.max(r.vx - vx, 0, vx - (r.vx + r.w - 1));
-    const dy = Math.max(r.vy - vy, 0, vy - (r.vy + r.h - 1));
-    const d = dx * dx + dy * dy;
-    if (!best || d < best.d) best = { key: r.key, d };
-  }
-  // Too far from every region to belong to one: treat it as open country.
-  if (!best || best.d > 12 * 12) {
-    const o = spread(vx, vy);
-    return { dx: o.x - vx, dy: o.y - vy };
-  }
-  const home = REGIONS.find((p) => p.key === best!.key)!;
-  const v2 = REGION_V2.find((p) => p.key === best!.key)!;
-  return { dx: home.nx - v2.vx, dy: home.ny - v2.vy };
-}
 
 /**
  * Re-home a coordinate authored in the OLD FINAL (v2, 160×164) space onto the
@@ -567,11 +534,17 @@ export function fromV2(x: number, y: number): { x: number; y: number } {
 }
 
 /** A village keeps its size and rides its region's translation. */
-export const SETTLEMENT_CLEARINGS = SETTLEMENT_CLEARINGS_V2.map((c) => {
-  const d = regionShift(c.x0, c.y0);
-  return { x0: c.x0 + d.dx, y0: c.y0 + d.dy, x1: c.x1 + d.dx, y1: c.y1 + d.dy, floor: c.floor };
-});
+export const SETTLEMENT_CLEARINGS = TOWN_CLEARINGS;
 
+// The seats' original cottages. A generated street was tried here and taken out
+// again: these seats are ALREADY dense — trader, waystone, fire, banner, guard,
+// questfolk, ore, cairns — and any street laid across that ground walls some of
+// it in. Successive attempts sealed Frostgate's signpost, Mirehold's Calder, the
+// Deeps guard, a Lodgehold cairn and a Deeplight ore rock inside cottages.
+//
+// What actually makes these places towns is what a traveller can DO in them —
+// bank, restock, use a station, talk to somebody — and that is added as objects
+// (content/towns.ts), which cannot wall anything in. The walls stay as authored.
 const REGION_BUILDINGS_V2: Building[] = [
   // Frostgate (Spine) — a snowbound border keep of cold blue-grey stone.
   { x0: 47, y0: 15, x1: 49, y1: 16, roof: "slate", door: { x: 48, y: 16 }, palette: "frostgate" },
@@ -592,9 +565,11 @@ const REGION_BUILDINGS_V2: Building[] = [
   { x0: 10, y0: 78, x1: 12, y1: 79, roof: "thatch", door: { x: 11, y: 79 }, palette: "lodgehold" },
   { x0: 14, y0: 81, x1: 16, y1: 82, roof: "tile", door: { x: 14, y: 81 }, palette: "lodgehold" },
 ];
-/** Region cottages travel with their village, by the same rule. */
+
+/** Region cottages ride their town's anchor, transformed once. */
 const REGION_BUILDINGS: Building[] = REGION_BUILDINGS_V2.map((b) => {
-  const { dx, dy } = regionShift(b.x0, b.y0);
+  const o = fromV2(b.x0, b.y0);
+  const dx = o.x - b.x0, dy = o.y - b.y0;
   const out: Building = { x0: b.x0 + dx, y0: b.y0 + dy, x1: b.x1 + dx, y1: b.y1 + dy, roof: b.roof };
   if (b.door) out.door = { x: b.door.x + dx, y: b.door.y + dy };
   if (b.palette) out.palette = b.palette;
