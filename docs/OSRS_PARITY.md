@@ -648,15 +648,89 @@ phase headless sims cannot cover.
 
 ## Phase 4 — The Greater World (VW 2.0 Phase 1)
 
-Already specced outside this repo: a 400×400 overworld (~6× area), the six
-region seats grown into real towns, 8 new ungated zones, a 14-camp roster, NPC
-daily routines. It extends the existing single `remap()` transform
-(`map.ts:80`) rather than re-authoring coordinates — a pattern this codebase
-has already survived once (112×108 → 160×164).
-
 **Deliberately sequenced after combat parity**, against the original
 world-first ordering: populating 6× the map with monsters tuned to the *old*
 combat model would mean re-tuning every one of them afterwards.
+
+### The canvas — done
+
+**400×400 overworld, ~6.3× the walkable area** (22,208 → 140,898 reachable
+tiles). The 160×164 world is treated as a **blueprint and spread about its own
+centre**: every landmark keeps its size, its bearing and its relationship to
+every other landmark, and the extra room opens up as real country *between*
+them. A stretched city would just be a bigger city; a spread world is a world
+with somewhere new to go.
+
+One factor (`SPREAD = 2.2`) drives all of it, so the six regions, the six
+open-country POIs, the coastline, the Redrun, the pier and the jetty move
+together and cannot drift apart. The city is **not** spread — it is hand-built,
+and scaling it would give 2.2× the walking with none of the detail — so it
+moves rigidly by a derived `CENTRAL_DELTA`.
+
+**Three coordinate spaces had to be told apart**, and getting them wrong is
+silent:
+
+| Space | Rule | What lives there |
+|---|---|---|
+| Legacy (112×108) | `remap()` | every spawn in `spawns.ts` |
+| v2 final (160×164), city | `CENTRAL_DELTA` | `ENTERABLE`, the city carves |
+| v2 final, region-edge | `regionShift()` | settlement clearings, region cottages |
+
+`regionShift` exists because of a real failure this caused: a region moves
+**rigidly**, so everything belonging to it must ride the same translation. The
+first pass spread the villages instead, which put Mirehold's clearing 11 tiles
+east of its own gate guard — who was left standing in open bog, unreachable.
+Membership is by *nearest* v2 region box, because these structures sit at the
+road-edge and several are a tile or two outside by design.
+
+`LEGACY_REGIONS`' hand-written deltas are now **derived from `REGIONS`**. The
+two tables always encoded the same destination from different origins, and a
+spread that updated one and not the other would have put every monster in a
+region a long way from the terrain it lives on.
+
+The coast and the Redrun are hand-fitted **curves**, so they are read through
+`unspread()` rather than re-tuned by guesswork — same shore, same meander, 2.2×
+bigger, still in register with every landmark. Their widths scale too, or a
+6× world gets a shore you can step over.
+
+**The pier had to stop being spread tile-by-tile.** It is a *walkway*: spreading
+each plank on its own left 2-tile gaps and turned a jetty into stepping stones.
+Only its anchor moves now; the deck is laid out contiguously from there, and its
+length scales because the shore-to-deep-water distance did.
+
+**`sims/world.ts` (new) is what made this safe.** Written *before* the
+expansion and recorded against the old canvas, it flood-fills from the city
+spawn and asserts every region still connects, every overworld object can be
+stood next to, nothing sits off-canvas and no two regions overlap. The failure
+mode it exists for is silent — a region landing two tiles off its road becomes
+an island nobody can walk to, with no error anywhere. It caught exactly that
+twice (the two gate guards, the pier).
+
+Its first run also reported a "stranded" cutthroat on the *unchanged* map —
+which was the instrument, not the game: two of its own packmates and a shrine
+boxed it in at spawn, and creatures amble. Reachability now treats terrain and
+scenery as walls and creatures as not.
+
+**Travel had to be fixed, and no sim would have noticed.** Every click is an A*
+on the main thread, and the cost of *failing* is expanding every reachable tile.
+The open list was a plain array scanned linearly for the lowest `f` — O(n²) —
+with no node budget. On the old canvas a hopeless click cost ~150ms; on this one
+it measured **937ms**, a visible freeze on a mistap. With a binary heap, numeric
+keys and a 20k-expansion budget it is **79ms**, and real journeys run 2–29ms.
+`sims/world.ts` now asserts both.
+
+Fast travel needed no work: the seven Courier waystones are spawns, so they
+moved with everything and still cover Ironvale and all six regions.
+
+Content boots in 332ms for 240,000 tiles.
+
+### Still to come
+
+The six region seats grown into real towns, 8 new ungated zones, a 14-camp
+roster, NPC daily routines. **Until those land the world is 6× the area with the
+same content**, so the open country between landmarks is thinner than it will
+be — the waystone network means no region is further away in practice, but the
+walk between them is emptier.
 
 ## Phase 5 — Real multiplayer (capstone)
 

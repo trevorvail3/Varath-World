@@ -76,7 +76,12 @@ function hitRate(mid: string, weapon: ItemId, opt: number): number {
   const def = content.objects.find((o) => o.id === objId)!;
   const stats = content.monsters[mid]!;
   let swings = 0, hits = 0;
-  for (const seed of [7, 19, 43]) {
+  // Twelve seeds, not three. Three was enough to show the effect until the
+  // Greater World expansion shifted the RNG stream (a bigger world ticks more
+  // objects before the fight starts), at which point the measurement inverted
+  // on noise alone — 81.6% vs 84.8% — while the mechanic was untouched. A
+  // comparison that a stream shift can flip was never evidence of anything.
+  for (const seed of [7, 19, 43, 61, 83, 101, 131, 157, 181, 199, 223, 251]) {
     const c = new SimClock(seed);
     const s = makeWorld(c);
     levelMatchedPlayer(s, Math.min(100, stats.level ?? 1));

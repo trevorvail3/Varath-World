@@ -1,0 +1,15 @@
+{
+  "width": 400,
+  "height": 600,
+  "overworldHeight": 400,
+  "reachableTiles": 140898,
+  "overworldObjects": 1063,
+  "regionReach": {
+    "spine": 537,
+    "marrow": 297,
+    "redrun": 420,
+    "ashfen": 420,
+    "heartmoor": 525,
+    "greyoak": 396
+  }
+}

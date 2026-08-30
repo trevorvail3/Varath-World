@@ -27,11 +27,11 @@
 import type { TileType, WorldMap } from "../core/types.ts";
 import { DUNGEON_LAYOUTS, type DungeonLayout } from "./dungeons.ts";
 
-const WIDTH = 160;
+const WIDTH = 400;
 /** The overworld is rows 0–163; below it are sealed bands of boss arenas and,
  *  below those, the private interiors of player homes (both reached only by a
  *  teleport, so they never touch the walkable overworld). */
-export const OVERWORLD_HEIGHT = 164;
+export const OVERWORLD_HEIGHT = 400;
 const ARENA_BAND = 16;
 const INTERIOR_BAND = 14;
 /** The Act II dungeon band: long hand-authored crawls (see content/dungeons.ts),
@@ -63,17 +63,69 @@ export { WIDTH as MAP_WIDTH };
 // drop by BAND_DY (the overworld got taller). `remap()` applies this to any
 // legacy coordinate so spawns.ts re-homes every object with one call.
 const LEGACY_OVERWORLD_HEIGHT = 108;
-export const CENTRAL_SHIFT = { dx: 20, dy: 26 };
+
+// --- The Greater World transform (Phase 4) ---------------------------------
+// The 160×164 world is treated as a BLUEPRINT and spread about its own centre
+// onto a 400×400 canvas — every landmark keeps its size, its bearing and its
+// relationship to every other landmark, and the extra room opens up as real
+// country BETWEEN them. That is the point: a stretched city would just be a
+// bigger city, but a spread world is a world with somewhere new to go.
+//
+// One factor drives all of it, so the six regions, the six open-country POIs,
+// the coast, the river, the pier and the jetty all move together and cannot
+// drift apart. 2.2 puts the outermost region edge at ~377 of 400 — filled to
+// the margins without spilling — and multiplies the walkable area by ~6×,
+// which is the figure the Phase 4 spec was written against.
+const SPREAD = 2.2;
+/** The old canvas, and the point everything is spread away from (city centre). */
+const V2 = { w: 160, h: 164, cx: 81.5, cy: 78.5 };
+const NEW_CENTRE = { x: 200, y: 200 };
+
+/** Spread one v2 overworld coordinate onto the Greater World canvas. */
+export function spread(x: number, y: number): { x: number; y: number } {
+  return {
+    x: Math.round(NEW_CENTRE.x + (x - V2.cx) * SPREAD),
+    y: Math.round(NEW_CENTRE.y + (y - V2.cy) * SPREAD),
+  };
+}
+/** The inverse — a canvas coordinate back into v2 space, for the terrain
+ *  formulas (coast, river), which are authored as curves over the old canvas. */
+function unspread(x: number, y: number): { x: number; y: number } {
+  return { x: (x - NEW_CENTRE.x) / SPREAD + V2.cx, y: (y - NEW_CENTRE.y) / SPREAD + V2.cy };
+}
+
+// The central complex is hand-built and must NOT be stretched — a city scaled
+// by 2.2 is a city with 2.2× the walking and none of the detail. It moves
+// rigidly instead, so its own shift is whatever lands its old centre on the new
+// one. (The legacy complex sits at +CENTRAL_SHIFT from the 112×108 authoring
+// space, exactly as before; only the destination changed.)
+const V2_CENTRAL_SHIFT = { dx: 20, dy: 26 };
+const centreOfCity = spread(V2.cx, V2.cy);
+export const CENTRAL_SHIFT = {
+  dx: V2_CENTRAL_SHIFT.dx + (centreOfCity.x - Math.round(V2.cx)),
+  dy: V2_CENTRAL_SHIFT.dy + (centreOfCity.y - Math.round(V2.cy)),
+};
+/** Moves a coordinate authored in the OLD FINAL space (the 160×164 canvas,
+ *  post-CENTRAL_SHIFT) onto the Greater World. The city itself is not spread —
+ *  it moves rigidly — so everything inside it travels by this one delta. */
+const CENTRAL_DELTA = {
+  dx: CENTRAL_SHIFT.dx - V2_CENTRAL_SHIFT.dx,
+  dy: CENTRAL_SHIFT.dy - V2_CENTRAL_SHIFT.dy,
+};
 export const BAND_DY = OVERWORLD_HEIGHT - LEGACY_OVERWORLD_HEIGHT;
 
-/** Where each region used to sit (legacy canvas) + its delta to the new home. */
-const LEGACY_REGIONS: Record<string, { nx: number; ny: number; w: number; h: number; dx: number; dy: number }> = {
-  spine:     { nx: 38, ny: 2,  w: 20, h: 34, dx: 9,  dy: 3 },
-  marrow:    { nx: 82, ny: 6,  w: 16, h: 28, dx: 39, dy: 4 },
-  redrun:    { nx: 90, ny: 60, w: 16, h: 28, dx: 44, dy: 41 },
-  ashfen:    { nx: 50, ny: 82, w: 20, h: 22, dx: 18, dy: 55 },
-  heartmoor: { nx: 8,  ny: 80, w: 28, h: 22, dx: -7, dy: 53 },
-  greyoak:   { nx: 6,  ny: 46, w: 28, h: 16, dx: -5, dy: 27 },
+/** Where each region sat on the LEGACY (112×108) canvas that spawns.ts is still
+ *  authored in. The delta to its real home is derived from REGIONS rather than
+ *  written down twice: the two tables encoded the same destination from
+ *  different origins, and a spread that updated one and not the other would put
+ *  every monster in a region a long way from the terrain it lives on. */
+const LEGACY_REGION_BOX: Record<string, { nx: number; ny: number; w: number; h: number }> = {
+  spine:     { nx: 38, ny: 2,  w: 20, h: 34 },
+  marrow:    { nx: 82, ny: 6,  w: 16, h: 28 },
+  redrun:    { nx: 90, ny: 60, w: 16, h: 28 },
+  ashfen:    { nx: 50, ny: 82, w: 20, h: 22 },
+  heartmoor: { nx: 8,  ny: 80, w: 28, h: 22 },
+  greyoak:   { nx: 6,  ny: 46, w: 28, h: 16 },
 };
 
 /** Re-home a legacy overworld/band coordinate onto the new, larger canvas. */
@@ -81,9 +133,13 @@ export function remap(x: number, y: number): { x: number; y: number } {
   // The hidden bands (arenas + home interiors) just drop with the taller overworld.
   if (y >= LEGACY_OVERWORLD_HEIGHT) return { x, y: y + BAND_DY };
   // A region's spawns move by that region's delta (keeps them on its terrain).
-  for (const r of Object.values(LEGACY_REGIONS)) {
+  for (const [key, r] of Object.entries(LEGACY_REGION_BOX)) {
     if (x >= r.nx && x < r.nx + r.w && y >= r.ny && y < r.ny + r.h) {
-      return { x: x + r.dx, y: y + r.dy };
+      const home = REGIONS.find((p) => p.key === key)!;
+      // The legacy box and the region's own local box describe the same terrain
+      // from different origins, so the delta is "where it lives now" minus
+      // "where this coordinate space thinks it starts".
+      return { x: x + (home.nx - home.ogx) + (home.ogx - r.nx), y: y + (home.ny - home.ogy) + (home.ogy - r.ny) };
     }
   }
   // The central complex (city, hills, hamlets, homes) moves as one block.
@@ -315,14 +371,27 @@ export interface RegionPlacement {
   nx: number; ny: number; // new origin on the canvas
 }
 
-export const REGIONS: RegionPlacement[] = [
-  { key: "spine", fn: spineTile, ogx: 28, ogy: 0, w: 20, h: 34, nx: 47, ny: 5 },
-  { key: "marrow", fn: marrowTile, ogx: 48, ogy: 0, w: 16, h: 28, nx: 121, ny: 10 },
-  { key: "redrun", fn: redrunTile, ogx: 48, ogy: 28, w: 16, h: 28, nx: 134, ny: 101 },
-  { key: "ashfen", fn: ashfenTile, ogx: 28, ogy: 34, w: 20, h: 22, nx: 68, ny: 137 },
-  { key: "heartmoor", fn: heartmoorTile, ogx: 0, ogy: 34, w: 28, h: 22, nx: 1, ny: 133 },
-  { key: "greyoak", fn: forestTile, ogx: 0, ogy: 18, w: 28, h: 16, nx: 1, ny: 73 },
+/** Where each region sat on the v2 canvas. Its home on the Greater World is
+ *  that point spread about the centre — the region keeps its exact size and
+ *  internal layout, and simply stands further out. */
+const REGION_V2: { key: string; fn: (x: number, y: number) => TileType; ogx: number; ogy: number; w: number; h: number; vx: number; vy: number }[] = [
+  { key: "spine", fn: spineTile, ogx: 28, ogy: 0, w: 20, h: 34, vx: 47, vy: 5 },
+  { key: "marrow", fn: marrowTile, ogx: 48, ogy: 0, w: 16, h: 28, vx: 121, vy: 10 },
+  { key: "redrun", fn: redrunTile, ogx: 48, ogy: 28, w: 16, h: 28, vx: 134, vy: 101 },
+  { key: "ashfen", fn: ashfenTile, ogx: 28, ogy: 34, w: 20, h: 22, vx: 68, vy: 137 },
+  { key: "heartmoor", fn: heartmoorTile, ogx: 0, ogy: 34, w: 28, h: 22, vx: 1, vy: 133 },
+  { key: "greyoak", fn: forestTile, ogx: 0, ogy: 18, w: 28, h: 16, vx: 1, vy: 73 },
 ];
+
+export const REGIONS: RegionPlacement[] = REGION_V2.map((r) => {
+  const at = spread(r.vx, r.vy);
+  // Clamped so a region can never be pushed off the canvas by a future SPREAD.
+  return {
+    key: r.key, fn: r.fn, ogx: r.ogx, ogy: r.ogy, w: r.w, h: r.h,
+    nx: Math.max(1, Math.min(WIDTH - r.w - 1, at.x)),
+    ny: Math.max(1, Math.min(OVERWORLD_HEIGHT - r.h - 1, at.y)),
+  };
+});
 
 /** Per-region spawn shift (new origin − old origin). Keyed by region. */
 export const REGION_OFFSET: Record<string, { dx: number; dy: number }> = Object.fromEntries(
@@ -416,7 +485,7 @@ export const BUILDINGS: Building[] = BUILDINGS_LEGACY.map((b) => {
 // --- Region settlements: a small village at each far region's road-edge, so a
 // region is a place you arrive at (a shop + a few folk) and not just terrain.
 // Cleared yards (carved in decode after the region paint) + cottage footprints.
-export const SETTLEMENT_CLEARINGS: { x0: number; y0: number; x1: number; y1: number; floor: TileType }[] = [
+const SETTLEMENT_CLEARINGS_V2: { x0: number; y0: number; x1: number; y1: number; floor: TileType }[] = [
   { x0: 46, y0: 14, x1: 54, y1: 22, floor: "stone" },   // Spine — Frostgate (the pass camp)
   { x0: 121, y0: 21, x1: 129, y1: 29, floor: "cave" },  // Marrow — Deeplight (delvers' outpost)
   { x0: 142, y0: 101, x1: 150, y1: 109, floor: "sand" },// Redrun — Saltreach (fishing village on the tide-line, east bank)
@@ -428,7 +497,45 @@ export const SETTLEMENT_CLEARINGS: { x0: number; y0: number; x1: number; y1: num
 // top, the second below and to the east with its door turned WEST to face the
 // yard — so the settlement reads as folk living around a fire, not two sheds
 // dropped side by side in a field.
-const REGION_BUILDINGS: Building[] = [
+/**
+ * Move something authored in v2 space that BELONGS TO A REGION.
+ *
+ * This must be the region's own translation, not the world spread. A region
+ * moves rigidly — every rock, monster and cottage inside it keeps its exact
+ * relative place — and `remap()` carries its spawns by that translation. A
+ * village moved by the spread instead would drift away from the guards standing
+ * in it: the first run of this expansion put Mirehold's clearing 11 tiles east
+ * of its own gate guard, who was left standing in open bog.
+ *
+ * Region membership is by nearest v2 box rather than strict containment,
+ * because these structures sit at a region's ROAD-EDGE and several are a tile
+ * or two outside it by design.
+ */
+function regionShift(vx: number, vy: number): { dx: number; dy: number } {
+  let best: { key: string; d: number } | null = null;
+  for (const r of REGION_V2) {
+    const dx = Math.max(r.vx - vx, 0, vx - (r.vx + r.w - 1));
+    const dy = Math.max(r.vy - vy, 0, vy - (r.vy + r.h - 1));
+    const d = dx * dx + dy * dy;
+    if (!best || d < best.d) best = { key: r.key, d };
+  }
+  // Too far from every region to belong to one: treat it as open country.
+  if (!best || best.d > 12 * 12) {
+    const o = spread(vx, vy);
+    return { dx: o.x - vx, dy: o.y - vy };
+  }
+  const home = REGIONS.find((p) => p.key === best!.key)!;
+  const v2 = REGION_V2.find((p) => p.key === best!.key)!;
+  return { dx: home.nx - v2.vx, dy: home.ny - v2.vy };
+}
+
+/** A village keeps its size and rides its region's translation. */
+export const SETTLEMENT_CLEARINGS = SETTLEMENT_CLEARINGS_V2.map((c) => {
+  const d = regionShift(c.x0, c.y0);
+  return { x0: c.x0 + d.dx, y0: c.y0 + d.dy, x1: c.x1 + d.dx, y1: c.y1 + d.dy, floor: c.floor };
+});
+
+const REGION_BUILDINGS_V2: Building[] = [
   // Frostgate (Spine) — a snowbound border keep of cold blue-grey stone.
   { x0: 47, y0: 15, x1: 49, y1: 16, roof: "slate", door: { x: 48, y: 16 }, palette: "frostgate" },
   { x0: 51, y0: 18, x1: 53, y1: 19, roof: "slate", door: { x: 51, y: 18 }, palette: "frostgate" },
@@ -448,6 +555,14 @@ const REGION_BUILDINGS: Building[] = [
   { x0: 10, y0: 78, x1: 12, y1: 79, roof: "thatch", door: { x: 11, y: 79 }, palette: "lodgehold" },
   { x0: 14, y0: 81, x1: 16, y1: 82, roof: "tile", door: { x: 14, y: 81 }, palette: "lodgehold" },
 ];
+/** Region cottages travel with their village, by the same rule. */
+const REGION_BUILDINGS: Building[] = REGION_BUILDINGS_V2.map((b) => {
+  const { dx, dy } = regionShift(b.x0, b.y0);
+  const out: Building = { x0: b.x0 + dx, y0: b.y0 + dy, x1: b.x1 + dx, y1: b.y1 + dy, roof: b.roof };
+  if (b.door) out.door = { x: b.door.x + dx, y: b.door.y + dy };
+  if (b.palette) out.palette = b.palette;
+  return out;
+});
 (BUILDINGS as Building[]).push(...REGION_BUILDINGS);
 
 /**
@@ -466,13 +581,21 @@ export interface EnterableBuilding {
   /** Drives the hanging shop sign and the interior dressing. */
   trade: BuildingTrade;
 }
-export const ENTERABLE: EnterableBuilding[] = [
+const ENTERABLE_V2: EnterableBuilding[] = [
   // Top row — doors onto the north forecourt lane (y68).
   { x0: 69, y0: 69, x1: 73, y1: 72, roof: "slate", floor: "stone", door: { x: 71, y: 69 }, name: "The Ashforge", trade: "forge" },
   { x0: 74, y0: 69, x1: 78, y1: 72, roof: "tile",  floor: "stone", door: { x: 76, y: 69 }, name: "The Varath Vault", trade: "bank" },
   // Bottom row — door onto the east–west high street (y77).
   { x0: 69, y0: 73, x1: 77, y1: 76, roof: "slate", floor: "stone", door: { x: 73, y: 76 }, name: "The Craftworks", trade: "workshop" },
 ];
+
+/** The city's enterable buildings, moved with the city. */
+export const ENTERABLE: EnterableBuilding[] = ENTERABLE_V2.map((b) => ({
+  ...b,
+  x0: b.x0 + CENTRAL_DELTA.dx, y0: b.y0 + CENTRAL_DELTA.dy,
+  x1: b.x1 + CENTRAL_DELTA.dx, y1: b.y1 + CENTRAL_DELTA.dy,
+  door: { x: b.door.x + CENTRAL_DELTA.dx, y: b.door.y + CENTRAL_DELTA.dy },
+}));
 
 /** The enterable building containing a tile (for the roof-lift check), or null. */
 export function enterableAt(x: number, y: number): EnterableBuilding | null {
@@ -642,11 +765,19 @@ function decode(): WorldMap {
   //     the south. Roofless by design — outside the city nothing roofs walls,
   //     so it reads as long-abandoned.
   //     (carve/set take FINAL coords — cc() is only for legacy city carves.)
-  carve(5, 6, 11, 11, "dirt");          // the trampled yard
-  carve(6, 7, 10, 10, "wall");
-  carve(7, 8, 9, 9, "dirt");            // the room floor
-  set(8, 10, "dirt");                   // the south doorway
-  set(7, 7, "dirt"); set(9, 7, "dirt"); // the fallen-in north face
+  //     Authored in v2 space and spread with everything else: sp() moves a
+  //     rectangle's ORIGIN to the Greater World and keeps its size, so a hut
+  //     stays hut-sized rather than being scaled into a hall.
+  const sp = (x0: number, y0: number, x1: number, y1: number, t: TileType) => {
+    const o = spread(x0, y0);
+    carve(o.x, o.y, o.x + (x1 - x0), o.y + (y1 - y0), t);
+  };
+  const spSet = (x: number, y: number, t: TileType) => { const o = spread(x, y); set(o.x, o.y, t); };
+  sp(5, 6, 11, 11, "dirt");          // the trampled yard
+  sp(6, 7, 10, 10, "wall");
+  sp(7, 8, 9, 9, "dirt");            // the room floor
+  spSet(8, 10, "dirt");              // the south doorway
+  spSet(7, 7, "dirt"); spSet(9, 7, "dirt"); // the fallen-in north face
 
   // 4b) Countryside features around the city (the bible's named Knuckle Hills
   //     landmarks) — shifted with the central complex.
@@ -659,12 +790,12 @@ function decode(): WorldMap {
 
   // 4d) NEW POIs filling the wide open country the bigger map opened up. Each is
   //     a patch of real ground a player can find between the city and a region.
-  carve(36, 40, 44, 47, "stone");    // The Wayfarers' Crossroads ruin (NW, city→greyoak/spine)
-  carve(112, 46, 122, 56, "stone");  // The Old Quarry (NE, city→marrow)
-  carve(110, 96, 122, 106, "grass"); // The East Commons — drovers' meadow (E, city→redrun)
-  carve(96, 112, 108, 124, "dirt");  // The Gallowsfield camp (SE, city→ashfen)
-  carve(36, 104, 48, 116, "bog");    // The Sunken Mile (SW, city→heartmoor)
-  carve(30, 80, 42, 90, "dirt");     // The Wood-Moor Verge (W, city→greyoak)
+  sp(36, 40, 44, 47, "stone");    // The Wayfarers' Crossroads ruin (NW, city→greyoak/spine)
+  sp(112, 46, 122, 56, "stone");  // The Old Quarry (NE, city→marrow)
+  sp(110, 96, 122, 106, "grass"); // The East Commons — drovers' meadow (E, city→redrun)
+  sp(96, 112, 108, 124, "dirt");  // The Gallowsfield camp (SE, city→ashfen)
+  sp(36, 104, 48, 116, "bog");    // The Sunken Mile (SW, city→heartmoor)
+  sp(30, 80, 42, 90, "dirt");     // The Wood-Moor Verge (W, city→greyoak)
 
   // 4c) Heath: give the remaining open grass a rolling, mixed texture instead of
   //     a flat green sheet (all walkable — grass / dirt / moss hill country).
@@ -684,20 +815,35 @@ function decode(): WorldMap {
   const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
   // Coastline: for each column, the row where land gives way to sea (a curve
   //   that opens the whole SE corner to ocean). A 2-tile shallow band, then deep.
-  const coastY = (x: number): number =>
-    clamp(Math.round(172 - (x - 96) * 1.02 + Math.sin(x * 0.30) * 3), 92, 165);
-  for (let x = 90; x < WIDTH; x++) {
+  // The coastline and the river are CURVES over the v2 canvas. Re-tuning two
+  // hand-fitted formulas for a canvas 2.5× the size would be guesswork; reading
+  // them through unspread() keeps the exact shape of the shore and the exact
+  // meander of the Redrun, just larger — and keeps them in register with every
+  // landmark, which was spread by the same factor.
+  const coastV2 = (vx: number): number =>
+    clamp(Math.round(172 - (vx - 96) * 1.02 + Math.sin(vx * 0.30) * 3), 92, 165);
+  /** The shore row for a canvas column. */
+  const coastY = (x: number): number => spread(0, coastV2(unspread(x, 0).x)).y;
+  const coastFromX = spread(90, 0).x;
+  for (let x = Math.max(0, coastFromX); x < WIDTH; x++) {
     const cyTop = coastY(x);
     for (let y = cyTop; y < OVERWORLD_HEIGHT; y++) {
-      set(x, y, y <= cyTop + 1 ? "water" : "deep"); // shallows at the shore, deep beyond
+      // The shallow band scales too, or a 2.2× world gets a shore you can step over.
+      set(x, y, y <= cyTop + Math.round(SPREAD) ? "water" : "deep");
     }
   }
   // The Redrun: a meandering channel, kept east of the city, draining to the sea.
-  const riverX = (y: number): number => Math.round(101 + y * 0.26 + Math.sin(y * 0.055) * 10);
-  for (let y = 0; y < 146; y++) {
+  const riverV2 = (vy: number): number => Math.round(101 + vy * 0.26 + Math.sin(vy * 0.055) * 10);
+  /** The channel's column for a canvas row. */
+  const riverX = (y: number): number => spread(riverV2(unspread(0, y).y), 0).x;
+  const riverTo = spread(0, 146).y;
+  const halfWidth = Math.round(1.5 * SPREAD);
+  for (let y = 0; y < Math.min(OVERWORLD_HEIGHT, riverTo); y++) {
     const rx = riverX(y);
     if (y >= coastY(rx)) break; // it has reached the sea
-    for (let x = rx - 1; x <= rx + 2; x++) set(x, y, "water");
+    // A river 4 tiles wide on the old canvas would read as a stream on this one,
+    // so its width scales with everything else.
+    for (let x = rx - halfWidth; x <= rx + halfWidth + 1; x++) set(x, y, "water");
   }
 
   // 4e-ii) THE STRAND: a great sandy beach where the Redrun meets the Eyeless
@@ -794,7 +940,10 @@ function decode(): WorldMap {
   //     water (canvas coords — the river is carved in final space). The boat and
   //     net-racks stand at its head (spawns.ts).
   cc(86, 60, 91, 60, "path");                       // yard → riverbank
-  for (let px = 110; px <= 114; px++) set(px, 86, "plank"); // the jetty (final coords)
+  { // the fishers' jetty — authored in v2 space, spread with the river it reaches
+    const j0 = spread(110, 86), j1 = spread(114, 86);
+    for (let px = j0.x; px <= j1.x; px++) set(px, j0.y, "plank");
+  }
 
   // 5c) Ecotone dither — feather the seams between open-wilderness biomes so
   //     they roll into one another instead of cutting hard on the grid. Rather
@@ -908,21 +1057,35 @@ function decode(): WorldMap {
  *  the renderer. The cast point sits on open deep water just past the plank end;
  *  the gate sits on the single-tile neck so it bars the whole pier until the
  *  warden's quest is done. */
+/** The Drowned Pier off the Redrun estuary. Authored in v2 space and spread onto
+ *  the Greater World like everything else, so the jetty still reaches the water
+ *  the river now runs through. Shared by the map carve, the spawns (warden,
+ *  gate, cast point, board) and the renderer. */
+// The pier is a WALKWAY. Spreading each plank on its own would leave 2-tile
+// gaps between them and turn a jetty into stepping stones, so only its anchor
+// moves: the deck is then laid out contiguously from there, and its length
+// scales, because the shore-to-deep-water distance scaled with everything else.
+const PIER_ANCHOR = spread(148, 120);
+const DECK = Math.max(4, Math.round(4 * SPREAD));
 export const PIER = {
-  /** Water/deep tiles carved to walkable plank decking. */
-  planks: [[148, 120], [148, 121], [148, 122], [148, 123], [147, 123], [149, 123]] as [number, number][],
+  /** Water/deep tiles carved to walkable plank decking: the deck, then two arms. */
+  planks: [
+    ...Array.from({ length: DECK }, (_, i) => [PIER_ANCHOR.x, PIER_ANCHOR.y + i] as [number, number]),
+    [PIER_ANCHOR.x - 1, PIER_ANCHOR.y + DECK - 1] as [number, number],
+    [PIER_ANCHOR.x + 1, PIER_ANCHOR.y + DECK - 1] as [number, number],
+  ],
   /** The neck tile (only land approach is from the north) — the barrier sits here. */
-  gate: { x: 148, y: 120 },
+  gate: { x: PIER_ANCHOR.x, y: PIER_ANCHOR.y },
   /** The plank tile the player stands on to fish + read the board. */
-  stand: { x: 148, y: 123 },
+  stand: { x: PIER_ANCHOR.x, y: PIER_ANCHOR.y + DECK - 1 },
   /** Open deep water just past the deck — the cast point (left un-carved). */
-  cast: { x: 148, y: 124 },
+  cast: { x: PIER_ANCHOR.x, y: PIER_ANCHOR.y + DECK },
   /** The records board, on a plank arm of the platform. */
-  board: { x: 147, y: 123 },
+  board: { x: PIER_ANCHOR.x - 1, y: PIER_ANCHOR.y + DECK - 1 },
   /** The pier-warden NPC, on the shore by the neck. */
-  warden: { x: 146, y: 118 },
+  warden: { x: PIER_ANCHOR.x - 2, y: PIER_ANCHOR.y - 2 },
   /** A signpost at the pier head. */
-  sign: { x: 147, y: 119 },
+  sign: { x: PIER_ANCHOR.x - 1, y: PIER_ANCHOR.y - 1 },
 } as const;
 
 export const map: WorldMap = decode();
