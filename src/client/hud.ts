@@ -12,7 +12,6 @@
  */
 
 import type {
-  CombatStyle,
   Content,
   EquipSlot,
   Intent,
@@ -30,7 +29,8 @@ import { setPerfMode, setBrightness } from "./render.ts";
 import { audio } from "./audio.ts";
 import { reportBug } from "./ops.ts";
 import { glyph, iconize } from "./glyph.ts";
-import { bossMilestones, combatLevel, compassHint, DAILY_WINDOW_MS, DELVE_FULL_LOCKOUT_MS, equipBonusTotal, equipRequirement, evalAchievement } from "../core/worldCore.ts";
+import { activeAttackOption, bossMilestones, combatLevel, compassHint, DAILY_WINDOW_MS, DELVE_FULL_LOCKOUT_MS, equipBonusTotal, equipRequirement, evalAchievement, playerWepType } from "../core/worldCore.ts";
+import { WEAPON_STYLES } from "../content/weaponStyles.ts";
 import { SkillDetailModal } from "./skillDetail.ts";
 import { LEVEL_CAP, XP_CAP } from "../content/xpCurve.ts";
 import { HiscoresUI } from "./hiscoresUI.ts";
@@ -171,6 +171,19 @@ const BUFF_DISPLAY: Record<string, { icon: string; label: string }> = {
   xp_boost: { icon: "✨", label: "XP boost" },
 };
 
+/** A glyph per damage type, so the button reads at a glance on a phone. */
+const TYPE_ICON: Record<string, string> = {
+  stab: "🗡️", slash: "⚔️", crush: "🔨", ranged: "🏹", magic: "🔮",
+};
+
+/** What each stance trades, reused in every option's tooltip. */
+const STANCE_TIP: Record<string, string> = {
+  edge: "Accurate — more of your blows land, each a shade softer. Trains Edge.",
+  vigour: "Aggressive — harder hits at ordinary accuracy. Trains Vigour.",
+  ward: "Defensive — trades damage for a real guard. Trains Ward.",
+  controlled: "Controlled — a little of everything. Splits its kill XP across Edge, Vigour and Ward.",
+};
+
 export class Hud {
   private content: Content;
   private skillRows = new Map<SkillId, HTMLElement>();
@@ -227,7 +240,10 @@ export class Hud {
   private charCombat!: HTMLElement;
   private charTotal!: HTMLElement;
   private charPlayed!: HTMLElement;
-  private styleButtons = new Map<CombatStyle, HTMLElement>();
+  private styleButtons: HTMLElement[] = [];
+  private styleWrap: HTMLElement | null = null;
+  /** The family the option buttons were last built for. */
+  private styleWepType = "";
   private questList?: HTMLElement;
   private factionRows = new Map<string, { rep: HTMLElement; stand: HTMLElement; fill: HTMLElement }>();
   // World tab: per-region Achievement Diary blocks, with live task/progress refs.
@@ -714,37 +730,14 @@ export class Hud {
         p.appendChild(sheet);
         // (Cape of Varath progress now lives in the Records tab, as an achievement.)
 
-        // Combat stance — the acc/dmg/def tradeoff and which combat skill your
-        // next kill trains. (Your melee damage TYPE — slash/stab/crush — comes
-        // from the weapon itself, so weapon groups matter for a foe's weakness.)
-        this.styleButtons.clear();
-        const styleWrap = document.createElement("div");
-        styleWrap.className = "style-select";
-        styleWrap.innerHTML = `<div class="style-label">Combat stance</div>`;
-        const row = document.createElement("div");
-        row.className = "style-row";
-        const styles: { id: CombatStyle; name: string; icon: string; hint: string; tip: string }[] = [
-          { id: "edge", name: "Edge", icon: "⚔️", hint: "accuracy",
-            tip: "Accurate — more of your blows land, each a shade softer. Trains Edge." },
-          { id: "vigour", name: "Vigour", icon: "💪", hint: "damage",
-            tip: "Aggressive — harder hits at ordinary accuracy. Trains Vigour." },
-          { id: "ward", name: "Ward", icon: "🛡️", hint: "defence",
-            tip: "Defensive — trades damage for a real guard. Trains Ward." },
-          { id: "controlled", name: "Controlled", icon: "⚖️", hint: "balanced",
-            tip: "Controlled — a little of everything. Splits its kill XP across Edge, Vigour and Ward." },
-        ];
-        for (const st of styles) {
-          const b = document.createElement("button");
-          b.type = "button";
-          b.className = "style-btn";
-          b.innerHTML = `<span class="style-ic">${iconize(st.icon)}</span>${st.name}`;
-          b.title = st.tip;
-          b.addEventListener("click", () => this.dispatch({ type: "SET_STYLE", style: st.id }));
-          this.styleButtons.set(st.id, b);
-          row.appendChild(b);
-        }
-        styleWrap.appendChild(row);
-        p.appendChild(styleWrap);
+        // Attack options — how you swing what you are holding. Each option
+        // picks BOTH the damage type (which the weakness triangle reads) and the
+        // stance (the acc/dmg/def tradeoff and which skill the kill trains).
+        // Rebuilt per weapon family, so the buttons always describe the weapon
+        // actually in hand rather than a fixed set of stances.
+        this.styleWrap = document.createElement("div");
+        this.styleWrap.className = "style-select";
+        p.appendChild(this.styleWrap);
 
         // --- Worn equipment (folded into the Character sheet) ---
         p.appendChild(subhead("Worn"));
@@ -1965,9 +1958,7 @@ export class Hud {
     this.charPlayed.textContent = formatPlaytime(player.playMs);
     const cname = player.appearance?.name?.trim();
     this.charName.textContent = cname ? `${cname} of Ironvale` : "Wanderer of Ironvale";
-    this.styleButtons.forEach((btn, id) => {
-      btn.classList.toggle("active", id === player.combatStyle);
-    });
+    this.renderAttackOptions(player);
 
     // Inventory
     for (let i = 0; i < this.invSlots.length; i++) {
@@ -2011,6 +2002,43 @@ export class Hud {
 
     // Quests
     if (this.questList) this.renderQuests(player);
+  }
+
+  /**
+   * The attack-option buttons for whatever is in hand.
+   *
+   * Rebuilt only when the weapon FAMILY changes — a dagger and a claymore offer
+   * different swings, but re-creating the row every frame would fight the
+   * player's finger on a phone. Between rebuilds only the active highlight moves.
+   */
+  private renderAttackOptions(player: Player): void {
+    if (!this.styleWrap) return;
+    const wt = playerWepType(player, this.content);
+    const active = activeAttackOption(player, this.content);
+    const opts = WEAPON_STYLES[wt];
+
+    if (wt !== this.styleWepType) {
+      this.styleWepType = wt;
+      this.styleButtons = [];
+      this.styleWrap.innerHTML = `<div class="style-label">Attack style</div>`;
+      const row = document.createElement("div");
+      row.className = "style-row";
+      opts.forEach((op, i) => {
+        const b = document.createElement("button");
+        b.type = "button";
+        b.className = "style-btn";
+        b.innerHTML = `<span class="style-ic">${iconize(TYPE_ICON[op.type] ?? "⚔️")}</span>${op.name}`
+          + `<span class="style-sub">${op.type}</span>`;
+        b.title = `${op.name} — deals ${op.type} damage. ${STANCE_TIP[op.stance]}`;
+        b.addEventListener("click", () => this.dispatch({ type: "SET_ATTACK_OPTION", option: i }));
+        this.styleButtons.push(b);
+        row.appendChild(b);
+      });
+      this.styleWrap.appendChild(row);
+    }
+    this.styleButtons.forEach((btn, i) => {
+      btn.classList.toggle("active", opts[i]?.id === active.id);
+    });
   }
 
   /**

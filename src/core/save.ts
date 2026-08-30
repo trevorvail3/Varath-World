@@ -53,8 +53,13 @@ export interface SavedProgress {
   grace?: number;
   /** The attack spell selected for autocast (or null/absent). */
   autocastSpell?: string | null;
-  /** Selected melee combat style. */
+  /** Selected melee combat style (the stance the attack option implies). */
   combatStyle: string;
+  /** Last-chosen attack option per weapon family. The live `attackOption` index
+   *  is deliberately NOT saved: it is per-weapon and is re-derived on load from
+   *  this map plus whatever is in hand, so a save can never restore an index
+   *  that means a different swing than it did when it was written. */
+  attackOptionByType?: Record<string, number>;
   /** Active quests: id -> { step, killCount }. */
   quests: Record<string, { step: number; killCount: number }>;
   /** Completed quest ids. */
@@ -169,6 +174,7 @@ export function serializePlayer(state: WorldState): SavedProgress {
     grace: player.grace,
     autocastSpell: player.autocastSpell ?? null,
     combatStyle: player.combatStyle,
+    ...(player.attackOptionByType ? { attackOptionByType: player.attackOptionByType } : {}),
     quests: JSON.parse(JSON.stringify(player.quests)) as SavedProgress["quests"],
     questsDone: [...player.questsDone],
     lore: [...player.lore],
@@ -386,10 +392,21 @@ export function hydratePlayer(
     if (empty !== -1) player.inventory[empty] = { item: id, qty: 1 };
   }
 
-  // --- Combat style (preference) ---
+  // --- Combat style + attack options (preferences) ---
   const style = raw["combatStyle"];
   if (style === "edge" || style === "vigour" || style === "ward" || style === "controlled") {
     player.combatStyle = style;
+  }
+  // Per-family attack-option preferences. A save written before attack options
+  // existed simply has none, and `activeAttackOption` derives a sensible one
+  // from the saved stance — so an old character loads swinging the way it did.
+  const byType = raw["attackOptionByType"];
+  if (byType && typeof byType === "object") {
+    const out: Record<string, number> = {};
+    for (const [k, v] of Object.entries(byType as Record<string, unknown>)) {
+      if (typeof v === "number" && Number.isFinite(v) && v >= 0) out[k] = Math.floor(v);
+    }
+    if (Object.keys(out).length) player.attackOptionByType = out;
   }
 
   // --- Quests (only ids this build knows; clamp step into range) ---

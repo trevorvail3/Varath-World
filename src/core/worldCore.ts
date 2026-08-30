@@ -20,6 +20,10 @@
  */
 
 import { COMBAT_FORMULA_VERSION, DUEL_TICK_MS } from "./duelCore.ts";
+import {
+  WEAPON_STYLES, defaultOptionIndex, optionIndexForStance, wepTypeOf,
+} from "../content/weaponStyles.ts";
+import type { AttackOption, WepType } from "../content/weaponStyles.ts";
 
 import type {
   AchievementCond,
@@ -2520,12 +2524,32 @@ export function applyIntent(
       buyBountyUnlock(player, content, intent.id, events);
       break;
     }
+    case "SET_ATTACK_OPTION": {
+      const wt = playerWepType(player, content);
+      const opts = WEAPON_STYLES[wt];
+      const idx = Math.max(0, Math.min(opts.length - 1, Math.floor(intent.option)));
+      const op = opts[idx]!;
+      player.attackOption = idx;
+      (player.attackOptionByType ??= {})[wt] = idx;
+      // The option carries its stance, so everything downstream that reads
+      // combatStyle — the stance weighting, the kill-XP split, the duel
+      // snapshot — keeps working without knowing options exist.
+      player.combatStyle = op.stance;
+      events.push({ type: "LOG", message: `Attack style: ${op.name} (${op.type}).` });
+      break;
+    }
     case "SET_STYLE": {
-      player.combatStyle = intent.style;
-      events.push({
-        type: "LOG",
-        message: `Combat style: ${intent.style[0]!.toUpperCase()}${intent.style.slice(1)}.`,
-      });
+      // Deprecated: choosing a bare stance. Kept so older clients, the tutorial
+      // and the duel UI keep working — it now picks the wielded weapon's first
+      // option using that stance.
+      const wt = playerWepType(player, content);
+      const held = player.equipment.mainhand;
+      const idx = optionIndexForStance(wt, intent.style, held ? content.items[held] : undefined);
+      const op = WEAPON_STYLES[wt][idx]!;
+      player.attackOption = idx;
+      (player.attackOptionByType ??= {})[wt] = idx;
+      player.combatStyle = op.stance;
+      events.push({ type: "LOG", message: `Attack style: ${op.name} (${op.type}).` });
       break;
     }
     case "TOGGLE_RUN": {
@@ -3032,9 +3056,23 @@ function equipSlot(
   }
 
   // Feasible — now perform it for real (every addItem below is guaranteed room).
+  const wasWepType = playerWepType(player, content);
   data.qty -= 1;
   if (data.qty <= 0) player.inventory[slot] = null;
   player.equipment[target] = newItem;
+  // Changing weapon FAMILY invalidates the selected attack option: the index is
+  // per-family, and index 2 on a sword is a different swing from index 2 on a
+  // hammer. Clearing it lets `activeAttackOption` fall back to whatever you last
+  // chose for the new family, or that family's default.
+  if (target === "mainhand" && playerWepType(player, content) !== wasWepType) {
+    delete player.attackOption;
+    const nowType = playerWepType(player, content);
+    const nowDef = player.equipment.mainhand ? content.items[player.equipment.mainhand] : undefined;
+    player.combatStyle =
+      WEAPON_STYLES[nowType][
+        player.attackOptionByType?.[nowType] ?? defaultOptionIndex(nowType, nowDef)
+      ]?.stance ?? player.combatStyle;
+  }
   if (previously) addItem(player, previously, 1, events);
   if (stowOff) {
     delete player.equipment.offhand;
@@ -6604,10 +6642,6 @@ function skillLvl(player: Player, skill: SkillId): number {
  *  `attackStyle` (slash/stab/crush). This is what the weakness triangle matches,
  *  so a weapon's TYPE is what gives each weapon group its purpose: bring a crush
  *  weapon for a crush-weak foe, a stabbing spear for another, and so on. */
-function weaponStyle(player: Player, content: Content): string | undefined {
-  const id = player.equipment.mainhand;
-  return id ? content.items[id].attackStyle : undefined;
-}
 
 /**
  * Player accuracy rating: Edge + summed gear acc (weapon, ring, amulet), then
@@ -6658,11 +6692,37 @@ export function damageTypeOf(style: string | undefined): DamageType {
   }
 }
 
-/** The damage type the player is currently dealing. */
+/** The weapon family in the player's hand. */
+export function playerWepType(player: Player, content: Content): WepType {
+  const id = player.equipment.mainhand;
+  return wepTypeOf(id ? content.items[id] : undefined);
+}
+
+/**
+ * The attack option currently selected for the wielded weapon.
+ *
+ * Resolution order matters: an explicit choice for THIS weapon family wins, then
+ * a remembered choice for the family, then the family default. Swapping from a
+ * sword to a hammer must not silently leave you on a stance index that means
+ * something different — the index is per-family, so it is looked up per-family.
+ */
+export function activeAttackOption(player: Player, content: Content): AttackOption {
+  const id = player.equipment.mainhand;
+  const def = id ? content.items[id] : undefined;
+  const wt = wepTypeOf(def);
+  const opts = WEAPON_STYLES[wt];
+  const remembered = player.attackOptionByType?.[wt];
+  const idx = player.attackOption ?? remembered ?? optionIndexForStance(wt, player.combatStyle, def);
+  return opts[Math.max(0, Math.min(opts.length - 1, idx))] ?? opts[0]!;
+}
+
+/**
+ * The damage type the player is currently dealing — now the chosen ATTACK
+ * OPTION's type rather than the weapon's single fixed style. A sword can lunge
+ * for stab; a spear can pound for crush.
+ */
 export function playerDamageType(player: Player, content: Content): DamageType {
-  if (isRanged(player, content)) return "ranged";
-  if (isMagic(player, content)) return "magic";
-  return damageTypeOf(weaponStyle(player, content));
+  return activeAttackOption(player, content).type;
 }
 
 /**
@@ -7065,7 +7125,11 @@ function playerSwing(
   // A staff in the mainhand fights with magic (its free basic bolt); the style is
   // "magic", the ratings come off Faith + the staff, and the XP trains Faith.
   const magic = isMagic(player, content);
-  const wStyle = ranged ? "ranged" : magic ? "magic" : weaponStyle(player, content);
+  // The damage type comes from the chosen ATTACK OPTION, not the weapon's fixed
+  // style — that is the whole point of options, and reading `weaponStyle` here
+  // instead left the feature inert: switching to Pound changed the button but
+  // not the blow.
+  const wStyle = playerDamageType(player, content);
   const weak = activeWeakness(stats, obj);
   const exploits = wStyle !== undefined && weak.includes(wStyle);
   const baseAcc = playerAttackRoll(player, content);

@@ -1659,7 +1659,24 @@ export interface Player {
   clueSteps?: { target: string; riddle: string }[];
   /** The melee combat stance (Accurate/Aggressive/Defensive/Controlled) — its
    *  live acc/dmg/def tradeoff, and which combat skill the next kill trains. */
+  /**
+   * The stance weighting and XP destination. Still the source of truth for both,
+   * but it is now DERIVED from the chosen attack option rather than set
+   * directly — see `attackOption`.
+   */
   combatStyle: CombatStyle;
+  /**
+   * Which of the wielded weapon's attack options is selected (an index into its
+   * family's list in content/weaponStyles.ts). The option decides the DAMAGE
+   * TYPE of every swing, which is what the weakness triangle reads — so this is
+   * how you meet a crush-weak foe with a spear and switch to Pound mid-fight.
+   */
+  attackOption?: number;
+  /**
+   * The last option chosen per weapon family, so swapping weapons restores your
+   * preference for that family instead of resetting you to the default.
+   */
+  attackOptionByType?: Record<string, number>;
   /** Run toggle: when on (and energy remains), the player moves at sprint speed. */
   running: boolean;
   /** Run energy, 0–100. Drains while sprinting, regenerates otherwise. */
@@ -2033,6 +2050,13 @@ export interface CraftIntent {
 
 /** "Switch my melee combat stance" (its acc/dmg/def tradeoff + which skill the
  *  next kill trains). */
+/** "Swing this weapon a different way" — an index into the wielded weapon
+ *  family's attack options. Supersedes SET_STYLE, which only chose a stance. */
+export interface SetAttackOptionIntent {
+  type: "SET_ATTACK_OPTION";
+  option: number;
+}
+
 export interface SetStyleIntent {
   type: "SET_STYLE";
   style: CombatStyle;
@@ -2394,6 +2418,7 @@ export type Intent =
   | UnequipIntent
   | CraftIntent
   | SetStyleIntent
+  | SetAttackOptionIntent
   | CastSpellIntent
   | SetAutocastIntent
   | ToggleBlessingIntent
