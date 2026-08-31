@@ -15,7 +15,7 @@
  * This closes that hole and the ones next to it. Exits non-zero on failure.
  */
 
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { content, makeWorld, SimClock } from "./harness.ts";
 import { hydratePlayer, serializePlayer } from "../src/core/save.ts";
 import { applyIntent, BARBER_FEE } from "../src/core/worldCore.ts";
@@ -280,7 +280,9 @@ for (const field of ["build", "height", "marking", "markingColor", "beardColor"]
 }
 check(/const PRESETS/.test(creator) && (creator.match(/label: "The /g) ?? []).length >= 5,
   "the creator's starting characters are gone");
-check(/creator-turn-btn/.test(creator), "the portrait can no longer be turned");
+// The turn controls moved into the shared Portrait with the rest of the
+// preview; what the creator must still do is mount one.
+check(/new Portrait\(/.test(creator), "the creator no longer shows a portrait at all");
 check(/type = "color"/.test(creator), "the any-colour picker is gone — the ramps are the only choice again");
 // The barber reuses this screen rather than duplicating it.
 for (const opt of ["initial", "lockName", "hideMode"]) {
@@ -338,6 +340,41 @@ check(!creator.includes('addEventListener("pointerdown"'),
   "the creator is bound to pointerdown again — Enter and Space on a focused control will do nothing");
 check(creator.includes('setAttribute("aria-label"'),
   "the creator's controls have lost their names");
+
+// --- 14) There is one portrait, and it does not run behind a hidden tab ------
+// The creator's preview and the HUD's paper-doll are the same component. If a
+// second copy of the stage appears, the two drift within a month — which is the
+// whole reason drawAvatar is shared in the first place.
+
+const portrait = read("src/client/portrait.ts");
+const CLIENT = "src/client";
+const drawsAvatar = readdirSync(CLIENT)
+  .filter((f) => f.endsWith(".ts"))
+  .filter((f) => /\bdrawAvatar\(/.test(read(`${CLIENT}/${f}`)));
+// avatar.ts declares it; portrait.ts is the shared stage; the duel screen and
+// the world renderer draw figures of their own, at their own scale.
+const MAY_DRAW = new Set(["avatar.ts", "portrait.ts", "duelUI.ts", "render.ts"]);
+for (const f of drawsAvatar) {
+  check(MAY_DRAW.has(f), `${f} calls drawAvatar directly — put it through Portrait instead`);
+}
+check(drawsAvatar.includes("portrait.ts"), "portrait.ts does not draw the figure");
+check(!creator.includes("drawAvatar("),
+  "the creator draws its own figure again rather than using the shared Portrait");
+
+for (const m of ["start(", "stop(", "destroy(", "setLook(", "setGear(", "setFacing("]) {
+  check(portrait.includes(m), `Portrait has lost ${m})`);
+}
+check(/cancelAnimationFrame/.test(portrait), "Portrait never cancels its loop — a hidden canvas would repaint forever");
+
+const hud = read("src/client/hud.ts");
+check(hud.includes("new Portrait("), "the Character tab has no figure on it");
+check(/activeTab === "character"[\s\S]{0,200}portrait\.start\(\)/.test(hud),
+  "the HUD portrait is not gated on its tab being on screen");
+check(hud.includes("this.portrait.stop()"), "the HUD portrait is never stopped");
+// resolveGear walks every worn slot and is not memoised, and hud.update runs
+// every frame — so it must be reached only through the changed-slot guard.
+check((hud.match(/resolveGear\(/g) ?? []).length === 1,
+  "hud.ts calls resolveGear from more than one place — one of them will be per-frame");
 
 console.log(
   `barber ${BARBER_FEE}g at ${chair ? `${chair.x},${chair.y}` : "nowhere"}` +

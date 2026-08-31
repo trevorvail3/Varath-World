@@ -12,6 +12,7 @@
  */
 
 import type {
+  Appearance,
   Content,
   EquipSlot,
   Intent,
@@ -24,6 +25,8 @@ import type {
 } from "../core/types.ts";
 import type { ContextMenu, MenuItem } from "./contextMenu.ts";
 import { itemIconSVG } from "./itemIcon.ts";
+import { Portrait } from "./portrait.ts";
+import { resolveGear } from "./gearLook.ts";
 import { setPerfMode, setBrightness, getFrameMeter, setFrameMeter } from "./render.ts";
 import { audio } from "./audio.ts";
 import { reportBug } from "./ops.ts";
@@ -269,6 +272,13 @@ export class Hud {
   private equipCells = new Map<EquipSlot, HTMLElement>();
   private equipStats!: HTMLElement;
   private lastEquipment: Partial<Record<EquipSlot, ItemId>> = {};
+  /** The paper-doll on the Character tab. It repaints ~24 times a second while
+   *  that tab is on screen and NOT AT ALL otherwise (see syncPortrait), and it
+   *  is fed only when the look or a worn slot actually changes — `update` runs
+   *  every frame and `resolveGear` is not memoised. */
+  private portrait: Portrait | null = null;
+  private portraitLook: Appearance | null = null;
+  private portraitEquip: Partial<Record<EquipSlot, ItemId>> | null = null;
 
   private onReset: () => void;
   private menu: ContextMenu | null;
@@ -756,6 +766,7 @@ export class Hud {
         this.charTotal = sheet.querySelector(".char-total") as HTMLElement;
         this.charPlayed = sheet.querySelector(".char-played") as HTMLElement;
         p.appendChild(sheet);
+
         // (Cape of Varath progress now lives in the Records tab, as an achievement.)
 
         // Attack options — how you swing what you are holding. Each option
@@ -766,6 +777,18 @@ export class Hud {
         this.styleWrap = document.createElement("div");
         this.styleWrap.className = "style-select";
         p.appendChild(this.styleWrap);
+
+        // You, at a size you can actually see. Everything the last pass gave
+        // the figure — four views, a face, a build, markings, gear that reads —
+        // was invisible outside the creation screen and a duel, because in the
+        // world the character is 31 pixels tall and seen from above.
+        //
+        // It sits BELOW the attack-style buttons deliberately: those are used
+        // mid-fight, and a 200px portrait above them pushed them off the bottom
+        // of the dock. It belongs next to the worn gear anyway — it is a
+        // picture of what that gear looks like on you.
+        this.portrait = new Portrait(undefined, {}, { className: "char-portrait" });
+        p.appendChild(this.portrait.el);
 
         // --- Worn equipment (folded into the Character sheet) ---
         p.appendChild(subhead("Worn"));
@@ -1254,6 +1277,42 @@ export class Hud {
     this.tabButtons.forEach((b, key) =>
       b.classList.toggle("active", key === this.activeTab),
     );
+    this.syncPortrait();
+  }
+
+  /** The paper-doll animates only while its panel is on screen. A canvas
+   *  repainting a whole stage behind a `display: none` is pure waste, and the
+   *  dock spends most of the game collapsed or on some other tab. */
+  private syncPortrait(): void {
+    if (!this.portrait) return;
+    if (this.activeTab === "character" && !this.collapsed) {
+      if (this.lastState) this.feedPortrait(this.lastState.player);
+      this.portrait.start();
+    } else {
+      this.portrait.stop();
+    }
+  }
+
+  /** Hand the portrait the current look and worn gear — but only what changed.
+   *  A restyle and a save-load both allocate a fresh appearance object, so
+   *  identity is a true test; equipment is compared slot by slot. */
+  private feedPortrait(player: Player): void {
+    if (!this.portrait) return;
+    if (player.appearance !== this.portraitLook) {
+      this.portraitLook = player.appearance;
+      this.portrait.setLook(player.appearance);
+    }
+    const prev = this.portraitEquip;
+    const eq = player.equipment;
+    let same = prev !== null;
+    if (prev) {
+      for (const slot of Object.keys(eq) as EquipSlot[]) if (prev[slot] !== eq[slot]) { same = false; break; }
+      if (same) for (const slot of Object.keys(prev) as EquipSlot[]) if (prev[slot] !== eq[slot]) { same = false; break; }
+    }
+    if (!same) {
+      this.portraitEquip = { ...eq };
+      this.portrait.setGear(resolveGear(eq, this.content));
+    }
   }
 
   log(message: string): void {
@@ -2076,6 +2135,11 @@ export class Hud {
       slot.innerHTML = `<span class="inv-icon">${itemIconSVG(def)}</span>${
         data.qty > 1 ? `<span class="inv-qty">${data.qty}</span>` : ""
       }`;
+    }
+
+    // The paper-doll, while the Character tab is the one on screen.
+    if (this.portrait && this.activeTab === "character" && !this.collapsed) {
+      this.feedPortrait(player);
     }
 
     // Equipment: fill worn slots, and total the bonuses underneath.

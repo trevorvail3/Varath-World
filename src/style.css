@@ -999,6 +999,14 @@ body {
   color: var(--ember);
 }
 
+/* The paper-doll. The dock body is 188px wide with 8px of padding either side,
+   so the portrait takes the whole 172 that leaves, and the turn buttons are
+   trimmed just enough that all five sit on one line inside it. */
+.char-portrait { margin: 2px 0 10px; width: 100%; }
+.char-portrait .portrait-canvas { width: 100%; height: 168px; }
+.char-portrait .portrait-turn-btn { min-width: 25px; min-height: 24px; }
+.char-portrait .portrait-walk { padding: 0 5px; }
+
 /* Cape of Varath: the all-99 completion goal, shown under the stats. */
 .char-cape {
   margin-top: 10px;
@@ -3163,6 +3171,12 @@ button.inv-slot {
 .players-profile-head { font-family: "Cinzel", serif; font-size: 17px; color: var(--gold); margin-bottom: 4px; }
 .players-profile-stats { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12px; color: var(--ink-dim); margin-bottom: 10px; }
 .players-profile-stats b { color: var(--ink); font-weight: 600; }
+/* A portrait of the player you are looking at — shown only when they are
+   near enough that presence has their look. Sits left of nothing in
+   particular: it is its own band above the skill grid. */
+.players-portrait { margin: 2px 0 10px; align-items: flex-start; }
+.players-portrait .portrait-canvas { width: 132px; height: 186px; }
+.players-portrait .portrait-turn { justify-content: flex-start; width: 132px; }
 .players-skill-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 5px; }
 .players-skill {
   display: flex; align-items: center; gap: 7px;
@@ -4156,32 +4170,38 @@ button.inv-slot {
      right at the width where an eight-swatch row stops fitting. */
   flex-wrap: wrap;
 }
-.creator-stage { flex: 0 0 auto; display: flex; flex-direction: column; gap: 8px; }
-.creator-preview {
+.creator-stage { flex: 0 0 auto; }
+/* The shared portrait (src/client/portrait.ts): a canvas with a turn row under
+   it. Its SIZE belongs to whoever drops it in — the creator's stage, the dock's
+   character sheet — never to the component, which reads whatever CSS box it is
+   given and sizes its backing store from that times the device pixel ratio. */
+.portrait { display: flex; flex-direction: column; gap: 8px; align-items: center; }
+.portrait-canvas {
   /* An explicit CSS box. The canvas used to carry a fixed 130x180 backing store
      and no CSS size at all, so the flex row stretched it to the column height
-     and the portrait came out as a smeared column. The script sizes the backing
-     store from this box times the device pixel ratio. */
-  width: 170px;
-  height: 240px;
+     and the portrait came out as a smeared column. */
+  display: block;
+  width: 100%;
+  height: 200px;
   background: radial-gradient(ellipse at 50% 60%, #2a2018 0%, #14100c 100%);
   border: 1px solid var(--panel-edge);
   border-radius: var(--r-lg);
 }
+.creator-stage .portrait-canvas { width: 170px; height: 240px; }
 /* Turn the figure. These are the only place a player can see that the character
    has a back and a profile at all, so they sit under the portrait rather than
    in a menu. */
-.creator-turn { display: flex; gap: 4px; justify-content: center; flex-wrap: wrap; }
-.creator-turn-btn {
+.portrait-turn { display: flex; gap: 4px; justify-content: center; flex-wrap: wrap; }
+.portrait-turn-btn {
   min-width: 30px; min-height: 26px;
   font-size: var(--t-small);
   background: var(--btn); color: var(--ink-dim);
   border: 1px solid var(--edge); border-radius: var(--r-sm);
   cursor: pointer;
 }
-.creator-turn-btn:hover { color: var(--ink); border-color: var(--gold); }
-.creator-turn-btn.on { background: var(--btn-hi); color: var(--gold); border-color: var(--gold); }
-.creator-walk { padding: 0 8px; font-family: "Cinzel", serif; }
+.portrait-turn-btn:hover { color: var(--ink); border-color: var(--gold); }
+.portrait-turn-btn.on { background: var(--btn-hi); color: var(--gold); border-color: var(--gold); }
+.portrait-walk { padding: 0 8px; font-family: "Cinzel", serif; }
 
 /* Presets: six people, not six rolls. */
 .creator-presets { display: flex; flex-wrap: wrap; gap: 5px; margin: 9px 0 4px; }
@@ -4718,7 +4738,7 @@ button.inv-slot {
   }
   .login-backdrop, .creator-backdrop { padding: 0; }
   .creator-main { flex-direction: column; align-items: center; gap: 12px; }
-  .creator-preview { width: min(210px, 58vw); height: min(290px, 38vh); }
+  .creator-stage .portrait-canvas { width: min(210px, 58vw); height: min(290px, 38vh); }
   .creator-controls { width: 100%; }
   .creator-title { font-size: var(--t-display); }
   /* Bigger targets: a 24px swatch is under the 44px a thumb wants, and there is

@@ -14,6 +14,8 @@ import { profileFor, getSocial, getLocal, submitCurrent, type HiscoreEntry } fro
 import type { Content, SkillId } from "../core/types.ts";
 import { iconize } from "./glyph.ts";
 import { currentUser } from "./supabase.ts";
+import { currentGhosts } from "./presence.ts";
+import { Portrait } from "./portrait.ts";
 
 type Tab = "online" | "friends" | "hiscores";
 
@@ -39,6 +41,10 @@ export class PlayersUI {
   private tab: Tab = "online";
   /** When set, the body shows this player's profile instead of a list. */
   private viewing: { id: string; name: string } | null = null;
+  /** A portrait of the player being viewed — only when they are actually near
+   *  enough to be a ghost, because that is the only place the client has their
+   *  look. The hiscores row carries a name and levels, never an appearance. */
+  private profilePortrait: Portrait | null = null;
 
   constructor(
     root: HTMLElement,
@@ -85,7 +91,18 @@ export class PlayersUI {
   }
 
   isOpen(): boolean { return this.open; }
-  close(): void { this.open = false; this.backdrop.classList.add("hidden"); }
+  close(): void {
+    this.open = false;
+    this.clearPortrait();
+    this.backdrop.classList.add("hidden");
+  }
+
+  /** The body is rebuilt by innerHTML, which orphans any canvas in it — so the
+   *  portrait's loop has to be stopped by hand before that happens. */
+  private clearPortrait(): void {
+    this.profilePortrait?.destroy();
+    this.profilePortrait = null;
+  }
 
   async show(): Promise<void> {
     this.open = true;
@@ -100,6 +117,7 @@ export class PlayersUI {
 
   private async refresh(): Promise<void> {
     if (this.viewing) { await this.renderProfile(this.viewing.id, this.viewing.name); return; }
+    this.clearPortrait();
     this.body.innerHTML = `<div class="players-empty">Loading…</div>`;
     try {
       if (this.tab === "online") this.renderOnline(await onlineNow());
@@ -119,6 +137,7 @@ export class PlayersUI {
 
   /** Render the profile view for one player into the body. */
   private async renderProfile(id: string, name: string): Promise<void> {
+    this.clearPortrait();
     this.body.innerHTML = `<div class="players-empty">Loading ${escapeHtml(name)}…</div>`;
     let entry: HiscoreEntry | null = null;
     try { entry = await profileFor(id); } catch { entry = null; }
@@ -140,6 +159,7 @@ export class PlayersUI {
         <div class="players-profile-head">
           <span class="players-name">${escapeHtml(entry?.name ?? name)}</span>
         </div>
+        <div class="players-portrait-slot"></div>
         <div class="players-profile-stats">
           <span>Total <b>${entry?.totalLevel ?? "—"}</b></span>
           <span>Combat <b>${entry?.combat ?? "—"}</b></span>
@@ -148,6 +168,16 @@ export class PlayersUI {
         ${entry ? `<div class="players-skill-grid">${cells}</div>`
           : `<div class="players-empty">This player hasn't appeared on the hiscores yet.</div>`}
       </div>`;
+    // If they are standing near you, show them. Presence already carries a
+    // resolved look and gear for everyone in your zone (currentGhosts), so this
+    // needs no server change — and when they are NOT nearby we show nothing
+    // rather than a guess, because a made-up face is worse than no face.
+    const ghost = currentGhosts().find((g) => g.id === id);
+    if (ghost) {
+      this.profilePortrait = new Portrait(ghost.look, ghost.gear, { className: "players-portrait", walk: false });
+      (this.body.querySelector(".players-portrait-slot") as HTMLElement).appendChild(this.profilePortrait.el);
+      this.profilePortrait.start();
+    }
     const back = this.body.querySelector(".players-back") as HTMLElement | null;
     back?.addEventListener("pointerdown", (e) => {
       e.stopPropagation();

@@ -3,9 +3,10 @@
  * ------------------------------
  * Where a character is made — and, at the barber, remade.
  *
- * The figure is drawn by the shared drawAvatar (src/client/avatar.ts), so the
- * portrait here and the player in the world are the same code. What the screen
- * adds is a way to steer it: the look is split into Body, Face, Hair and
+ * The figure is drawn by the shared Portrait (src/client/portrait.ts), which
+ * is the same component the HUD's Character tab uses — so the picture here, the
+ * one at the barber and the one on your character sheet cannot drift apart.
+ * What this screen adds is a way to steer it: the look is split into Body, Face, Hair and
  * Clothes so the row count can grow without the box becoming a scroll, presets
  * and a randomiser for players who would rather not dial one in, and a portrait
  * that turns and walks — which is also the quickest way to see that the figure
@@ -18,11 +19,12 @@
 import type { Appearance } from "../core/types.ts";
 import type { AccountMode } from "../core/worldCore.ts";
 import {
-  BROW_STYLES, BUILD_STYLES, CLOTH, DEFAULT_APPEARANCE, drawAvatar, EYE_STYLES, EYES,
+  BROW_STYLES, BUILD_STYLES, CLOTH, DEFAULT_APPEARANCE, EYE_STYLES, EYES,
   FACIAL_STYLES, HAIR_STYLES, HAIRS, HEIGHT_STYLES, JAW_STYLES, LEG_STYLES,
   MARKING_COLORS, MARKING_STYLES, SHOE_STYLES, SKINS, TOP_STYLES, withDefaults,
 } from "./avatar.ts";
 import type { GearLook } from "./gearLook.ts";
+import { Portrait } from "./portrait.ts";
 
 /** What the creator hands back: the look, plus the account mode chosen for the
  *  life of the character. The mode is offered here and only here — an Ironman's
@@ -37,24 +39,12 @@ type StyleKey = "hairStyle" | "facial" | "top" | "legs" | "shoes"
 /** The two closed unions, which are handled apart from the free-form ids. */
 type PseudoKey = "build" | "height";
 
-/** The preview's fallback size, used only before the element has been laid out
- *  (its real size comes from the CSS box — see sizePreview). */
-const PREVIEW_W = 170;
-const PREVIEW_H = 240;
-
 type SectionId = "body" | "face" | "hair" | "clothes";
 const SECTIONS: { id: SectionId; label: string }[] = [
   { id: "body", label: "Body" },
   { id: "face", label: "Face" },
   { id: "hair", label: "Hair" },
   { id: "clothes", label: "Clothes" },
-];
-
-const FACINGS: { id: "left" | "down" | "up" | "right"; label: string; glyph: string }[] = [
-  { id: "left", label: "Face left", glyph: "◀" },
-  { id: "down", label: "Face the camera", glyph: "▼" },
-  { id: "up", label: "Face away", glyph: "▲" },
-  { id: "right", label: "Face right", glyph: "▶" },
 ];
 
 /**
@@ -122,16 +112,10 @@ export class CharacterCreator {
   private backdrop: HTMLElement;
   private draft: Appearance;
   private mode: AccountMode = "standard";
-  private preview!: HTMLCanvasElement;
+  private portrait!: Portrait;
   private rowsEl!: HTMLElement;
   private taken: Set<string>;
-  private t0 = performance.now();
-  private raf = 0;
-  private lastFrame = 0;
-  private onResize = (): void => { this.renderPreview(); };
   private section: SectionId = "body";
-  private facing: "up" | "down" | "left" | "right" = "down";
-  private walking = false;
 
   private checkSeq = 0;
   private checkTimer: ReturnType<typeof setTimeout> | 0 = 0;
@@ -180,10 +164,7 @@ export class CharacterCreator {
         <div class="creator-title">${opts.title ?? "VARATH"}</div>
         <div class="creator-sub">${opts.subtitle ?? "Who will you become?"}</div>
         <div class="creator-main">
-          <div class="creator-stage">
-            <canvas class="creator-preview"></canvas>
-            <div class="creator-turn"></div>
-          </div>
+          <div class="creator-stage"></div>
           <div class="creator-controls">
             <label class="creator-label" for="creator-name-input">Name</label>
             <input class="creator-name" id="creator-name-input" type="text" maxlength="16" placeholder="Your name" />
@@ -204,7 +185,11 @@ export class CharacterCreator {
         </div>
       </div>`;
     root.appendChild(this.backdrop);
-    this.preview = this.backdrop.querySelector(".creator-preview") as HTMLCanvasElement;
+    // The portrait — canvas, stage and turn controls — is the shared component
+    // (src/client/portrait.ts), the same one the Character tab puts the
+    // paper-doll on. The creator only tells it what to draw.
+    this.portrait = new Portrait(this.draft, opts.gear ?? {});
+    (this.backdrop.querySelector(".creator-stage") as HTMLElement).appendChild(this.portrait.el);
 
     const nameEl = this.backdrop.querySelector(".creator-name") as HTMLInputElement;
     const hintEl = this.backdrop.querySelector(".creator-name-hint") as HTMLElement;
@@ -246,7 +231,6 @@ export class CharacterCreator {
     }
 
     this.rowsEl = this.backdrop.querySelector(".creator-rows") as HTMLElement;
-    this.buildTurnControls();
     this.buildPresets();
     this.buildTabs();
     this.buildRows();
@@ -299,16 +283,8 @@ export class CharacterCreator {
       }
     });
 
-    // A gentle idle loop so the figure breathes (and its arms read) live. The
-    // bob is slow, so this runs at about 24fps rather than repainting the whole
-    // stage — sky gradient, hills, motes, key light and vignette — 60 times a
-    // second for an image that changes by a pixel.
-    const loop = (now: number): void => {
-      if (now - this.lastFrame >= 40) { this.lastFrame = now; this.renderPreview(); }
-      this.raf = requestAnimationFrame(loop);
-    };
-    this.raf = requestAnimationFrame(loop);
-    window.addEventListener("resize", this.onResize);
+    // A gentle idle loop so the figure breathes and its arms read live.
+    this.portrait.start();
     if (!opts.lockName) setTimeout(() => nameEl.focus(), 50);
   }
 
@@ -316,49 +292,6 @@ export class CharacterCreator {
    *  a standard account persists exactly as it always did). */
   private made(): CreatedCharacter {
     return this.mode === "standard" ? { ...this.draft } : { ...this.draft, mode: this.mode };
-  }
-
-  // --- The portrait's controls ----------------------------------------------
-
-  /** Turn the figure, and set it walking. The four facings are not decoration:
-   *  they are the only place a player can see that the character has a back and
-   *  a profile at all. */
-  private buildTurnControls(): void {
-    const wrap = this.backdrop.querySelector(".creator-turn") as HTMLElement;
-    wrap.setAttribute("role", "group");
-    wrap.setAttribute("aria-label", "Turn your character");
-    for (const f of FACINGS) {
-      const b = document.createElement("button");
-      b.type = "button";
-      b.className = "creator-turn-btn" + (f.id === this.facing ? " on" : "");
-      b.textContent = f.glyph;
-      b.title = f.label;
-      b.setAttribute("aria-label", f.label);
-      b.setAttribute("aria-pressed", f.id === this.facing ? "true" : "false");
-      b.addEventListener("click", (e) => {
-        e.stopPropagation();
-        this.facing = f.id;
-        for (const el of wrap.querySelectorAll(".creator-turn-btn")) {
-          const on = el === b;
-          el.classList.toggle("on", on);
-          el.setAttribute("aria-pressed", on ? "true" : "false");
-        }
-        this.renderPreview();
-      });
-      wrap.appendChild(b);
-    }
-    const walk = document.createElement("button");
-    walk.type = "button";
-    walk.className = "creator-turn-btn creator-walk";
-    walk.textContent = "Walk";
-    walk.setAttribute("aria-pressed", "false");
-    walk.addEventListener("click", (e) => {
-      e.stopPropagation();
-      this.walking = !this.walking;
-      walk.classList.toggle("on", this.walking);
-      walk.setAttribute("aria-pressed", this.walking ? "true" : "false");
-    });
-    wrap.appendChild(walk);
   }
 
   // --- Presets and the randomiser -------------------------------------------
@@ -379,7 +312,7 @@ export class CharacterCreator {
         this.draft = withDefaults({ ...DEFAULT_APPEARANCE, ...p.look, name });
         this.normalise();
         this.buildRows();
-        this.renderPreview();
+        this.portrait.setLook(this.draft);
       });
       wrap.appendChild(b);
     }
@@ -407,7 +340,7 @@ export class CharacterCreator {
     }
     this.normalise();
     this.buildRows();
-    this.renderPreview();
+    this.portrait.setLook(this.draft);
   }
 
   /** Keep the draft in a shape the renderer and the save both accept: unset
@@ -539,7 +472,7 @@ export class CharacterCreator {
       let i = Math.max(0, list.findIndex((o) => o.id === current()));
       i = (i + d + list.length) % list.length;
       apply(list[i]!.id);
-      sync(); this.renderPreview();
+      sync(); this.portrait.setLook(this.draft);
     };
     prev.addEventListener("click", (e) => { e.stopPropagation(); step(-1); });
     next.addEventListener("click", (e) => { e.stopPropagation(); step(1); });
@@ -581,7 +514,7 @@ export class CharacterCreator {
         e.stopPropagation();
         this.draft[key] = c;
         mark(b);
-        this.renderPreview();
+        this.portrait.setLook(this.draft);
       });
       wrap.appendChild(b);
     });
@@ -600,7 +533,7 @@ export class CharacterCreator {
       this.draft[key] = input.value;
       custom.style.background = input.value;
       mark(null);
-      this.renderPreview();
+      this.portrait.setLook(this.draft);
     });
     custom.appendChild(input);
     if (!colors.includes(this.draft[key] ?? "")) custom.style.background = this.draft[key] ?? "";
@@ -644,85 +577,8 @@ export class CharacterCreator {
     note.textContent = MODES[0]!.blurb;
   }
 
-  /**
-   * Size the backing store to the element's real CSS box times the device pixel
-   * ratio. The canvas carried a fixed 130x180 backing store and no CSS size, so
-   * the flex row stretched it: on a phone the portrait came out as a smeared
-   * column, and on any modern screen it was upscaled from half resolution.
-   */
-  private sizePreview(): { w: number; h: number } {
-    const dpr = Math.min(3, window.devicePixelRatio || 1);
-    const box = this.preview.getBoundingClientRect();
-    const w = Math.max(80, Math.round(box.width || PREVIEW_W));
-    const h = Math.max(110, Math.round(box.height || PREVIEW_H));
-    const bw = Math.round(w * dpr), bh = Math.round(h * dpr);
-    if (this.preview.width !== bw || this.preview.height !== bh) {
-      this.preview.width = bw;
-      this.preview.height = bh;
-    }
-    const g = this.preview.getContext("2d");
-    if (g) g.setTransform(dpr, 0, 0, dpr, 0, 0);
-    return { w, h };
-  }
-
-  private renderPreview(): void {
-    const g = this.preview.getContext("2d");
-    if (!g) return;
-    const { w, h } = this.sizePreview();
-    const t = performance.now() - this.t0;
-    g.clearRect(0, 0, w, h);
-    // A little stage: dusk-sky gradient, distant hills, a grass apron under
-    // the figure and a warm key light — so the first thing a new player sees
-    // of their character is a portrait, not a paper doll on a void.
-    const sky = g.createLinearGradient(0, 0, 0, h);
-    sky.addColorStop(0, "#25314e");
-    sky.addColorStop(0.55, "#3a4a64");
-    sky.addColorStop(1, "#2c3830");
-    g.fillStyle = sky;
-    g.fillRect(0, 0, w, h);
-    g.fillStyle = "#222f28"; // far hills
-    g.beginPath();
-    g.moveTo(0, h * 0.62);
-    g.quadraticCurveTo(w * 0.3, h * 0.52, w * 0.55, h * 0.60);
-    g.quadraticCurveTo(w * 0.8, h * 0.67, w, h * 0.58);
-    g.lineTo(w, h); g.lineTo(0, h);
-    g.closePath(); g.fill();
-    g.fillStyle = "#31402f"; // grass apron
-    g.beginPath(); g.ellipse(w / 2, h - 22, w * 0.46, 20, 0, 0, Math.PI * 2); g.fill();
-    // drifting motes for life
-    for (let i = 0; i < 6; i++) {
-      const mx = (i * 37 + t / 60 + i * i * 13) % w;
-      const my = 20 + ((i * 53 + t / 90) % (h * 0.5));
-      g.fillStyle = `rgba(235,238,180,${(0.10 + 0.10 * Math.sin(t / 500 + i)).toFixed(3)})`;
-      g.beginPath(); g.arc(mx, my, 1.2, 0, Math.PI * 2); g.fill();
-    }
-    // warm key light behind the figure
-    const key = g.createRadialGradient(w / 2, h / 2 + 8, 6, w / 2, h / 2 + 8, w * 0.55);
-    key.addColorStop(0, "rgba(240,200,130,0.16)");
-    key.addColorStop(1, "rgba(240,200,130,0)");
-    g.fillStyle = key;
-    g.fillRect(0, 0, w, h);
-    // The figure, at whatever facing the player has turned it to. Scaled to the
-    // box it is actually in — the figure is ~31 base units tall, so this fills
-    // about three-quarters of the height whatever the layout does.
-    // `withDefaults` guards a draft missing a field the renderer expects.
-    const fs = Math.min(h / 42, w / 26);
-    drawAvatar(
-      g, w / 2, h / 2 + fs * 6, fs, withDefaults(this.draft),
-      { now: t, moving: this.walking, facing: this.facing },
-      this.opts.gear ?? {},
-    );
-    // soft vignette frame
-    const vg = g.createRadialGradient(w / 2, h / 2, h * 0.36, w / 2, h / 2, h * 0.72);
-    vg.addColorStop(0, "rgba(0,0,0,0)");
-    vg.addColorStop(1, "rgba(6,8,12,0.55)");
-    g.fillStyle = vg;
-    g.fillRect(0, 0, w, h);
-  }
-
   private close(): void {
-    if (this.raf) cancelAnimationFrame(this.raf);
-    window.removeEventListener("resize", this.onResize);
+    this.portrait.destroy();
     if (this.checkTimer) { clearTimeout(this.checkTimer); this.checkTimer = 0; }
     this.checkSeq++; // drop any pending availability check
     this.backdrop.remove();
