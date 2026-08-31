@@ -110,6 +110,7 @@ const MM_OBJ: Record<ObjKind, string> = {
   monster: "#cc4a3a",
   bank: "#caa05a",
   grand_exchange: "#e2c061", // a bright brass marker for the market booth
+  barber: "#c8a0b4", // the barber's chair — a soft rose, unlike anything else
   forage_spot: "#7fae5a", // herb-green for a wild forage clump
   fire: "#e08a3a",
   furnace: "#b06a48",
@@ -157,7 +158,7 @@ const MM_OBJ: Record<ObjKind, string> = {
  *  (T7·04). No emoji: each is a small monochrome shape in `drawLandmark`.
  *  Resource nodes keep their own shapes below. */
 const LANDMARK = new Set<ObjKind>([
-  "bank", "grand_exchange", "bounty_board", "signpost",
+  "bank", "grand_exchange", "bounty_board", "signpost", "barber",
   "waystone", "portal", "housing_plot", "shrine", "plant_patch",
 ]);
 
@@ -174,6 +175,10 @@ function drawLandmark(
       ring(s * 0.9); disc(cx, cy, s * 0.32); break;
     case "grand_exchange": // stacked coins
       ring(s * 0.72); g.save(); g.translate(0, -s * 0.5); ring(s * 0.72); g.restore(); break;
+    case "barber": // a pair of shears: two crossed blades over a pivot
+      g.beginPath(); g.moveTo(cx - s * 0.8, cy - s * 0.8); g.lineTo(cx + s * 0.8, cy + s * 0.6); g.stroke();
+      g.beginPath(); g.moveTo(cx + s * 0.8, cy - s * 0.8); g.lineTo(cx - s * 0.8, cy + s * 0.6); g.stroke();
+      disc(cx, cy + s * 0.1, s * 0.22); break;
     case "bounty_board": // a target: concentric rings
       ring(s); ring(s * 0.5); disc(cx, cy, s * 0.18); break;
     case "waystone": // a compass diamond

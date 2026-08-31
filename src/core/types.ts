@@ -1031,6 +1031,8 @@ export type ObjKind =
   | "bounty_board"
   /** The Grand Exchange clerk's booth: trade on the world market here. */
   | "grand_exchange"
+  /** A barber's chair: sit in it to change how you look (never your name). */
+  | "barber"
   /** A wild plant clump: forage it for Survivalist herbs, mushrooms and roots. */
   | "forage_spot"
   /** A claimable homestead yard at a hamlet — the anchor of player housing. */
@@ -1916,7 +1918,7 @@ export interface Player {
    * while it matches — so the core, not just the UI, enforces "be at the
    * counter". Transient; never persisted.
    */
-  station: { kind: "shop" | "bank" | "bounty" | "exchange" | "records"; id?: string } | null;
+  station: { kind: "shop" | "bank" | "bounty" | "exchange" | "records" | "barber"; id?: string } | null;
   /** The fish currently on the line at the pier, while the tension minigame is
    *  in progress. Rolled when the cast hooks; committed on a land, discarded on
    *  a snap or when the player does anything else. Transient — never persisted. */
@@ -2483,6 +2485,20 @@ export interface FounderClaimIntent {
   type: "FOUNDER_CLAIM";
 }
 
+/**
+ * "This is how I look now" — the barber's restyle, paid for.
+ *
+ * The look itself is the client's business (the core owns no pixels), but the
+ * PRICE is the core's: gold is game state, so a restyle goes through an intent
+ * rather than the client simply redrawing the player and deducting nothing. The
+ * name is deliberately not part of this — it is a join key that pier records and
+ * the name registry both hang off, and the registry's claim is one-way.
+ */
+export interface RestyleIntent {
+  type: "RESTYLE";
+  look: Appearance;
+}
+
 /** "Resolve the pier tension minigame": land the hooked fish (success) or let
  *  the line go slack / snap (failure). Success commits the rolled catch; failure
  *  discards it. The core trusts the client's skill outcome — single-player, the
@@ -2578,6 +2594,7 @@ export type Intent =
   | SetPierRecordsIntent
   | OpenNestIntent
   | FounderClaimIntent
+  | RestyleIntent
   | LandFishIntent
   | SwapSlotsIntent;
 
@@ -2621,6 +2638,9 @@ export type WorldEvent =
   | { type: "OPEN_BANK" }
   /** Open the Grand Exchange (the world market) at its booth. */
   | { type: "OPEN_EXCHANGE" }
+  /** Sit in the barber's chair: the client opens the creator on the player's
+   *  current look. `fee` is what a restyle costs, so the screen can say so. */
+  | { type: "OPEN_BARBER"; fee: number }
   /** Open a shopkeeper's trade window. */
   | { type: "OPEN_SHOP"; shop: string }
   /** Open the seed-choice menu for an empty farming patch. */

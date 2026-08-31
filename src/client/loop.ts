@@ -47,6 +47,7 @@ import { Minimap, WorldMapModal } from "./minimap.ts";
 import { biomeAt, type Biome, Camera, getFrameMeter, drawWorld, interpTile, stepProgress, setCombatHits, setDrawDistance, setLootLabels, TILE, type HitFx } from "./render.ts";
 import { CRIER_SHOUTS } from "./crier.ts";
 import { audio, type CreatureVoice, type SceneKey, type Sfx } from "./audio.ts";
+import { CharacterCreator, type CreatedCharacter } from "./characterCreator.ts";
 import { currentGhosts, startPresence } from "./presence.ts";
 import { getTrackedQuest } from "./questTrack.ts";
 import { resolveGear } from "./gearLook.ts";
@@ -274,6 +275,7 @@ const VERB: Record<ObjKind, string> = {
   monster: "Attack",
   bank: "Open",
   grand_exchange: "Trade at",
+  barber: "Sit in",
   forage_spot: "Forage",
   fire: "Cook at",
   furnace: "Smelt at",
@@ -321,6 +323,7 @@ const EXAMINE_OBJECT: Record<ObjKind, string> = {
   monster: "A wild thing of the hills.",
   bank: "A sturdy iron-bound chest. Your goods are safe in it.",
   grand_exchange: "The Grand Exchange booth — post buy and sell offers to traders across all of Varath.",
+  barber: "A barber's chair, a bowl and a good north light. Sit, and be made over — everything but the name you came in with.",
   forage_spot: "A tangle of wild growth — herbs, mushrooms or roots for a sharp-eyed forager.",
   fire: "A steady cooking fire. Raw catch goes in; a meal comes out.",
   furnace: "A small stone furnace, hot enough to render ore to bar.",
@@ -602,6 +605,37 @@ export class Game {
   /** Open the Duel Ring window directly (used by the interact intercept and the
    *  automated two-tab duel test seam). */
   openDuelRing(): void { this.duel.show(); }
+
+  /**
+   * Sit in the barber's chair.
+   *
+   * This is the character creator, opened on the look the player already has —
+   * not a second screen that would drift away from it. The name is locked (it
+   * is a join key, and the registry's claim is one-way), the account-mode picker
+   * is hidden (that is chosen once, at creation), and the figure wears the
+   * player's real kit, because being made over should show you as you are.
+   *
+   * The look is the client's business; the PRICE is not, so confirming sends a
+   * RESTYLE intent and the core takes the gold.
+   */
+  private openBarber(fee: number): void {
+    const p = this.bridge.state.player;
+    new CharacterCreator(this.uiRoot, {
+      initial: p.appearance,
+      lockName: true,
+      hideMode: true,
+      gear: resolveGear(p.equipment, this.bridge.content),
+      takenNames: [],
+      title: "MIRREN'S",
+      subtitle: `A restyle costs ${fee}g. Your name stays your own.`,
+      confirmLabel: `Pay ${fee}g`,
+      onBack: () => { this.dispatch({ type: "CANCEL" }); },
+      onCreate: (c: CreatedCharacter) => {
+        const { mode: _mode, ...look } = c;
+        this.dispatch({ type: "RESTYLE", look });
+      },
+    });
+  }
 
   /** Send an intent and immediately react to its events (for UI actions). */
   dispatch(intent: Intent): void {
@@ -1016,6 +1050,10 @@ export class Game {
         case "OPEN_EXCHANGE":
           audio.play("open");
           void this.hud.openExchange();
+          break;
+        case "OPEN_BARBER":
+          audio.play("open");
+          this.openBarber(ev.fee);
           break;
         case "OPEN_SHOP": {
           const shopDef = this.bridge.content.shops.find((s) => s.id === ev.shop);

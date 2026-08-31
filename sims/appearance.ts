@@ -18,6 +18,8 @@
 import { readFileSync } from "node:fs";
 import { content, makeWorld, SimClock } from "./harness.ts";
 import { hydratePlayer, serializePlayer } from "../src/core/save.ts";
+import { applyIntent, BARBER_FEE } from "../src/core/worldCore.ts";
+import { CITY } from "../src/content/map.ts";
 import {
   BROW_STYLES, BUILD_STYLES, CLOTH, DEFAULT_APPEARANCE, EYE_STYLES, EYES,
   FACIAL_STYLES, HAIR_STYLES, HAIRS, JAW_STYLES, LEG_STYLES, SHOE_STYLES,
@@ -285,14 +287,61 @@ for (const opt of ["initial", "lockName", "hideMode"]) {
   check(creator.includes(`${opt}?:`), `the creator has lost its "${opt}" option and cannot serve the barber`);
 }
 
-// --- 12) The creator can be operated without a pointer -----------------------
+// --- 12) The barber charges, and cannot rename you ---------------------------
+// The look is the client's business; the price is the core's, because gold is
+// game state. Without an intent the client could redraw the player and deduct
+// nothing.
+{
+  const bw = makeWorld(new SimClock(9));
+  bw.player.gold = 1000;
+  const before = bw.player.appearance.name;
+  const newLook: Appearance = { ...bw.player.appearance, name: "Impostor", hairStyle: "mohawk", build: "broad" };
+
+  // Not in the chair: refused, and nothing is taken.
+  bw.player.station = null;
+  applyIntent(bw, content, { type: "RESTYLE", look: newLook }, { now: 0, rng: () => 0.5, epoch: 0 });
+  check(bw.player.gold === 1000, "a restyle away from the chair still charged the player");
+  check(bw.player.appearance.hairStyle !== "mohawk", "a restyle away from the chair still changed the look");
+
+  // In the chair: it works, it costs, and the name is untouched.
+  bw.player.station = { kind: "barber" };
+  applyIntent(bw, content, { type: "RESTYLE", look: newLook }, { now: 0, rng: () => 0.5, epoch: 0 });
+  check(bw.player.appearance.hairStyle === "mohawk", "the barber did not restyle the player");
+  check(bw.player.appearance.build === "broad", "the barber dropped the new build");
+  check(bw.player.gold === 1000 - BARBER_FEE, `the barber charged ${1000 - bw.player.gold}g, not ${BARBER_FEE}g`);
+  check(bw.player.appearance.name === before,
+    `the barber renamed the player to "${bw.player.appearance.name}" — the name is a join key for pier records and the name registry`);
+
+  // Too poor: refused, and nothing is taken.
+  bw.player.gold = BARBER_FEE - 1;
+  bw.player.appearance.hairStyle = "short";
+  applyIntent(bw, content, { type: "RESTYLE", look: newLook }, { now: 0, rng: () => 0.5, epoch: 0 });
+  check(bw.player.gold === BARBER_FEE - 1, "a restyle the player could not afford still took their gold");
+  check(bw.player.appearance.hairStyle === "short", "a restyle the player could not afford still happened");
+}
+// The chair itself must exist, be reachable and be in the city.
+const chair = content.objects.find((o) => o.kind === "barber");
+check(!!chair, "there is no barber's chair in the world");
+if (chair) {
+  check(chair.x >= CITY.x0 && chair.x <= CITY.x1 && chair.y >= CITY.y0 && chair.y <= CITY.y1,
+    `the barber's chair is outside Ironvale at ${chair.x},${chair.y}`);
+  const keeper = content.objects.find((o) => o.id === "mirren");
+  check(!!keeper, "the barber's chair has nobody working it");
+  if (keeper) {
+    check(Math.hypot(keeper.x - chair.x, keeper.y - chair.y) < 4,
+      `Mirren stands ${Math.round(Math.hypot(keeper.x - chair.x, keeper.y - chair.y))} tiles from the chair`);
+  }
+}
+
+// --- 13) The creator can be operated without a pointer -----------------------
 check(!creator.includes('addEventListener("pointerdown"'),
   "the creator is bound to pointerdown again — Enter and Space on a focused control will do nothing");
 check(creator.includes('setAttribute("aria-label"'),
   "the creator's controls have lost their names");
 
 console.log(
-  `appearance fields ${Object.keys(DEFAULT_APPEARANCE).length}` +
+  `barber ${BARBER_FEE}g at ${chair ? `${chair.x},${chair.y}` : "nowhere"}` +
+  ` · appearance fields ${Object.keys(DEFAULT_APPEARANCE).length}` +
   ` · styles ${HAIR_STYLES.length} hair / ${FACIAL_STYLES.length} beard / ${BUILD_STYLES.length} build` +
   ` · palettes ${SKINS.length} skin / ${HAIRS.length} hair / ${CLOTH.length} cloth`,
 );

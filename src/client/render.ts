@@ -3309,6 +3309,9 @@ function drawObject(
     case "grand_exchange":
       drawGrandExchange(g, cx, cy);
       break;
+    case "barber":
+      drawBarberChair(g, cx, cy, now);
+      break;
     case "fire":
       drawFire(g, cx, cy, now);
       break;
@@ -6417,6 +6420,52 @@ function sunCast(): SunCast {
   const low = 1 - day;            // long shadows when the sun sits low
   const side = phase < 0.5 ? -1 : 1; // mornings cast west, afternoons east
   return { night: Math.max(0, -sun), ox: side * low * 11, oy: 3 + low * 4, len: 1 + low * 1.4, alpha: 0.10 + 0.26 * day };
+}
+
+/**
+ * The barber's chair: a high-backed seat, a stand with a bowl and a razor, and
+ * a bronze mirror that catches the light. Nothing here is a mechanism — the
+ * player sits, the creator opens — so it is dressed to be recognisable at a
+ * glance from across the market rather than to be fiddled with.
+ */
+function drawBarberChair(g: CanvasRenderingContext2D, cx: number, cy: number, now: number): void {
+  shadow(g, cx, cy + 12, 12, 4);
+  // The mirror on its stand, behind the chair.
+  g.fillStyle = "#5a4632";
+  g.fillRect(cx + 8, cy - 4, 2.2, 16);
+  g.fillStyle = "#3f3428";
+  g.beginPath(); g.ellipse(cx + 9.1, cy - 9, 6.2, 7.4, 0, 0, Math.PI * 2); g.fill();
+  g.fillStyle = "#8fa6b0";
+  g.beginPath(); g.ellipse(cx + 9.1, cy - 9, 4.8, 6, 0, 0, Math.PI * 2); g.fill();
+  // A slow glint travelling across the glass, so the mirror reads as a mirror.
+  const gl = (Math.sin(now / 1700) + 1) / 2;
+  g.fillStyle = "rgba(255,255,255,0.28)";
+  g.beginPath();
+  g.ellipse(cx + 7.2 + gl * 3.6, cy - 11 + gl * 3.4, 1.2, 3.2, -0.5, 0, Math.PI * 2);
+  g.fill();
+  // The chair: a padded back, arms and a seat on a turned post.
+  g.fillStyle = "#4a3324";
+  g.fillRect(cx - 8, cy - 8, 11, 13);            // back
+  g.fillStyle = "#6b4a34";
+  g.fillRect(cx - 7, cy - 7, 9, 11);             // padding
+  g.fillStyle = "#8a6146";
+  g.fillRect(cx - 7, cy - 7, 9, 2);              // headrest highlight
+  g.fillStyle = "#4a3324";
+  g.fillRect(cx - 10, cy + 4, 15, 3.4);          // seat
+  g.fillRect(cx - 3, cy + 7, 3, 5);              // post
+  g.fillStyle = "#3a2c20";
+  g.fillRect(cx - 6, cy + 11.6, 9, 1.8);         // foot
+  // The stand: a bowl and a razor laid across it.
+  g.fillStyle = "#5a4632";
+  g.fillRect(cx - 15, cy + 1, 2, 11);
+  g.fillStyle = "#b9bec7";
+  g.beginPath(); g.ellipse(cx - 14, cy, 4.4, 1.8, 0, 0, Math.PI * 2); g.fill();
+  g.fillStyle = "#8f959e";
+  g.beginPath(); g.ellipse(cx - 14, cy + 0.5, 3.4, 1.2, 0, 0, Math.PI * 2); g.fill();
+  g.fillStyle = "#d8d2c4";
+  g.fillRect(cx - 16.5, cy - 2.6, 5, 0.9);       // the razor
+  g.fillStyle = "#3a2c20";
+  g.fillRect(cx - 11.8, cy - 2.8, 2, 1.3);       // its handle
 }
 
 /** A soft directional shadow cast from a thing's feet by the sun's position. */

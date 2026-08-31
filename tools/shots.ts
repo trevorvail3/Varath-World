@@ -44,6 +44,7 @@ const HOURS: { label: string; phase: number }[] = [
 const STOPS: { label: string; x: number; y: number; hours?: string[] }[] = [
   { label: "spawn", x: 160, y: 163 },
   { label: "city", x: 193, y: 199 },
+  { label: "barber", x: 197, y: 192, hours: ["noon"] }, // Mirren's, on the market's north side
   { label: "town-frostgate", x: 127, y: 51 },
   { label: "town-emberhearth", x: 179, y: 333 },
   { label: "camp-crossroads", x: 154, y: 161 },

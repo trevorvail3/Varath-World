@@ -28,6 +28,7 @@ import type { AttackOption, WepType } from "../content/weaponStyles.ts";
 import type {
   AchievementCond,
   Activity,
+  Appearance,
   BountyTaskDef,
   EquipBonus,
   CombatStyle,
@@ -655,6 +656,7 @@ const BLOCKING_KINDS = new Set([
   "trap",
   "bounty_board",
   "grand_exchange",
+  "barber",
   "forage_spot",
   "cauldron",
   "workbench",
@@ -1391,6 +1393,42 @@ function openContainer(
  *  entitlement is the "founder" flag (stamped at login from the account's
  *  purchase; see FOUNDER.md). Purely cosmetic — no XP, gold, stats, or space. */
 export const FOUNDER_ITEMS: ItemId[] = ["pet_founder_wisp", "cape_founder"];
+
+/** What the barber charges. A tithe rather than a toll: enough that a restyle is
+ *  a small decision, not enough that anyone is stuck with a face they regret. */
+export const BARBER_FEE = 250;
+
+/**
+ * The barber's restyle.
+ *
+ * The look is the client's business — the core owns no pixels and validates no
+ * style ids (it cannot see the style tables; they live in the client). What it
+ * owns is the PRICE, because gold is game state: without this the client could
+ * redraw the player and deduct nothing.
+ *
+ * The name is deliberately not taken from the incoming look. It is a join key —
+ * the pier's records attribute catches by it, and the name registry's claim is
+ * one-way with no rename path — so the barber may change everything about a
+ * character except what they are called.
+ */
+function restyle(state: WorldState, look: Appearance, events: WorldEvent[]): void {
+  const player = state.player;
+  if (player.station?.kind !== "barber") {
+    events.push({ type: "LOG", message: "You are not in the barber's chair.", tone: "err" });
+    return;
+  }
+  if (player.gold < BARBER_FEE) {
+    events.push({
+      type: "LOG",
+      message: `The barber wants ${BARBER_FEE}g for the work, and you have ${player.gold}g.`,
+      tone: "err",
+    });
+    return;
+  }
+  player.gold -= BARBER_FEE;
+  player.appearance = { ...look, name: player.appearance.name };
+  events.push({ type: "LOG", message: `You pay ${BARBER_FEE}g and rise from the chair a little changed.` });
+}
 
 function claimFounder(state: WorldState, events: WorldEvent[]): void {
   const player = state.player;
@@ -2406,6 +2444,10 @@ export function applyIntent(
     }
     case "FOUNDER_CLAIM": {
       claimFounder(state, events);
+      break;
+    }
+    case "RESTYLE": {
+      restyle(state, intent.look, events);
       break;
     }
     case "LAND_FISH": {
@@ -4175,6 +4217,11 @@ function startInteraction(
     case "grand_exchange":
       player.station = { kind: "exchange" };
       events.push({ type: "OPEN_EXCHANGE" });
+      break;
+
+    case "barber":
+      player.station = { kind: "barber" };
+      events.push({ type: "OPEN_BARBER", fee: BARBER_FEE });
       break;
 
     // The processing stations open a recipe menu; the client lists what the

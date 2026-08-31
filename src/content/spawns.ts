@@ -594,6 +594,21 @@ const rawObjects: WorldObjectDef[] = [
   { id: "stall_gem", kind: "stall", x: 75, y: 44, name: "Gem Stall", lines: ["Uncut stones in a locked tray — and a tray is only as locked as the hands near it."] },
   { id: "grand_exchange_1", kind: "grand_exchange", x: 66, y: 47, name: "Grand Exchange", lines: ["A clerk's booth ringed with chalkboards of bids and asks — the honest heart of Varath's market."] },
 
+  // --- The barber, on the market's north side where the light is best ---
+  {
+    id: "barber_chair", kind: "barber", x: 59, y: 43, name: "The Barber's Chair",
+    lines: ["A high-backed chair, a bronze mirror on a stand, and a bowl kept scrupulously clean. Sit, and Mirren will make you over — everything but the name you came in with."],
+  },
+  {
+    id: "mirren", kind: "npc", x: 60, y: 43, name: "Mirren the Barber",
+    lines: [
+      "Sit down. I've cut hair for soldiers, for magistrates and for one man who turned out to be a wanted murderer, and I'll tell you the same thing I told all of them: hold still.",
+      "A face is a thing you can change your mind about. Precious few others are.",
+      "No, I won't rename you. Names are the Record's business, and the Record does not enjoy being contradicted.",
+      "There's a north light through that gap in the roofline for about two hours a day. I built the whole shop around it.",
+    ],
+  },
+
   // --- The Carpenter's sawmill, in the artisans' yard (Woodcraft) ---
   { id: "sawmill_1", kind: "sawmill", x: 53, y: 62, name: "Carpenter's Sawmill" },
 
