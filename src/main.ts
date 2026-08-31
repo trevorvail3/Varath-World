@@ -42,7 +42,9 @@ import {
   writeSave,
 } from "./client/storage.ts";
 import { CharacterCreator, type CreatedCharacter } from "./client/characterCreator.ts";
+import * as avatarArt from "./client/avatar.ts";
 import { DEFAULT_APPEARANCE } from "./client/avatar.ts";
+import { resolveGear } from "./client/gearLook.ts";
 import { isNameAvailable, reserveName } from "./client/nameRegistry.ts";
 import { LoginUI } from "./client/loginUI.ts";
 import { currentUser, signOut } from "./client/supabase.ts";
@@ -76,6 +78,10 @@ function ctxAt(nowMs: number): Ctx {
  *  opens the `__varath` handle so a script can drive real intents. Read once so
  *  every check agrees. */
 const TEST_MODE = new URLSearchParams(location.search).has("test");
+/** `?test=creator` stops at the character creator instead of walking past it,
+ *  so the screenshot tour can photograph the screen the automated boot exists
+ *  to skip. Any other `?test` value boots straight into the world as before. */
+const TEST_CREATOR = new URLSearchParams(location.search).get("test") === "creator";
 
 // --- Grab the page elements up front. ---
 const canvas = document.getElementById("game") as HTMLCanvasElement | null;
@@ -83,6 +89,17 @@ const hudRoot = document.getElementById("hud") as HTMLElement | null;
 const app = document.getElementById("app") as HTMLElement | null;
 if (!canvas || !hudRoot || !app) {
   throw new Error("Missing #game / #hud / #app elements in index.html");
+}
+
+// The contact-sheet seam. `tools/sheet.ts` draws the figure in every hair style,
+// every facing, every build and a few gear loadouts onto one page — the only way
+// to see at a glance that two styles have collapsed onto the same silhouette.
+// The sheet's layout lives in the tool, not in the game; all the game has to do
+// is hand over the art module. Test builds only.
+if (TEST_MODE) {
+  (window as unknown as Record<string, unknown>)["__varathArt"] = {
+    ...avatarArt, resolveGear, content,
+  };
 }
 
 // --- Sign-in gate: you must be signed in (same account as the idle game)
@@ -107,8 +124,9 @@ function playOffline(): void {
   setCurrentAccount(OFFLINE_ACCOUNT);
   if (readSave()) { boot(null, false); return; }
   // An automated run has nobody to work the colour creator, so it gets the
-  // default look under a fixed name.
-  if (TEST_MODE) { boot({ ...DEFAULT_APPEARANCE, name: "Testwalker" }, false); return; }
+  // default look under a fixed name — unless the run is here to look AT the
+  // creator, in which case it stops on it.
+  if (TEST_MODE && !TEST_CREATOR) { boot({ ...DEFAULT_APPEARANCE, name: "Testwalker" }, false); return; }
   new CharacterCreator(app!, { takenNames: [], onCreate: (c) => boot(c, false) });
 }
 

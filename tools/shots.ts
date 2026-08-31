@@ -143,6 +143,21 @@ async function main(): Promise<void> {
       await page.context().close();
     }
 
+    // --- The character creator, which the automated boot normally walks past. ---
+    for (const [device, w, h] of [["desktop", 1280, 800], ["phone", 390, 844]] as const) {
+      if (!wanted(`creator-${device}`)) continue;
+      console.log(`creator: ${device}`);
+      const ctx = await browser.newContext({
+        viewport: { width: w, height: h }, deviceScaleFactor: 1, reducedMotion: "reduce",
+      });
+      const page = await ctx.newPage();
+      await page.goto(`${URL_BASE}/?test=creator`, { waitUntil: "load" });
+      await page.waitForSelector(".creator-box", { timeout: 30_000 });
+      await page.waitForTimeout(700);
+      await shoot(page, `creator-${device}`);
+      await ctx.close();
+    }
+
     // --- The interface: every dock tab, on desktop and on a phone. ---
     for (const [device, w, h] of [["desktop", 1280, 800], ["phone", 390, 844]] as const) {
       if (!wanted(`ui-${device}`)) continue;

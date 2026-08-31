@@ -11,6 +11,8 @@
     "typecheck": "tsc --noEmit",
     "shots": "npm run build && tsx tools/shots.ts",
     "shots:only": "tsx tools/shots.ts",
+    "sheet": "npm run build && tsx tools/sheet.ts",
+    "sheet:only": "tsx tools/sheet.ts",
     "perf": "tsx tools/perf.ts",
     "sim:art": "tsx sims/art.ts",
     "sim:bonus": "tsx sims/bonus.ts",
