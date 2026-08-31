@@ -261,12 +261,12 @@ interface BuildGeom {
 }
 
 const BUILDS: Record<string, BuildGeom> = {
-  lean: { shoulder: 0.90, waist: 0.82, limb: 0.85, stance: 0.90, head: 0.95 },
-  average: { shoulder: 1, waist: 0.90, limb: 1, stance: 1, head: 1 },
-  broad: { shoulder: 1.14, waist: 0.88, limb: 1.14, stance: 1.10, head: 1.03 },
+  lean: { shoulder: 0.90, waist: 0.74, limb: 0.85, stance: 0.90, head: 0.95 },
+  average: { shoulder: 1, waist: 0.79, limb: 1, stance: 1, head: 1 },
+  broad: { shoulder: 1.14, waist: 0.76, limb: 1.14, stance: 1.10, head: 1.03 },
   // Heavy is not "broad, more so": the shoulders are ordinary and the waist is
   // wider than them, which is a different silhouette rather than a bigger one.
-  heavy: { shoulder: 1.04, waist: 1.10, limb: 1.16, stance: 1.12, head: 1.04 },
+  heavy: { shoulder: 1.04, waist: 1.02, limb: 1.16, stance: 1.12, head: 1.04 },
 };
 
 /**
@@ -296,10 +296,10 @@ interface ViewGeom {
 }
 
 const VIEWS: Record<View, ViewGeom> = {
-  front: { torsoHalf: 7, legX: [-6, 1], armX: [-6.4, 6.4], shieldX: 7.2, farShade: 0.12, face: true },
+  front: { torsoHalf: 7.6, legX: [-6, 1], armX: [-6.9, 6.9], shieldX: 7.7, farShade: 0.12, face: true },
   // The back is the same build seen from behind: the off hand — and so the
   // shield — is now on the other side of the screen, and there is no face.
-  back: { torsoHalf: 7, legX: [-6, 1], armX: [6.4, -6.4], shieldX: -7.2, farShade: 0.12, face: false },
+  back: { torsoHalf: 7.6, legX: [-6, 1], armX: [6.9, -6.9], shieldX: -7.7, farShade: 0.12, face: false },
   // A profile: a narrower body, both legs on nearly the same line (the walk
   // cycle separates them), both arms close to the centre with the far one
   // behind, and the shield carried on the hidden side.
@@ -528,40 +528,81 @@ function drawAvatarInner(
   // --- A neck, which the figure has never had. Drawn before the torso so the
   //     collar covers its base — it is what stops the head reading as a ball
   //     balanced on a box.
+  // It widens into the trapezius at its base rather than sitting under the head
+  // as a plain rectangle — the slope from neck to shoulder is most of what makes
+  // a figure read as having shoulders at all.
   g.fillStyle = shade(look.skin, 0.22);
-  Rb(side ? -1.8 : -2.2, -9.5, side ? 3.4 : 4.4, 4);
+  const nw = side ? 1.7 : 2.2, nb = nw * 1.6;
+  g.beginPath();
+  g.moveTo(cx - nw * s, cy - 9.6 * s + bob);
+  g.lineTo(cx + nw * s, cy - 9.6 * s + bob);
+  g.lineTo(cx + nb * s, cy - 5.6 * s + bob);
+  g.lineTo(cx - nb * s, cy - 5.6 * s + bob);
+  g.closePath();
+  g.fill();
 
   // --- Torso / top (bobs) ---
-  // A body, not a box: the torso runs from the shoulders to a narrower (or, for
-  // a heavy frame, a wider) waist. It was one flat rectangle of a fixed width,
-  // which is why every build read as the same person.
+  // A body, not a box. This is THE silhouette: the tunic, the leather jerkin,
+  // the plate chestplate and every strip of shading are all cut from it, so the
+  // shape only has to be right once.
+  //
+  // It used to be a trapezoid whose top edge was a flat horizontal line, which
+  // is why the figure had no shoulders — the arms hung off two square corners.
+  // Now the top edge leaves the neck, slopes out and down across the trapezius
+  // to the shoulder point, and each side carries a shallow chest swell into the
+  // waist before flaring a little again at the hip.
   const torsoPath = (top: number, bot: number, inset: number): void => {
-    const a = (SH - inset) * s, b2 = (WA - inset) * s;
+    const a = (SH - inset) * s;    // shoulder point
+    const b2 = (WA - inset) * s;   // waist
+    const hip = b2 * 1.14;         // a little wider again at the hip
+    const nk = a * 0.28;           // where the neck leaves the yoke
+    const Y = (v: number): number => cy + v * s + bob;
+    const shoulderY = Y(top + 2.2); // the shoulder sits BELOW the yoke line
+    const waistY = Y(bot - 1.3);
     g.beginPath();
-    g.moveTo(cx - a, cy + top * s + bob);
-    g.lineTo(cx + a, cy + top * s + bob);
-    g.lineTo(cx + b2, cy + bot * s + bob);
-    g.lineTo(cx - b2, cy + bot * s + bob);
+    g.moveTo(cx - nk, Y(top));
+    g.quadraticCurveTo(cx - a * 0.88, Y(top + 0.1), cx - a, shoulderY);  // trapezius → shoulder
+    g.quadraticCurveTo(cx - a * 1.12, Y(top + 2.9), cx - b2, waistY);    // chest → waist
+    g.lineTo(cx - hip, Y(bot));
+    g.lineTo(cx + hip, Y(bot));
+    g.lineTo(cx + b2, waistY);
+    g.quadraticCurveTo(cx + a * 1.12, Y(top + 2.9), cx + a, shoulderY);
+    g.quadraticCurveTo(cx + a * 0.88, Y(top + 0.1), cx + nk, Y(top));
     g.closePath();
   };
   g.fillStyle = look.tunic;
   torsoPath(-7, 5, 0); g.fill();
+  // Every strip below is CLIPPED to that silhouette. They are rectangles, and a
+  // rectangle laid across a sloped shoulder hangs off it — the clip is what lets
+  // the shading stay simple without squaring the body back off.
+  g.save();
+  torsoPath(-7, 5, 0);
+  g.clip();
   g.fillStyle = "rgba(0,0,0,0.16)";
   Rb(-WA, 3, WA * 2, 2); // belt line, at the waist
   g.fillStyle = shade(look.tunic, 0.18);
-  Rb((WA - 3.4) * lx, -7, 1.2, 10); // side shade for form, on the shaded side
+  Rb((WA - 1.8) * lx, -5.2, 1.4, 9.2); // side shade for form, on the shaded side
+  // The armhole. Without a shadow where the arm crosses the chest, the sleeve
+  // and the torso are the same flat grey and the whole middle of the figure
+  // reads as one slab — which is most of what "boxy" actually means here.
+  if (!side) {
+    g.fillStyle = "rgba(0,0,0,0.14)";
+    Rb(-(SH - 0.5), -5.0, 1.5, 8.8);
+    Rb(SH - 1.0, -5.0, 1.5, 8.8);
+  }
   if (side) {
     // A body seen edge-on has a chest and a back, not a flat front: a lit strip
     // down the leading edge and a deeper shadow down the trailing one.
     g.fillStyle = shade(look.tunic, 0.3);
-    Rb(-SH * lx, -7, 1.1, 12);
+    Rb(-SH * lx, -5.6, 1.1, 10.6);
     g.fillStyle = "rgba(255,240,210,0.10)";
-    Rb((SH - 1.1) * lx, -7, 1.1, 12);
+    Rb((SH - 1.1) * lx, -5.6, 1.1, 10.6);
   }
   if (back) {
-    // From behind, a top has a seam and a yoke, not a neckline.
+    // From behind, a top has a seam and a yoke, not a neckline. It follows the
+    // new shoulder line rather than the old flat top edge.
     g.fillStyle = shade(look.tunic, 0.24);
-    Rb(-SH, -7, SH * 2, 1.6);
+    Rb(-SH, -5.4, SH * 2, 1.6);
   } else if (look.top === "vneck") {
     g.fillStyle = look.skin;
     g.beginPath();
@@ -579,18 +620,24 @@ function drawAvatarInner(
     g.stroke();
   } else if (!back) {
     g.fillStyle = "rgba(0,0,0,0.16)";
-    Rb(-0.6, -7, 1.2, 10); // plain front seam
+    Rb(-0.6, -6.4, 1.2, 9.4); // plain front seam
   }
+  g.restore();
 
   // --- Worn body armour, over the top: plate / leather jerkin / robe ---
   if (gear.body && gear.body.style === "robe") {
     // A flowing robe draping from the shoulders out past the hips.
+    // It hangs FROM the shoulders, so its top edge follows the same trapezius
+    // slope the body does rather than cutting flat across both of them.
+    const rs = (SH - 0.5) * s;
     g.fillStyle = gear.body.base;
     g.beginPath();
-    g.moveTo(cx - (SH - 0.5) * s, cy - 7 * s + bob);
-    g.lineTo(cx + (SH - 0.5) * s, cy - 7 * s + bob);
-    g.lineTo(cx + 7.6 * s, cy + 6 * s + bob);
+    g.moveTo(cx - rs * 0.34, cy - 7 * s + bob);
+    g.quadraticCurveTo(cx - rs * 0.88, cy - 6.9 * s + bob, cx - rs, cy - 5.6 * s + bob);
     g.lineTo(cx - 7.6 * s, cy + 6 * s + bob);
+    g.lineTo(cx + 7.6 * s, cy + 6 * s + bob);
+    g.lineTo(cx + rs, cy - 5.6 * s + bob);
+    g.quadraticCurveTo(cx + rs * 0.88, cy - 6.9 * s + bob, cx + rs * 0.34, cy - 7 * s + bob);
     g.closePath();
     g.fill();
     g.fillStyle = gear.body.edge;
@@ -602,8 +649,9 @@ function drawAvatarInner(
     // A fitted leather jerkin — lighter than plate, laced up the front.
     g.fillStyle = gear.body.base;
     torsoPath(-6.4, 3.4, 1); g.fill();
+    g.save(); torsoPath(-6.4, 3.4, 1); g.clip();
     g.fillStyle = gear.body.edge;
-    Rb(-(SH - 1), -6.4, (SH - 1) * 2, 1);   // shoulder seam highlight
+    Rb(-(SH - 1), -5.1, (SH - 1) * 2, 1);   // shoulder seam, along the new yoke
     if (!back) { g.fillStyle = look.skin; arc(0, -6.4, 1.8, 0, Math.PI, false); g.fill(); } // open V-neck
     g.strokeStyle = shade(gear.body.base, 0.42);
     g.lineWidth = 0.5 * s;
@@ -613,15 +661,18 @@ function drawAvatarInner(
       g.moveTo(cx + 1.1 * s, cy + ly * s + bob); g.lineTo(cx - 1.1 * s, cy + (ly + 1.4) * s + bob);
       g.stroke();
     }
+    g.restore();
   } else if (gear.body) {
     // Heavy plate chestplate (melee).
     g.fillStyle = gear.body.base;
     torsoPath(-6.6, 3.6, 0.4); g.fill();
+    g.save(); torsoPath(-6.6, 3.6, 0.4); g.clip();
     g.fillStyle = gear.body.edge;
-    Rb(-(SH - 0.4), -6.6, (SH - 0.4) * 2, 1.2);  // top rim highlight
-    Rb(-(SH - 0.4) * lx, -6.6, 1.2, 9.4);        // lit edge, screen-left
+    Rb(-(SH - 0.4), -5.2, (SH - 0.4) * 2, 1.2);  // top rim, along the new yoke
+    Rb(-(SH - 0.4) * lx, -5.6, 1.2, 8.6);        // lit edge, screen-left
     g.fillStyle = shade(gear.body.base, 0.3);
-    if (!back) Rb(-0.7, -6.6, 1.4, 9.4);         // central ridge (front only)
+    if (!back) Rb(-0.7, -5.8, 1.4, 8.8);         // central ridge (front only)
+    g.restore();
     if (!back) { g.fillStyle = look.skin; arc(0, -6.6, 2.2, 0, Math.PI, false); g.fill(); } // neckline
   }
 
@@ -812,12 +863,28 @@ function drawArm(
   g.translate(px, py);
   g.rotate(angle);
   if (tool) drawTool(g, s, tool, metal); // behind the hand, swings with the arm
-  g.fillStyle = D(look.tunic); // sleeve (upper arm)
-  g.fillRect(-T(1.3) * s, 0, T(2.6) * s, 4.2 * s);
+  // An arm, not two dominoes. The deltoid is a cap over the joint itself, which
+  // is what makes the limb read as attached to a shoulder rather than as hung
+  // beside the body; below it the upper arm narrows to the elbow and the
+  // forearm narrows again to the wrist.
+  const taper = (yTop: number, yBot: number, wTop: number, wBot: number): void => {
+    g.beginPath();
+    g.moveTo(-T(wTop) * s, yTop * s);
+    g.lineTo(T(wTop) * s, yTop * s);
+    g.lineTo(T(wBot) * s, yBot * s);
+    g.lineTo(-T(wBot) * s, yBot * s);
+    g.closePath();
+    g.fill();
+  };
+  g.fillStyle = D(look.tunic); // deltoid + sleeve (upper arm)
+  g.beginPath();
+  g.arc(0, 0.7 * s, T(1.4) * s, 0, Math.PI * 2);
+  g.fill();
+  taper(0.3, 4.3, 1.5, 1.12);
   g.fillStyle = D(look.skin); // forearm
-  g.fillRect(-T(1.1) * s, 3.8 * s, T(2.2) * s, 3.6 * s);
+  taper(3.9, 7.3, 1.12, 0.86);
   g.beginPath(); // hand
-  g.arc(0, 7.7 * s, T(1.6) * s, 0, Math.PI * 2);
+  g.arc(0, 7.6 * s, T(1.5) * s, 0, Math.PI * 2);
   g.fill();
   g.restore();
 }
