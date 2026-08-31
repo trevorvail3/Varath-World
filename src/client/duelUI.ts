@@ -13,7 +13,7 @@ import type { DuelEvent } from "../core/duelCore.ts";
 import { DuelSession, type DuelTransport, type StakeItem } from "./duel.ts";
 import { itemIconSVG } from "./itemIcon.ts";
 import { iconize } from "./glyph.ts";
-import { drawAvatar } from "./avatar.ts";
+import { drawAvatar, withDefaults } from "./avatar.ts";
 import { resolveGear } from "./gearLook.ts";
 import { askAmount } from "./prompt.ts";
 
@@ -332,8 +332,11 @@ export class DuelUI {
     // The two fighters (A on the left; me highlighted by name colour).
     const [fa, fb] = v.iAmA ? [v.me, v.foe] : [v.foe, v.me];
     const bob = Math.sin(now / 420) * 1.5;
-    drawAvatar(g, W * 0.32, H * 0.58 + bob, 2.1, fa.look, { flip: false, now }, resolveGear(fa.equipment, this.content));
-    drawAvatar(g, W * 0.68, H * 0.58 - bob, 2.1, fb.look, { flip: true, now }, resolveGear(fb.equipment, this.content));
+    // `withDefaults` — a duel fighter's look arrives over the wire from another
+    // client, and this was the one call site that handed it to the renderer raw.
+    // The two face each other, so they take real profile facings.
+    drawAvatar(g, W * 0.32, H * 0.58 + bob, 2.1, withDefaults(fa.look), { facing: "right", now }, resolveGear(fa.equipment, this.content));
+    drawAvatar(g, W * 0.68, H * 0.58 - bob, 2.1, withDefaults(fb.look), { facing: "left", now }, resolveGear(fb.equipment, this.content));
 
     // HP bars + names.
     const bar = (x: number, side: "a" | "b", f: typeof fa): void => {

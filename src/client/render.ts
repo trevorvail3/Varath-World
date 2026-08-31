@@ -8282,7 +8282,13 @@ function drawPlayer(
     // The rig is drawn with INVERTED flip, so its local −1 lands on +K when
     // the player faces right — the rider matches that side.
     const seatX = cx + (flip ? -1.7 : 1.7);
-    drawAvatar(g, seatX, cy - 29.5, 1, withDefaults(look), { now, moving, flip, riding: true, ...(action ? { action } : {}) }, gear);
+    // A profile facing, explicitly: the horse rig is drawn side-on and only
+    // side-on, so a rider heading north still sits astride a horse facing east
+    // and must match it. (The legacy `flip` boolean is gone everywhere else.)
+    drawAvatar(g, seatX, cy - 29.5, 1, withDefaults(look), {
+      now, moving, facing: flip ? "left" : "right", riding: true,
+      ...(action ? { action } : {}),
+    }, gear);
     return;
   }
   shadow(g, cx, cy + TILE / 2 - 4, 9, 3.5); // grounds the player on the terrain
@@ -8465,7 +8471,7 @@ function drawGhost(g: CanvasRenderingContext2D, gh: Ghost, cam: Camera, now: num
   shadow(g, cx, cy + TILE / 2 - 4, 8, 3);
   g.save();
   g.globalAlpha = 0.4; // translucent so it clearly reads as "not really here"
-  drawAvatar(g, cx, cy, 1, withDefaults(gh.look), { now, moving: gh.moving, flip: gh.faceLeft }, gh.gear);
+  drawAvatar(g, cx, cy, 1, withDefaults(gh.look), { now, moving: gh.moving, facing: gh.facing }, gh.gear);
   g.restore();
   label(g, gh.name, cx, cy - TILE / 2 - 2, "#a9d8e8"); // cool, spectral blue
 }

@@ -14,7 +14,13 @@ import type { AccountMode } from "../core/worldCore.ts";
 import {
   BUILD_STYLES, CLOTH, DEFAULT_APPEARANCE, drawAvatar,
   FACIAL_STYLES, HAIR_STYLES, HAIRS, LEG_STYLES, SHOE_STYLES, SKINS, TOP_STYLES,
+  withDefaults,
 } from "./avatar.ts";
+
+/** The preview's fallback size, used only before the element has been laid out
+ *  (its real size comes from the CSS box — see sizePreview). */
+const PREVIEW_W = 150;
+const PREVIEW_H = 210;
 
 /** What the creator hands back: the look, plus the account mode chosen for the
  *  life of the character. The mode is offered here and only here — an Ironman's
@@ -34,6 +40,8 @@ export class CharacterCreator {
   private taken: Set<string>;
   private t0 = performance.now();
   private raf = 0;
+  private lastFrame = 0;
+  private onResize = (): void => { this.renderPreview(); };
 
   private checkSeq = 0;
   private checkTimer: ReturnType<typeof setTimeout> | 0 = 0;
@@ -60,7 +68,7 @@ export class CharacterCreator {
         <div class="creator-title">VARATH</div>
         <div class="creator-sub">Who will you become?</div>
         <div class="creator-main">
-          <canvas class="creator-preview" width="130" height="180"></canvas>
+          <canvas class="creator-preview"></canvas>
           <div class="creator-controls">
             <label class="creator-label">Name</label>
             <input class="creator-name" type="text" maxlength="16" placeholder="Your name" />
@@ -120,18 +128,18 @@ export class CharacterCreator {
     randBtn.type = "button";
     randBtn.className = "creator-random";
     randBtn.textContent = "Surprise me";
-    randBtn.addEventListener("pointerdown", (e) => { e.stopPropagation(); this.randomize(); });
+    randBtn.addEventListener("click", (e) => { e.stopPropagation(); this.randomize(); });
     rows.parentElement?.insertBefore(randBtn, rows);
 
     const backBtn = this.backdrop.querySelector(".creator-back") as HTMLElement;
     if (this.opts.onBack) {
-      backBtn.addEventListener("pointerdown", (e) => {
+      backBtn.addEventListener("click", (e) => {
         e.stopPropagation(); this.close(); this.opts.onBack!();
       });
     } else {
       backBtn.remove(); // nothing to go back to — this is the entry screen
     }
-    goEl.addEventListener("pointerdown", (e) => {
+    goEl.addEventListener("click", (e) => {
       e.stopPropagation();
       if (goEl.disabled) return;
       if (this.draft.name.length < 1 || this.taken.has(this.draft.name.toLowerCase())) return;
@@ -152,9 +160,28 @@ export class CharacterCreator {
       });
     });
 
-    // A gentle idle loop so the figure breathes (and its arms read) live.
-    const loop = (): void => { this.renderPreview(); this.raf = requestAnimationFrame(loop); };
+    // Enter anywhere in the name field submits, Escape leaves. Neither worked:
+    // every control was bound to `pointerdown`, so the whole screen could only
+    // be operated with a pointer.
+    nameEl.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" && !goEl.disabled) { e.preventDefault(); goEl.click(); }
+    });
+    this.backdrop.addEventListener("keydown", (e) => {
+      if (e.key === "Escape" && this.opts.onBack) {
+        e.preventDefault(); this.close(); this.opts.onBack();
+      }
+    });
+
+    // A gentle idle loop so the figure breathes (and its arms read) live. The
+    // bob is slow, so this runs at about 24fps rather than repainting the whole
+    // stage — sky gradient, hills, motes, key light and vignette — 60 times a
+    // second for an image that changes by a pixel.
+    const loop = (now: number): void => {
+      if (now - this.lastFrame >= 40) { this.lastFrame = now; this.renderPreview(); }
+      this.raf = requestAnimationFrame(loop);
+    };
     this.raf = requestAnimationFrame(loop);
+    window.addEventListener("resize", this.onResize);
     setTimeout(() => nameEl.focus(), 50);
   }
 
@@ -181,7 +208,7 @@ export class CharacterCreator {
       b.className = `creator-mode${m.id === this.mode ? " on" : ""}`;
       b.dataset["mode"] = m.id;
       b.textContent = m.label;
-      b.addEventListener("pointerdown", (e) => {
+      b.addEventListener("click", (e) => {
         e.stopPropagation();
         this.mode = m.id;
         for (const el of wrap.querySelectorAll(".creator-mode")) {
@@ -245,7 +272,7 @@ export class CharacterCreator {
     head.innerHTML = `<span class="creator-label">${label}</span>`;
     if (styleKey && styles) head.appendChild(this.cycler(styleKey, styles));
     row.appendChild(head);
-    if (colorKey && colors) row.appendChild(this.swatches(colorKey, colors));
+    if (colorKey && colors) row.appendChild(this.swatches(colorKey, colors, label));
     parent.appendChild(row);
   }
 
@@ -256,10 +283,15 @@ export class CharacterCreator {
     wrap.className = "creator-cycler";
     const prev = document.createElement("button");
     prev.type = "button"; prev.className = "creator-cyc-btn"; prev.textContent = "◀";
+    prev.setAttribute("aria-label", `Previous ${key}`);
     const name = document.createElement("span");
     name.className = "creator-cyc-name";
+    // The value announces itself when it changes; without this the arrows read
+    // as two nameless buttons either side of nothing.
+    name.setAttribute("aria-live", "polite");
     const next = document.createElement("button");
     next.type = "button"; next.className = "creator-cyc-btn"; next.textContent = "▶";
+    next.setAttribute("aria-label", `Next ${key}`);
     const current = (): string =>
       key === "build" ? (this.draft.build ?? "average") : this.draft[key];
     const apply = (id: string): void => {
@@ -280,38 +312,75 @@ export class CharacterCreator {
       apply(list[i]!.id);
       sync(); this.renderPreview();
     };
-    prev.addEventListener("pointerdown", (e) => { e.stopPropagation(); step(-1); });
-    next.addEventListener("pointerdown", (e) => { e.stopPropagation(); step(1); });
+    prev.addEventListener("click", (e) => { e.stopPropagation(); step(-1); });
+    next.addEventListener("click", (e) => { e.stopPropagation(); step(1); });
     wrap.append(prev, name, next);
     sync();
     return wrap;
   }
 
-  /** A row of colour swatches bound to a colour field. */
-  private swatches(key: ColorKey, colors: string[]): HTMLElement {
+  /** A row of colour swatches bound to a colour field.
+   *
+   *  These were unlabelled colour-only buttons, so anything that reads the page
+   *  aloud found eight identical empty controls in a row. They are a radio group
+   *  now, each one named by its position in the ramp and reporting whether it is
+   *  the chosen one. */
+  private swatches(key: ColorKey, colors: string[], label: string): HTMLElement {
     const wrap = document.createElement("div");
     wrap.className = "creator-swatches";
-    for (const c of colors) {
+    wrap.setAttribute("role", "radiogroup");
+    wrap.setAttribute("aria-label", `${label} colour`);
+    colors.forEach((c, i) => {
       const b = document.createElement("button");
       b.type = "button";
-      b.className = "creator-swatch" + (this.draft[key] === c ? " on" : "");
+      const on = this.draft[key] === c;
+      b.className = "creator-swatch" + (on ? " on" : "");
       b.style.background = c;
-      b.addEventListener("pointerdown", (e) => {
+      b.setAttribute("role", "radio");
+      b.setAttribute("aria-checked", on ? "true" : "false");
+      b.setAttribute("aria-label", `${label} ${i + 1} of ${colors.length}`);
+      b.title = c;
+      b.addEventListener("click", (e) => {
         e.stopPropagation();
         this.draft[key] = c;
-        for (const sib of Array.from(wrap.children)) sib.classList.remove("on");
+        for (const sib of Array.from(wrap.children)) {
+          sib.classList.remove("on");
+          sib.setAttribute("aria-checked", "false");
+        }
         b.classList.add("on");
+        b.setAttribute("aria-checked", "true");
         this.renderPreview();
       });
       wrap.appendChild(b);
-    }
+    });
     return wrap;
+  }
+
+  /**
+   * Size the backing store to the element's real CSS box times the device pixel
+   * ratio. The canvas carried a fixed 130x180 backing store and no CSS size, so
+   * the flex row stretched it: on a phone the portrait came out as a smeared
+   * column, and on any modern screen it was upscaled from half resolution.
+   */
+  private sizePreview(): { w: number; h: number } {
+    const dpr = Math.min(3, window.devicePixelRatio || 1);
+    const box = this.preview.getBoundingClientRect();
+    const w = Math.max(80, Math.round(box.width || PREVIEW_W));
+    const h = Math.max(110, Math.round(box.height || PREVIEW_H));
+    const bw = Math.round(w * dpr), bh = Math.round(h * dpr);
+    if (this.preview.width !== bw || this.preview.height !== bh) {
+      this.preview.width = bw;
+      this.preview.height = bh;
+    }
+    const g = this.preview.getContext("2d");
+    if (g) g.setTransform(dpr, 0, 0, dpr, 0, 0);
+    return { w, h };
   }
 
   private renderPreview(): void {
     const g = this.preview.getContext("2d");
     if (!g) return;
-    const w = this.preview.width, h = this.preview.height;
+    const { w, h } = this.sizePreview();
     const t = performance.now() - this.t0;
     g.clearRect(0, 0, w, h);
     // A little stage: dusk-sky gradient, distant hills, a grass apron under
@@ -346,7 +415,11 @@ export class CharacterCreator {
     g.fillStyle = key;
     g.fillRect(0, 0, w, h);
     // The figure idles (breathing bob comes from the shared avatar's own clock).
-    drawAvatar(g, w / 2, h / 2 + 22, 3.7, this.draft, { now: t });
+    // Scaled to the box it is actually in — the figure is ~31 base units tall,
+    // so this fills about three-quarters of the height whatever the layout does.
+    // `withDefaults` guards a draft missing a field the renderer expects.
+    const fs = Math.min(h / 42, w / 26);
+    drawAvatar(g, w / 2, h / 2 + fs * 6, fs, withDefaults(this.draft), { now: t });
     // soft vignette frame
     const vg = g.createRadialGradient(w / 2, h / 2, h * 0.36, w / 2, h / 2, h * 0.72);
     vg.addColorStop(0, "rgba(0,0,0,0)");
@@ -357,6 +430,7 @@ export class CharacterCreator {
 
   private close(): void {
     if (this.raf) cancelAnimationFrame(this.raf);
+    window.removeEventListener("resize", this.onResize);
     if (this.checkTimer) { clearTimeout(this.checkTimer); this.checkTimer = 0; }
     this.checkSeq++; // drop any pending availability check
     this.backdrop.remove();

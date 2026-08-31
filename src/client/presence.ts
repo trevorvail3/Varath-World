@@ -31,7 +31,14 @@ export interface Ghost {
   moving: boolean;
   /** True when the ghost is facing/moving left (mirror the figure). */
   faceLeft: boolean;
+  /** Which way the ghost is facing, four-way — the same thing the local player
+   *  has always had. Ghosts only ever carried a left/right boolean, so another
+   *  player walking north or south was drawn in profile like everyone else. */
+  facing: Facing;
 }
+
+/** Four-way facing, matching the renderer's own. */
+export type Facing = "up" | "down" | "left" | "right";
 
 /** What the game feeds us each beat: where the player is and how they look. */
 export interface PresenceSnapshot { x: number; y: number; name: string; look: Appearance; gear: GearLook }
@@ -49,6 +56,7 @@ interface Rec {
   look: Appearance;
   gear: GearLook;
   face: boolean;                // last horizontal facing (true = left)
+  facing: Facing;               // last four-way facing
   fromX: number; fromY: number; // where the glide starts
   toX: number; toY: number;     // the latest snapshot (glide target)
   since: number;                // ms when this segment began
@@ -82,6 +90,7 @@ export function currentGhosts(): Ghost[] {
       y: r.fromY + (r.toY - r.fromY) * k,
       moving: t < 1 && (Math.abs(r.toX - r.fromX) + Math.abs(r.toY - r.fromY)) > 0.15,
       faceLeft: r.face,
+      facing: r.facing,
     });
   }
   return out;
@@ -136,7 +145,7 @@ async function pull(): Promise<void> {
       const gear: GearLook = blob._gear ?? {};
       const prev = recs.get(id);
       if (!prev) {
-        recs.set(id, { id, name, look, gear, face: false, fromX: x, fromY: y, toX: x, toY: y, since: now });
+        recs.set(id, { id, name, look, gear, face: false, facing: "down", fromX: x, fromY: y, toX: x, toY: y, since: now });
         continue;
       }
       // Continue gliding from where the ghost VISUALLY is right now, toward the
@@ -148,9 +157,19 @@ async function pull(): Promise<void> {
       const jump = Math.abs(x - prev.toX) + Math.abs(y - prev.toY);
       const teleport = jump > TELEPORT_TILES;
       prev.name = name; prev.look = look; prev.gear = gear;
-      // Face the new target horizontally; keep the last facing if it's vertical.
-      if (x < curX - 0.05) prev.face = true;
-      else if (x > curX + 0.05) prev.face = false;
+      // Face the new target. The dominant axis wins, exactly as the local
+      // player's facing is chosen (render.ts), so a ghost walking north shows
+      // its back rather than staying stuck in profile. The old left/right
+      // boolean is kept in step for anything still reading it.
+      const dx = x - curX, dy = y - curY;
+      if (Math.abs(dx) > Math.abs(dy)) {
+        if (dx < -0.05) prev.facing = "left";
+        else if (dx > 0.05) prev.facing = "right";
+      } else {
+        if (dy < -0.05) prev.facing = "up";
+        else if (dy > 0.05) prev.facing = "down";
+      }
+      prev.face = prev.facing === "left";
       prev.fromX = teleport ? x : curX;
       prev.fromY = teleport ? y : curY;
       prev.toX = x; prev.toY = y;

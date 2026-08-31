@@ -555,6 +555,12 @@ export function hydratePlayer(
       const v = savedApp[k];
       if (typeof v === "string" && v.length > 0 && v.length < 24) a[k] = v;
     }
+    // Build is a closed union rather than a free id, so it is checked against
+    // its own members. It was written out by serializePlayer and read back by
+    // nobody, which meant choosing Lean or Broad in the creator lasted exactly
+    // until the next reload and then silently became average again.
+    const b = savedApp["build"];
+    if (b === "lean" || b === "broad") a.build = b;
   }
   // Bounty: restore marks, the chosen guide, and any active task — all guarded so
   // a save from before Bounty existed (no `bounty` key) just keeps the fresh state.

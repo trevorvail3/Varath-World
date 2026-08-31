@@ -22,8 +22,14 @@ import type { GearLook, Metal } from "./gearLook.ts";
 // --- Shared colour palettes (the only colours the creator offers) ---
 export const SKINS = ["#f0d2a8", "#e3bd92", "#caa176", "#a9794f", "#855b38", "#5f3f26"];
 export const HAIRS = ["#2a2320", "#4a3320", "#7a5226", "#b8893c", "#caa24a", "#9a3320", "#3a5a7a", "#d8d8d8"];
-/** The cloth palette — shared by tops, legs and shoes ("same colour options"). */
-export const CLOTH = ["#6b6157", "#3a5a7a", "#4f7a3a", "#7a3a3a", "#6a4a7a", "#caa05a", "#2f6b66", "#9a5a2a"];
+/** The cloth palette — shared by tops, legs and shoes ("same colour options").
+ *  `#3a2c20` is the dark leather the default boots are cut from; it was the
+ *  starting shoe colour but was not a member of this list, so the creator opened
+ *  with no shoe swatch selected and no way to get back to the default. */
+export const CLOTH = [
+  "#6b6157", "#3a5a7a", "#4f7a3a", "#7a3a3a",
+  "#6a4a7a", "#caa05a", "#2f6b66", "#9a5a2a", "#3a2c20",
+];
 
 // --- Selectable styles (id + label). The renderer defaults unknown ids. ---
 export const HAIR_STYLES = [

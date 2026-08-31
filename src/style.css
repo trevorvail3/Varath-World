@@ -4142,12 +4142,27 @@ button.inv-slot {
 .login-new { width: 100%; }
 .login-new:hover, .creator-go:hover { background: rgba(var(--ember-rgb), 0.22); }
 
-.creator-main { display: flex; gap: 18px; text-align: left; margin-bottom: 18px; }
+.creator-main {
+  display: flex;
+  gap: 18px;
+  text-align: left;
+  margin-bottom: 18px;
+  /* The row never wrapped, so on a phone the fixed-width portrait and the
+     controls stayed side by side and the controls were crushed to ~250px —
+     right at the width where an eight-swatch row stops fitting. */
+  flex-wrap: wrap;
+}
 .creator-preview {
+  /* An explicit CSS box. The canvas used to carry a fixed 130x180 backing store
+     and no CSS size at all, so the flex row stretched it to the column height
+     and the portrait came out as a smeared column. The script sizes the backing
+     store from this box times the device pixel ratio. */
   flex: 0 0 auto;
+  width: 150px;
+  height: 210px;
   background: radial-gradient(ellipse at 50% 60%, #2a2018 0%, #14100c 100%);
   border: 1px solid var(--panel-edge);
-  border-radius: 8px;
+  border-radius: var(--r-lg);
 }
 .creator-controls { flex: 1; display: flex; flex-direction: column; }
 .creator-label {
@@ -4622,6 +4637,30 @@ button.inv-slot {
   /* The continent map must fit the short height too. */
   .worldmap-modal { padding: 9px 11px; }
   .worldmap-canvas { max-height: 62vh; width: auto; }
+}
+
+/* --- The creator on a small screen ------------------------------------------
+   No media query touched this screen at all, so a 390px phone got the desktop
+   layout: a stretched portrait beside crushed controls, with the account picker
+   pushed off the bottom of the viewport. Below 560px the portrait sits above the
+   controls at full width and the box takes the whole screen. */
+@media (max-width: 560px) {
+  .login-box, .creator-box {
+    width: 100%;
+    max-height: 100vh;
+    max-height: 100dvh;
+    border-radius: 0;
+    padding: 14px 16px 18px;
+  }
+  .login-backdrop, .creator-backdrop { padding: 0; }
+  .creator-main { flex-direction: column; align-items: center; gap: 12px; }
+  .creator-preview { width: min(220px, 60vw); height: min(300px, 40vh); }
+  .creator-controls { width: 100%; }
+  .creator-title { font-size: var(--t-display); }
+  /* Bigger targets: a 24px swatch is under the 44px a thumb wants, and there is
+     room for it once the portrait is out of the way. */
+  .creator-swatch { width: 30px; height: 30px; }
+  .creator-cyc-btn { min-width: 34px; min-height: 34px; }
 }
 
 /* A portrait phone has height to spare and width it cannot spare, so the log
