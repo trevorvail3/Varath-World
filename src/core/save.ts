@@ -546,14 +546,14 @@ export function hydratePlayer(
     if (typeof savedApp["name"] === "string" && savedApp["name"].trim()) a.name = savedApp["name"].slice(0, 16);
     // Colours: only accept valid hex; otherwise keep the default already set.
     for (const k of ["skin", "hair", "tunic", "legColor", "shoeColor",
-      "eyeColor", "beardColor"] as const) {
+      "eyeColor", "beardColor", "markingColor"] as const) {
       const v = savedApp[k];
       if (typeof v === "string" && /^#[0-9a-fA-F]{6}$/.test(v)) a[k] = v;
     }
     // Styles: any non-empty string; the renderer falls back for unknown ids, so
     // a save from a future build with an unrecognised style still draws safely.
     for (const k of ["hairStyle", "facial", "top", "legs", "shoes",
-      "eyes", "brows", "jaw"] as const) {
+      "eyes", "brows", "jaw", "marking"] as const) {
       const v = savedApp[k];
       if (typeof v === "string" && v.length > 0 && v.length < 24) a[k] = v;
     }

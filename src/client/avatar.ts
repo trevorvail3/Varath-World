@@ -34,14 +34,19 @@ export const CLOTH = [
 // --- Selectable styles (id + label). The renderer defaults unknown ids. ---
 export const HAIR_STYLES = [
   { id: "short", label: "Short" },
-  { id: "long", label: "Long" },
-  { id: "topknot", label: "Top-knot" },
-  { id: "mohawk", label: "Mohawk" },
-  { id: "spiky", label: "Spiky" },
-  { id: "sidepart", label: "Side part" },
-  { id: "ponytail", label: "Ponytail" },
-  { id: "curly", label: "Curly" },
   { id: "fringe", label: "Fringe" },
+  { id: "sidepart", label: "Side part" },
+  { id: "bob", label: "Bob" },
+  { id: "long", label: "Long" },
+  { id: "ponytail", label: "Ponytail" },
+  { id: "braid", label: "Braid" },
+  { id: "topknot", label: "Top-knot" },
+  { id: "curly", label: "Curly" },
+  { id: "wild", label: "Wild" },
+  { id: "spiky", label: "Spiky" },
+  { id: "mohawk", label: "Mohawk" },
+  { id: "undercut", label: "Undercut" },
+  { id: "shaved", label: "Shaved" },
   { id: "bald", label: "Bald" },
 ];
 /** Eye colours — a short, believable range rather than a rainbow. */
@@ -73,7 +78,29 @@ export const FACIAL_STYLES = [
   { id: "stubble", label: "Stubble" },
   { id: "moustache", label: "Moustache" },
   { id: "goatee", label: "Goatee" },
+  { id: "chops", label: "Side-whiskers" },
   { id: "beard", label: "Full beard" },
+  { id: "long", label: "Long beard" },
+];
+
+/**
+ * Scars, war paint and ink — each one belonging somewhere in the world rather
+ * than being decoration for its own sake.
+ */
+export const MARKING_STYLES = [
+  { id: "none", label: "None" },
+  { id: "scar_eye", label: "Old cut" },
+  { id: "scar_cheek", label: "Claw scars" },
+  { id: "warpaint_bar", label: "Ashfen band" },
+  { id: "warpaint_hand", label: "Cult daub" },
+  { id: "tattoo_chin", label: "Northern marks" },
+  { id: "tattoo_brow", label: "Lodge marks" },
+  { id: "ash", label: "Forge soot" },
+];
+
+/** What a marking is made of: old scar tissue, ochre, woad, chalk, soot, blood. */
+export const MARKING_COLORS = [
+  "#8a5a4e", "#c4542e", "#2f4a72", "#d8cfbc", "#20201f", "#7a1f22",
 ];
 export const TOP_STYLES = [
   { id: "plain", label: "Plain" },
@@ -616,6 +643,12 @@ function drawAvatarInner(
   }
 
   // --- Head (bobs) ---
+  // The jaw shapes the head itself, not just the marks on it: a square jaw is
+  // genuinely broader through the cheeks and a narrow one tapers. The head was
+  // one fixed disc for every character in the game. Hair is fitted to the same
+  // numbers, so it sits ON this head rather than near it.
+  const headW = (look.jaw === "square" ? 6.4 : look.jaw === "narrow" ? 5.3 : 6) * B.head;
+  const headH = (look.jaw === "round" ? 6.1 : look.jaw === "narrow" ? 6.2 : 6) * B.head;
   g.fillStyle = look.skin;
   if (side) {
     // Seen edge-on, a head is not a disc: it has a brow, a nose and a chin on
@@ -641,10 +674,8 @@ function drawAvatarInner(
     // The jaw: how wide the face reads. An ellipse rather than a circle, so a
     // square jaw is genuinely broader through the cheeks and a narrow one
     // tapers — the head was one fixed disc for every character.
-    const jw = (look.jaw === "square" ? 6.4 : look.jaw === "narrow" ? 5.3 : 6) * B.head;
-    const jh = (look.jaw === "round" ? 6.1 : look.jaw === "narrow" ? 6.2 : 6) * B.head;
     g.beginPath();
-    g.ellipse(cx, cy - 12 * s + bob, jw * s, jh * s, 0, 0, Math.PI * 2);
+    g.ellipse(cx, cy - 12 * s + bob, headW * s, headH * s, 0, 0, Math.PI * 2);
     g.fill();
   }
   g.fillStyle = look.skin;
@@ -653,12 +684,13 @@ function drawAvatarInner(
     // Facing away: the back of the head. Hair (or a bare nape) fills the crown
     // over where the face would be — no eyes, no beard — so the walk reads as
     // heading north, not toward the camera.
-    drawHairBack(g, cx, cy, s, bob, look);
+    drawHairBack(g, cx, cy, s, bob, look, headW, headH);
   } else {
     // --- A face, then facial hair, then hair (all bob) ---
     if (V.face) drawFace(g, cx, cy, s, bob, look, side, lx);
-    drawFacial(g, cx, cy, s, bob, look);
-    drawHair(g, cx, cy, s, bob, look);
+    if (V.face) drawMarking(g, cx, cy, s, bob, look, side, lx, headW);
+    drawFacial(g, cx, cy, s, bob, look, headW, headH);
+    drawHair(g, cx, cy, s, bob, look, headW, headH, side, lx);
   }
 
   // --- Head gear (over the hair): metal helm / leather hood / wizard hat ---
@@ -972,138 +1004,409 @@ function browThick(look: Appearance): number {
   }
 }
 
-function drawFacial(g: Ctx, cx: number, cy: number, s: number, bob: number, look: Appearance): void {
+function drawFacial(
+  g: Ctx, cx: number, cy: number, s: number, bob: number, look: Appearance,
+  hw: number, hh: number,
+): void {
   if (look.facial === "none") return;
   // A beard's own colour, falling back to the hair's — which is what the figure
   // did unconditionally before, so a character could never go grey at the chin.
   const hc = look.beardColor ?? look.hair;
-  const Rb = (dx: number, dy: number, w: number, h: number) =>
+  const R = (dx: number, dy: number, w: number, h: number): void =>
     g.fillRect(cx + dx * s, cy + dy * s + bob, w * s, h * s);
-  if (look.facial === "stubble") {
-    g.fillStyle = hc;
-    g.globalAlpha = 0.35;
+  /**
+   * The lower half of the face, cut to the jaw the character actually has.
+   * With y pointing down, the BOTTOM of an ellipse is the sweep from 0 to PI
+   * going clockwise; sweeping the other way covers the forehead instead, which
+   * is a diagonal slash across the face rather than a beard.
+   * `top` is where the beard's upper edge sits, as a fraction of the head's
+   * half-height ABOVE its centre — so it is normally negative, because a beard
+   * belongs on the jaw and anything reaching past the centre covers the eyes.
+   */
+  const jawFill = (top: number): void => {
+    const cyH = cy - 12 * s + bob;
     g.beginPath();
-    g.arc(cx, cy - 10 * s + bob, 6 * s, Math.PI * 0.15, Math.PI * 0.85);
-    g.fill();
-    g.globalAlpha = 1;
-    return;
-  }
-  if (look.facial === "moustache") {
-    g.fillStyle = hc;
-    Rb(-2.6, -10.4, 5.2, 1.3);
-    return;
-  }
-  if (look.facial === "goatee") {
-    g.fillStyle = hc;
-    Rb(-1.6, -8.6, 3.2, 2.6);
-    Rb(-2.4, -10.4, 4.8, 1.1); // a small moustache with it
-    return;
-  }
-  // full beard: fill the lower face
-  g.fillStyle = hc;
-  g.beginPath();
-  g.arc(cx, cy - 11 * s + bob, 6 * s, Math.PI * 0.08, Math.PI * 0.92);
-  g.closePath();
-  g.fill();
-  Rb(-2.4, -11, 4.8, 1.1); // moustache cap
-}
-
-function drawHair(g: Ctx, cx: number, cy: number, s: number, bob: number, look: Appearance): void {
-  if (look.hairStyle === "bald") return;
-  const hc = look.hair;
-  g.fillStyle = hc;
-  const R = (dx: number, dy: number, w: number, h: number) =>
-    g.fillRect(cx + dx * s, cy + dy * s + bob, w * s, h * s);
-  const cap = (r = 6) => {
-    g.beginPath();
-    g.arc(cx, cy - 12 * s + bob, r * s, Math.PI * 1.02, Math.PI * 1.98);
-    g.lineTo(cx + (r - 1) * s, cy - 13 * s + bob);
-    g.arc(cx, cy - 13 * s + bob, (r - 0.5) * s, Math.PI * 1.92, Math.PI * 1.08, true);
+    g.ellipse(cx, cyH, hw * s, hh * s, 0, 0, Math.PI, false);
+    g.lineTo(cx - hw * s, cyH - hh * top * s);
+    g.lineTo(cx + hw * s, cyH - hh * top * s);
     g.closePath();
     g.fill();
   };
+  g.fillStyle = hc;
+
+  switch (look.facial) {
+    case "stubble":
+      // Stubble used to be the full beard at 35% alpha — the same shape in a
+      // paler tone, which reads as a smudge rather than as growth. It is now
+      // its own shape: a shadow that follows the jawline and stops at the lip.
+      g.save();
+      g.globalAlpha = 0.42;
+      jawFill(-0.06);
+      g.globalAlpha = 0.3;
+      R(-2.4, -10.9, 4.8, 1.0);
+      g.restore();
+      return;
+    case "moustache":
+      R(-2.7, -10.5, 5.4, 1.4);
+      g.fillStyle = shade(hc, 0.25);
+      R(-2.7, -10.5, 5.4, 0.5);
+      return;
+    case "goatee":
+      R(-1.5, -9.4, 3.0, 2.8);          // the chin tuft
+      R(-2.5, -10.5, 5.0, 1.2);          // with a moustache
+      return;
+    case "chops":
+      // Side-whiskers down to the jaw, chin bare.
+      R(-(hw - 0.2), -13.4, 1.9, 4.6);
+      R(hw - 1.7, -13.4, 1.9, 4.6);
+      R(-(hw - 0.2), -9.4, 3.0, 1.3);
+      R(hw - 2.8, -9.4, 3.0, 1.3);
+      return;
+    case "long":
+      // A long beard falls past the chin onto the chest.
+      jawFill(-0.12);
+      g.beginPath();
+      g.moveTo(cx - 3.2 * s, cy - 9 * s + bob);
+      g.lineTo(cx + 3.2 * s, cy - 9 * s + bob);
+      g.lineTo(cx + 2.0 * s, cy - 1.5 * s + bob);
+      g.lineTo(cx - 2.0 * s, cy - 1.5 * s + bob);
+      g.closePath();
+      g.fill();
+      g.fillStyle = shade(hc, 0.22);
+      R(-0.5, -9, 1.0, 7.5);             // a parting down its length
+      g.fillStyle = hc;
+      R(-2.5, -10.6, 5.0, 1.2);
+      return;
+    case "beard":
+    default:
+      // A full beard, cut to the jaw rather than to a circle of fixed size —
+      // so a square jaw grows a square beard.
+      jawFill(-0.15);
+      R(-2.5, -10.7, 5.0, 1.2);          // moustache cap
+      g.fillStyle = shade(hc, 0.2);
+      R(-hw * 0.5, -8.2, hw, 0.9);       // a shadow under the chin
+      return;
+  }
+}
+
+/**
+ * Markings: scars, war paint and ink.
+ *
+ * The world has factions and regions with their own look — the Heartmoor cult,
+ * the Ashfen's fire-priests, the Lodge's hunters, the pale folk of the north —
+ * and a character had no way to say they belonged to any of them. These are
+ * drawn over the face after it, and only where a face is drawn.
+ */
+function drawMarking(
+  g: Ctx, cx: number, cy: number, s: number, bob: number,
+  look: Appearance, side: boolean, lx: number, hw: number,
+): void {
+  const id = look.marking;
+  if (!id || id === "none") return;
+  const col = look.markingColor ?? MARKING_COLORS[0]!;
+  const R = (dx: number, dy: number, w: number, h: number): void =>
+    g.fillRect(cx + dx * s, cy + dy * s + bob, w * s, h * s);
+  const blur = g.shadowBlur;
+  g.shadowBlur = 0;
+  g.fillStyle = col;
+  switch (id) {
+    case "scar_eye":       // a single old cut through one brow
+      g.save(); g.globalAlpha = 0.75;
+      R(1.6 * lx, -15.2, 0.7, 4.6);
+      g.restore();
+      break;
+    case "scar_cheek":     // three claw lines across the cheek
+      g.save(); g.globalAlpha = 0.7;
+      for (let i = 0; i < 3; i++) R((1.2 + i * 1.1) * lx, -12.6 + i * 0.3, 0.55, 3.0);
+      g.restore();
+      break;
+    case "warpaint_bar":   // one broad band across the eyes — the Ashfen's
+      g.save(); g.globalAlpha = 0.62;
+      R(-hw + 0.6, -13.4, (hw - 0.6) * 2, 2.2);
+      g.restore();
+      break;
+    case "warpaint_hand":  // a print daubed over the mouth — the Heartmoor cult
+      g.save(); g.globalAlpha = 0.55;
+      R(-1.9, -11.4, 3.8, 3.2);
+      for (let i = -1; i <= 1; i++) R(i * 1.4 - 0.3, -13.4, 0.7, 2.2);
+      g.restore();
+      break;
+    case "tattoo_chin":    // a line of marks down the chin — the northern folk
+      g.save(); g.globalAlpha = 0.7;
+      for (let i = 0; i < 3; i++) R(-0.35, -9.6 + i * 1.1, 0.7, 0.7);
+      g.restore();
+      break;
+    case "tattoo_brow":    // a band of small marks along the brow — the Lodge
+      g.save(); g.globalAlpha = 0.7;
+      for (let i = -2; i <= 2; i++) R(i * 1.3 - 0.3, -15.4, 0.7, 0.9);
+      g.restore();
+      break;
+    case "ash":            // soot over the eyes, from working a forge or a pyre
+      g.save(); g.globalAlpha = 0.4;
+      if (!side) { R(-3.6, -13.6, 7.2, 2.6); } else { R(1.0 * lx, -13.6, 3.4, 2.6); }
+      g.restore();
+      break;
+    default:
+      break;
+  }
+  g.shadowBlur = blur;
+}
+
+/**
+ * Hair.
+ *
+ * Six of the ten styles used to be a cap plus one rectangle, and the cap itself
+ * was a crescent between radius 6 and radius 5.5 — half a unit of hair — so
+ * "short" was indistinguishable from "bald" and "short", "side part" and
+ * "fringe" read as the same thing. The crown below is a solid cap fitted to the
+ * head it sits on (which now varies with the jaw and the build), and every style
+ * changes the silhouette rather than adding a mark to it.
+ */
+function drawHair(
+  g: Ctx, cx: number, cy: number, s: number, bob: number, look: Appearance,
+  hw: number, hh: number, side: boolean, lx: number,
+): void {
+  if (look.hairStyle === "bald" || look.hairStyle === "shaved") {
+    if (look.hairStyle === "shaved") {
+      // A shaved head is not a bald one: the stubble of it still shows.
+      g.save();
+      g.globalAlpha = 0.34;
+      g.fillStyle = look.hair;
+      crown(g, cx, cy, s, bob, hw * 0.99, hh * 0.99, -0.15);
+      g.restore();
+    }
+    return;
+  }
+  g.fillStyle = look.hair;
+  const R = (dx: number, dy: number, w: number, h: number): void =>
+    g.fillRect(cx + dx * s, cy + dy * s + bob, w * s, h * s);
+  const blob = (dx: number, dy: number, rx: number, ry: number, rot = 0): void => {
+    g.beginPath();
+    g.ellipse(cx + dx * s, cy + dy * s + bob, rx * s, ry * s, rot, 0, Math.PI * 2);
+    g.fill();
+  };
+
+  // TOP is the crown of the head and BROW is where the face begins; every style
+  // is placed against those two rather than against the figure's centre, so
+  // nothing lands on the eyes when the jaw or the build changes the head's size.
+  const TOP = -12 - hh;
+  const BROW = -15.0;
   switch (look.hairStyle) {
     case "long":
-      cap();
-      R(-6.2, -13, 1.8, 9); R(4.4, -13, 1.8, 9); // panels down both sides
+      crown(g, cx, cy, s, bob, hw + 0.5, hh + 0.4, 0.15);
+      R(-(hw + 0.4), -14.5, 1.9, 11);        // panels down both sides of the face
+      R(hw - 1.5, -14.5, 1.9, 11);
+      break;
+    case "bob":
+      crown(g, cx, cy, s, bob, hw + 0.6, hh + 0.5, 0.1);
+      R(-(hw + 0.5), -15.4, 2.4, 8.4);       // a straight cut level with the jaw
+      R(hw - 1.9, -15.4, 2.4, 8.4);
       break;
     case "topknot":
-      cap();
-      g.beginPath(); g.arc(cx, cy - 19 * s + bob, 2.2 * s, 0, Math.PI * 2); g.fill();
+      crown(g, cx, cy, s, bob, hw + 0.3, hh + 0.2, -0.05);
+      blob(0, TOP - 1.4, 2.5, 2.3);
+      g.fillStyle = shade(look.hair, 0.25);
+      R(-1.1, TOP + 0.3, 2.2, 1.5);          // the tie
+      g.fillStyle = look.hair;
       break;
-    case "mohawk":
-      R(-1.6, -19.5, 3.2, 8.5);
+    case "mohawk": {
+      // Shaved sides are the whole point of the silhouette, so there is no
+      // crown — but a bare head under a floating stripe reads as a mistake, so
+      // the shave itself shows as stubble.
+      g.save(); g.globalAlpha = 0.3;
+      crown(g, cx, cy, s, bob, hw + 0.2, hh + 0.15, -0.1);
+      g.restore();
+      g.beginPath();                       // a crest, tapered front to back
+      g.moveTo(cx - 2.2 * s, cy + (TOP + 1.6) * s + bob);
+      g.lineTo(cx - 1.6 * s, cy + (TOP - 5.2) * s + bob);
+      g.lineTo(cx + 1.9 * s, cy + (TOP - 4.4) * s + bob);
+      g.lineTo(cx + 2.4 * s, cy + (TOP + 1.6) * s + bob);
+      g.closePath(); g.fill();
+      g.fillStyle = shade(look.hair, 0.28);
+      R(-2.2, TOP - 4.6, 1.3, 6.2);
+      break;
+    }
+    case "undercut":
+      // Full on top, shaved to the temples: a hard horizontal edge.
+      crown(g, cx, cy, s, bob, hw + 0.4, hh + 0.3, -0.5);
+      R(-(hw + 0.3), BROW - 1.9, hw * 2 + 0.6, 1.5);
       break;
     case "spiky":
-      cap(5.4);
+      crown(g, cx, cy, s, bob, hw - 0.2, hh - 0.2, -0.35);
       for (let i = -2; i <= 2; i++) {
         g.beginPath();
-        g.moveTo(cx + i * 2.2 * s, cy - 17 * s + bob);
-        g.lineTo(cx + (i * 2.2 + 1.1) * s, cy - 20.5 * s + bob);
-        g.lineTo(cx + (i * 2.2 + 2.2) * s, cy - 17 * s + bob);
+        g.moveTo(cx + (i * 2.2 - 1.1) * s, cy + (TOP + 1.2) * s + bob);
+        g.lineTo(cx + (i * 2.2 + 0.2) * s, cy + (TOP - 3.4) * s + bob);
+        g.lineTo(cx + (i * 2.2 + 1.4) * s, cy + (TOP + 1.2) * s + bob);
+        g.closePath(); g.fill();
+      }
+      break;
+    case "wild":
+      crown(g, cx, cy, s, bob, hw + 0.7, hh + 0.6, 0.0);
+      for (let i = 0; i < 7; i++) {
+        const a = Math.PI * (1.06 + 0.147 * i);
+        blob(Math.cos(a) * (hw + 0.4), -12 + Math.sin(a) * (hh + 0.4), 2.1, 1.8, a);
+      }
+      break;
+    case "sidepart":
+      // A real sweep across the crown, parted hard on one side.
+      crown(g, cx, cy, s, bob, hw + 0.3, hh + 0.2, -0.2);
+      g.beginPath();
+      g.moveTo(cx - (hw + 0.3) * lx * s, cy + (BROW - 0.4) * s + bob);
+      g.quadraticCurveTo(cx + 0.5 * lx * s, cy + (BROW - 3.0) * s + bob,
+        cx + (hw + 0.6) * lx * s, cy + (BROW + 0.9) * s + bob);
+      g.lineTo(cx + (hw + 0.6) * lx * s, cy + (BROW - 1.2) * s + bob);
+      g.lineTo(cx - (hw + 0.3) * lx * s, cy + (BROW - 2.0) * s + bob);
+      g.closePath(); g.fill();
+      break;
+    case "ponytail":
+      crown(g, cx, cy, s, bob, hw + 0.3, hh + 0.2, -0.05);
+      blob(-(hw + 1.4) * lx, -10.5, 1.9, 4.6, -0.3 * lx);
+      break;
+    case "braid":
+      crown(g, cx, cy, s, bob, hw + 0.4, hh + 0.3, 0.05);
+      for (let i = 0; i < 4; i++) blob(-(hw + 1.2) * lx, -13.5 + i * 2.6, 1.5 - i * 0.12, 1.5);
+      break;
+    case "curly":
+      crown(g, cx, cy, s, bob, hw + 0.4, hh + 0.3, 0.0);
+      for (let i = -2; i <= 2; i++) blob(i * 2.5, TOP + 0.4, 2.2, 2.0);
+      blob(-(hw + 0.2), BROW + 0.6, 2.0, 2.0);
+      blob(hw + 0.2, BROW + 0.6, 2.0, 2.0);
+      break;
+    case "fringe":
+      crown(g, cx, cy, s, bob, hw + 0.4, hh + 0.3, -0.1);
+      R(-(hw + 0.3), BROW - 1.6, hw * 2 + 0.6, 2.0);  // cut straight across the brow
+      break;
+    case "short":
+    default:
+      crown(g, cx, cy, s, bob, hw + 0.25, hh + 0.2, -0.08);
+      break;
+  }
+  // A little light on the crown, so hair is not a flat silhouette. Skipped in
+  // profile, where the lit side may be the one facing away.
+  if (!side && look.hairStyle !== "mohawk") {
+    g.fillStyle = "rgba(255,246,224,0.13)";
+    g.beginPath();
+    g.ellipse(cx - hw * 0.35 * lx * s, cy + (-12 - hh + 1.6) * s + bob, hw * 0.4 * s, 1.2 * s, 0, 0, Math.PI * 2);
+    g.fill();
+  }
+}
+
+/**
+ * The cap of hair over the top of the skull — a filled dome fitted to the head,
+ * not the half-unit crescent it used to be. `drop` moves the hairline: negative
+ * sits it high (a short cut), positive brings it down over the ears.
+ */
+function crown(
+  g: Ctx, cx: number, cy: number, s: number, bob: number,
+  hw: number, hh: number, drop: number,
+): void {
+  const cyH = cy - 12 * s + bob;
+  // Where the hairline sits. It has to clear the brow — which is at about 1.9
+  // units above the head's centre — or the hair covers the face, which is what
+  // half these styles did the first time round.
+  const hairline = cyH - (3.0 - drop * 3.4) * s;
+  g.beginPath();
+  g.ellipse(cx, cyH, hw * s, hh * s, 0, Math.PI, Math.PI * 2);
+  g.lineTo(cx + hw * s, hairline);
+  g.lineTo(cx - hw * s, hairline);
+  g.closePath();
+  g.fill();
+}
+
+/**
+ * The back of the head, for a figure walking away from the camera.
+ *
+ * Only five of the ten styles used to get any treatment here at all; the rest
+ * fell to a plain circle, so from behind a mohawk, a side part and a crew cut
+ * were the same brown disc. Every style now reads from behind too — which is
+ * half of what makes the figure's four views worth having.
+ */
+function drawHairBack(
+  g: Ctx, cx: number, cy: number, s: number, bob: number, look: Appearance,
+  hw: number, hh: number,
+): void {
+  if (look.hairStyle === "bald") return; // bare scalp from behind = the skin head
+  g.fillStyle = look.hair;
+  const R = (dx: number, dy: number, w: number, h: number): void =>
+    g.fillRect(cx + dx * s, cy + dy * s + bob, w * s, h * s);
+  const blob = (dx: number, dy: number, rx: number, ry: number, rot = 0): void => {
+    g.beginPath();
+    g.ellipse(cx + dx * s, cy + dy * s + bob, rx * s, ry * s, rot, 0, Math.PI * 2);
+    g.fill();
+  };
+  if (look.hairStyle === "shaved") {
+    g.save(); g.globalAlpha = 0.34;
+    blob(0, -12, hw * 0.99, hh * 0.99);
+    g.restore();
+    return;
+  }
+  // A full crown of hair covering where the face would be.
+  if (look.hairStyle !== "mohawk") blob(0, -11.9, hw + 0.3, hh + 0.2);
+
+  switch (look.hairStyle) {
+    case "long":
+    case "wild":
+      R(-(hw + 0.3), -12, hw * 2 + 0.6, 8.5); // a mane spilling down the back
+      break;
+    case "bob":
+      R(-(hw + 0.5), -12.5, hw * 2 + 1, 5.5);
+      break;
+    case "curly":
+      for (let i = -2; i <= 2; i++) blob(i * 2.4, -15.6, 2.1, 1.9);
+      for (let i = 0; i < 3; i++) blob((i - 1) * 3.4, -7.6, 2.3, 2.1);
+      break;
+    case "ponytail":
+      blob(0, -6.5, 2.1, 5);
+      R(-1.2, -12.6, 2.4, 1.6); // the tie
+      break;
+    case "braid":
+      for (let i = 0; i < 4; i++) blob(0, -11 + i * 2.6, 1.6 - i * 0.12, 1.6);
+      break;
+    case "topknot":
+      blob(0, -12 - hh - 1.4, 2.5, 2.3);
+      g.fillStyle = shade(look.hair, 0.25);
+      R(-1.1, -12 - hh + 0.3, 2.2, 1.5);
+      break;
+    case "mohawk": {
+      // From behind the crest is the whole head: a narrow ridge over a shaved
+      // scalp. The shave is stubble ON the skull, not two blocks beside it.
+      g.save(); g.globalAlpha = 0.3;
+      blob(0, -11.9, hw + 0.2, hh + 0.15);
+      g.restore();
+      g.beginPath();
+      g.moveTo(cx - 2.2 * s, cy + (-12 - hh + 1.6) * s + bob);
+      g.lineTo(cx - 1.8 * s, cy + (-12 - hh - 5.2) * s + bob);
+      g.lineTo(cx + 1.8 * s, cy + (-12 - hh - 5.2) * s + bob);
+      g.lineTo(cx + 2.2 * s, cy + (-12 - hh + 1.6) * s + bob);
+      g.closePath(); g.fill();
+      R(-1.9, -12 - hh + 1.4, 3.8, 5.6);   // the ridge running down the nape
+      break;
+    }
+    case "undercut":
+      // The shaved band shows from behind as bare skin under the hair.
+      g.fillStyle = shade(look.skin, 0.08);
+      g.beginPath();
+      g.ellipse(cx, cy - 9.6 * s + bob, (hw - 0.3) * s, 3.2 * s, 0, 0, Math.PI);
+      g.fill();
+      break;
+    case "spiky":
+      for (let i = -2; i <= 2; i++) {
+        g.beginPath();
+        g.moveTo(cx + (i * 2.2 - 1.1) * s, cy + (-12 - hh + 1.2) * s + bob);
+        g.lineTo(cx + (i * 2.2 + 0.2) * s, cy + (-12 - hh - 3.4) * s + bob);
+        g.lineTo(cx + (i * 2.2 + 1.4) * s, cy + (-12 - hh + 1.2) * s + bob);
         g.closePath(); g.fill();
       }
       break;
     case "sidepart":
-      cap();
-      R(-6.4, -15.5, 5.5, 3); // a swept fringe to one side
-      break;
-    case "ponytail":
-      cap();
-      g.beginPath(); // tail behind, to the right
-      g.ellipse(cx + 6 * s, cy - 9 * s + bob, 1.8 * s, 4.5 * s, -0.3, 0, Math.PI * 2);
-      g.fill();
-      break;
-    case "curly":
-      g.beginPath(); g.arc(cx, cy - 13.5 * s + bob, 6.6 * s, Math.PI, Math.PI * 2); g.fill();
-      for (let i = -2; i <= 2; i++) { // bumps along the top
-        g.beginPath(); g.arc(cx + i * 2.6 * s, cy - 15 * s + bob, 2.1 * s, 0, Math.PI * 2); g.fill();
-      }
-      break;
     case "fringe":
-      cap();
-      R(-6, -13, 12, 2.6); // a fringe low over the brow
-      break;
     case "short":
     default:
-      cap();
-      break;
-  }
-}
-
-/** The back of the head, for a figure walking away from the camera: hair fills
- *  the whole crown (no face), with a few styles trailing lower. Bald leaves the
- *  bare scalp (the skin head already drawn) showing. */
-function drawHairBack(g: Ctx, cx: number, cy: number, s: number, bob: number, look: Appearance): void {
-  if (look.hairStyle === "bald") return; // bare scalp from behind = the skin head
-  const hc = look.hair;
-  g.fillStyle = hc;
-  // A full crown of hair covering where the face would be, leaving a thin skin
-  // rim at the very bottom to read as the nape/jaw.
-  g.beginPath();
-  g.arc(cx, cy - 11.7 * s + bob, 6.1 * s, 0, Math.PI * 2);
-  g.fill();
-  const R = (dx: number, dy: number, w: number, h: number) =>
-    g.fillRect(cx + dx * s, cy + dy * s + bob, w * s, h * s);
-  switch (look.hairStyle) {
-    case "long":
-    case "curly":
-      R(-6, -12, 12, 8); // a mane spilling down the back
-      break;
-    case "ponytail":
-      g.beginPath();
-      g.ellipse(cx, cy - 6 * s + bob, 2 * s, 5 * s, 0, 0, Math.PI * 2);
-      g.fill();
-      break;
-    case "topknot":
-      g.beginPath();
-      g.arc(cx, cy - 18 * s + bob, 2.2 * s, 0, Math.PI * 2);
-      g.fill();
-      break;
-    case "mohawk":
-      R(-1.6, -19.5, 3.2, 9); // the crest still stands from behind
-      break;
-    default:
+      // A neat nape: the hairline stops short of the collar rather than the
+      // hair simply ending where the head does.
+      g.fillStyle = shade(look.hair, 0.22);
+      R(-(hw - 1.2), -7.4, (hw - 1.2) * 2, 1.4);
       break;
   }
 }

@@ -1505,6 +1505,10 @@ export interface Appearance {
   /** Facial-hair colour. Absent means "the same as the hair", which is what the
    *  figure did unconditionally before — so a beard can now go grey on its own. */
   beardColor?: string;
+  /** A scar, war paint or ink on the face (e.g. "scar_eye", "warpaint_bar"). */
+  marking?: string;
+  /** What that marking is made of. */
+  markingColor?: string;
 }
 
 /** What the player is currently busy doing, if anything. */

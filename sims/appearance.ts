@@ -21,7 +21,7 @@ import { hydratePlayer, serializePlayer } from "../src/core/save.ts";
 import {
   BROW_STYLES, BUILD_STYLES, CLOTH, DEFAULT_APPEARANCE, EYE_STYLES, EYES,
   FACIAL_STYLES, HAIR_STYLES, HAIRS, JAW_STYLES, LEG_STYLES, SHOE_STYLES,
-  HEIGHT_STYLES, SKINS, TOP_STYLES,
+  HEIGHT_STYLES, MARKING_COLORS, MARKING_STYLES, SKINS, TOP_STYLES,
 } from "../src/client/avatar.ts";
 import type { Appearance } from "../src/core/types.ts";
 
@@ -83,8 +83,14 @@ const avatar = read("src/client/avatar.ts");
 const hairCases = new Set([...avatar
   .slice(avatar.indexOf("function drawHair("), avatar.indexOf("function drawHairBack("))
   .matchAll(/case "([a-z]+)"/g)].map((m) => m[1]!));
+// "bald" and "shaved" are handled by drawHair's early return rather than by a
+// switch case — they are the two styles defined by the absence of hair.
+const HAIR_EARLY = new Set(["bald", "shaved"]);
 for (const h of HAIR_STYLES) {
-  check(h.id === "bald" || hairCases.has(h.id), `hair style "${h.id}" is offered but drawHair has no case for it`);
+  check(HAIR_EARLY.has(h.id) || hairCases.has(h.id),
+    `hair style "${h.id}" is offered but drawHair has no case for it`);
+  check(HAIR_EARLY.has(h.id) || avatar.includes(`"${h.id}"`),
+    `hair style "${h.id}" is never mentioned by the renderer`);
 }
 const facialBody = avatar.slice(avatar.indexOf("function drawFacial("), avatar.indexOf("function drawHair("));
 // drawFacial is a chain of early returns ending in a fall-through, so exactly
@@ -193,7 +199,34 @@ for (const h of HEIGHT_STYLES) {
     `height "${h.id}" is offered but hydratePlayer will not accept it — it will revert on reload`);
 }
 
-// --- 9) The creator can be operated without a pointer ------------------------
+// --- 9) Hair, beards and markings all read ----------------------------------
+// Six of the ten hair styles used to be a cap plus one rectangle, and the cap
+// was a half-unit crescent — so "short" was indistinguishable from "bald" and
+// short, side part and fringe were the same picture. Only five styles had any
+// back view at all.
+check(HAIR_STYLES.length >= 14, `only ${HAIR_STYLES.length} hair styles`);
+check(/function crown\(/.test(avatar), "the hair cap is no longer a fitted crown");
+const backBody = avatar.slice(avatar.indexOf("function drawHairBack("));
+const backCases = new Set([...backBody.matchAll(/case "([a-z]+)"/g)].map((m) => m[1]!));
+// Short, fringe and side part legitimately share a nape from behind; everything
+// with a shape of its own must keep it when the figure turns away.
+const NEEDS_BACK = ["long", "bob", "ponytail", "braid", "topknot", "curly", "wild", "mohawk", "undercut", "spiky"];
+for (const id of NEEDS_BACK) {
+  check(backCases.has(id), `"${id}" has no back view — it renders as a plain head from behind`);
+  check(HAIR_STYLES.some((h) => h.id === id), `the sim expects a "${id}" hair style that no longer exists`);
+}
+check(FACIAL_STYLES.length >= 6, `only ${FACIAL_STYLES.length} facial-hair options`);
+check(!/globalAlpha = 0\.35;[\s\S]{0,80}arc\(cx, cy - 10/.test(avatar),
+  "stubble is the full beard at reduced alpha again — it needs its own shape");
+check(MARKING_STYLES.length >= 6 && MARKING_COLORS.length >= 4,
+  "the markings list has shrunk");
+for (const m of MARKING_STYLES) {
+  check(m.id === "none" || avatar.includes(`case "${m.id}"`), `marking "${m.id}" is offered but never drawn`);
+}
+check(hydrateBlock.includes('"marking"') && hydrateBlock.includes('"markingColor"'),
+  "markings are not in the save's allow-list and will not survive a reload");
+
+// --- 10) The creator can be operated without a pointer -----------------------
 const creator = read("src/client/characterCreator.ts");
 check(!creator.includes('addEventListener("pointerdown"'),
   "the creator is bound to pointerdown again — Enter and Space on a focused control will do nothing");

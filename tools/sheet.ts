@@ -149,6 +149,11 @@ async function main(): Promise<void> {
       ...A.LEG_STYLES.map((t) => mk({ legs: t.id }, "legs " + t.label, { facing: "down" })),
       ...A.SHOE_STYLES.map((t) => mk({ shoes: t.id }, "shoes " + t.label, { facing: "down" })),
     ];
+    // Markings, each over a face so the placement can be judged.
+    const markings = [
+      ...A.MARKING_STYLES.map((m) => mk({ marking: m.id }, m.label, { facing: "down" })),
+      ...A.MARKING_COLORS.map((c, i) => mk({ marking: "warpaint_bar", markingColor: c }, "paint " + i, { facing: "down" })),
+    ];
     // The face, which the figure did not have: every eye, brow and jaw.
     const faces = [
       ...A.EYE_STYLES.map((e) => mk({ eyes: e.id }, "eyes " + e.label, { facing: "down" })),
@@ -161,7 +166,7 @@ async function main(): Promise<void> {
       ...A.SKINS.map((c, i) => mk({ skin: c }, "skin " + i, { facing: "down" })),
       ...A.HAIRS.map((c, i) => mk({ hair: c }, "hair " + i, { facing: "down" })),
     ];
-    return { hair, hairBack, beards, facings, builds, clothes, palette, faces };
+    return { hair, hairBack, beards, facings, builds, clothes, palette, faces, markings };
   })()`) as Record<string, unknown[]>;
 
   // Gear needs real items, so it is built from the content tables.
@@ -198,6 +203,7 @@ async function main(): Promise<void> {
   await sheet(page, "beards", { title: "Facial hair", cells: specs["beards"], cols: 5, now });
   await sheet(page, "builds", { title: "Builds and heights", cells: specs["builds"], cols: 4, now });
   await sheet(page, "clothes", { title: "Tops, legs, shoes", cells: specs["clothes"], cols: 5, now });
+  await sheet(page, "markings", { title: "Scars, paint and ink", cells: specs["markings"], cols: 5, now });
   await sheet(page, "faces", { title: "Eyes, brows, jaws and irises", cells: specs["faces"], cols: 5, now });
   await sheet(page, "palette", { title: "Skin and hair palettes", cells: specs["palette"], cols: 7, now });
   await sheet(page, "gear", { title: "Worn gear × facings", cells: gear, cols: 4, now });
