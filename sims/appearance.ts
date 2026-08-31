@@ -21,7 +21,7 @@ import { hydratePlayer, serializePlayer } from "../src/core/save.ts";
 import {
   BROW_STYLES, BUILD_STYLES, CLOTH, DEFAULT_APPEARANCE, EYE_STYLES, EYES,
   FACIAL_STYLES, HAIR_STYLES, HAIRS, JAW_STYLES, LEG_STYLES, SHOE_STYLES,
-  SKINS, TOP_STYLES,
+  HEIGHT_STYLES, SKINS, TOP_STYLES,
 } from "../src/client/avatar.ts";
 import type { Appearance } from "../src/core/types.ts";
 
@@ -173,7 +173,27 @@ for (const k of ["eyeColor", "beardColor"]) {
 check(/look\.beardColor \?\? look\.hair/.test(avatar),
   "facial hair is hard-wired to the hair colour again — a beard cannot go grey");
 
-// --- 8) The creator can be operated without a pointer ------------------------
+// --- 8) A build is a build, not a stretch ------------------------------------
+// `build` used to be a horizontal scale of the ENTIRE figure — head, helmet and
+// weapon included — so Lean and Broad were the same person at two aspect ratios.
+check(!/g\.scale\(bx, 1\)/.test(avatar), "the build is a horizontal stretch of the whole figure again");
+const buildTable = avatar.slice(avatar.indexOf("const BUILDS:"), avatar.indexOf("function drawAvatarInner("));
+for (const b of BUILD_STYLES) {
+  check(new RegExp(`\\b${b.id}: \\{`).test(buildTable), `build "${b.id}" is offered but has no geometry`);
+}
+// Each build must differ from average in more than one dimension, or it is a
+// label rather than a frame.
+for (const dim of ["shoulder", "waist", "limb", "stance"]) {
+  const vals = [...buildTable.matchAll(new RegExp(`${dim}: ([0-9.]+)`, "g"))].map((m) => Number(m[1]));
+  check(new Set(vals).size >= 3, `every build has almost the same ${dim} (${new Set(vals).size} distinct values)`);
+}
+for (const h of HEIGHT_STYLES) {
+  check(h.id === "average" || avatar.includes(`${h.id}: `), `height "${h.id}" is offered but has no scale`);
+  check(h.id === "average" || save.includes(`ht === "${h.id}"`),
+    `height "${h.id}" is offered but hydratePlayer will not accept it — it will revert on reload`);
+}
+
+// --- 9) The creator can be operated without a pointer ------------------------
 const creator = read("src/client/characterCreator.ts");
 check(!creator.includes('addEventListener("pointerdown"'),
   "the creator is bound to pointerdown again — Enter and Space on a focused control will do nothing");

@@ -1480,9 +1480,13 @@ export interface Appearance {
   legs: string;
   /** Footwear design id (e.g. "boots", "sandals", "clogs"). */
   shoes: string;
-  /** Body silhouette: a lean or broad frame vs the default average build.
-   *  Optional — old saves read as "average". */
-  build?: "lean" | "broad";
+  /** Body silhouette. Optional — an absent build reads as "average", which is
+   *  why the union does not name it. Widening this list is safe in both
+   *  directions: an old save only ever wrote "lean" or "broad", and an unknown
+   *  id read by an older client falls through to the average frame. */
+  build?: "lean" | "broad" | "heavy";
+  /** How tall the character stands. Absent reads as average. */
+  height?: "short" | "tall";
 
   // --- The face -------------------------------------------------------------
   // Every field below is OPTIONAL and holds a string, which is what makes this

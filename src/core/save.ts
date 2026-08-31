@@ -562,7 +562,9 @@ export function hydratePlayer(
     // nobody, which meant choosing Lean or Broad in the creator lasted exactly
     // until the next reload and then silently became average again.
     const b = savedApp["build"];
-    if (b === "lean" || b === "broad") a.build = b;
+    if (b === "lean" || b === "broad" || b === "heavy") a.build = b;
+    const ht = savedApp["height"];
+    if (ht === "short" || ht === "tall") a.height = ht;
   }
   // Bounty: restore marks, the chosen guide, and any active task — all guarded so
   // a save from before Bounty existed (no `bounty` key) just keeps the fresh state.

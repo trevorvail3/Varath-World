@@ -131,11 +131,16 @@ async function main(): Promise<void> {
     const beards = A.FACIAL_STYLES.map((f) => mk({ facial: f.id }, f.label, { facing: "down" }));
     // One character, all four facings — the sheet that shows the figure turning.
     const facings = FACINGS.map((f) => mk({}, f, { facing: f }));
-    // Every build in every facing.
+    // Every build in every facing, and every height beside them.
     const builds = [];
     for (const b of A.BUILD_STYLES) {
-      for (const f of FACINGS) {
+      for (const f of ["down", "right"]) {
         builds.push(mk(b.id === "average" ? {} : { build: b.id }, b.label + " · " + f, { facing: f }));
+      }
+    }
+    for (const ht of A.HEIGHT_STYLES) {
+      for (const f of ["down", "right"]) {
+        builds.push(mk(ht.id === "average" ? {} : { height: ht.id }, ht.label + " · " + f, { facing: f }));
       }
     }
     // Clothes: every top, leg and shoe style.
@@ -191,7 +196,7 @@ async function main(): Promise<void> {
   await sheet(page, "hair-front", { title: "Hair styles — front", cells: specs["hair"], cols: 5, now });
   await sheet(page, "hair-back", { title: "Hair styles — back", cells: specs["hairBack"], cols: 5, now });
   await sheet(page, "beards", { title: "Facial hair", cells: specs["beards"], cols: 5, now });
-  await sheet(page, "builds", { title: "Builds × facings", cells: specs["builds"], cols: 4, now });
+  await sheet(page, "builds", { title: "Builds and heights", cells: specs["builds"], cols: 4, now });
   await sheet(page, "clothes", { title: "Tops, legs, shoes", cells: specs["clothes"], cols: 5, now });
   await sheet(page, "faces", { title: "Eyes, brows, jaws and irises", cells: specs["faces"], cols: 5, now });
   await sheet(page, "palette", { title: "Skin and hair palettes", cells: specs["palette"], cols: 7, now });
