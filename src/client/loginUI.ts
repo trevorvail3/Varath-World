@@ -17,8 +17,33 @@
  * account; that character never touches the cloud.
  */
 
-import { clearRecoveryFragment, recoveryToken, resetPassword, setPassword, signIn, signUp } from "./supabase.ts";
+import {
+  clearRecoveryFragment, lastAuthFailure, projectRef, recoveryToken, resetPassword,
+  setPassword, signIn, signUp, staleSessionRef,
+} from "./supabase.ts";
 import { audio } from "./audio.ts";
+
+/**
+ * WHY YOU WERE SIGNED OUT, when the app actually knows.
+ *
+ * `readSession` drops a session issued by a different project — correct, and it
+ * used to be silent, which is what turned a repointed backend into an
+ * unexplainable login failure. `SESSION_KEY` is shared across all three games on
+ * purpose, so they all dropped their sessions at the same moment and all showed
+ * the same useless refusal. Saying so is the difference between one fault and
+ * three.
+ */
+function staleNotice(): string {
+  const ref = staleSessionRef();
+  if (ref === "") return "";
+  const esc = (t: string): string => t.replace(/[&<>"]/g, (c) =>
+    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c] ?? c);
+  return `<div class="login-stale">You were signed out because this game's account service was
+    replaced — your session came from <b>${esc(ref)}</b> and this build talks to
+    <b>${esc(projectRef())}</b>. Accounts made before then did not carry over, here or in the idle
+    game or Hearthkeep, which share one sign-in. <b>Create your account again with the same
+    email</b> and it will work in all three.</div>`;
+}
 
 export class LoginUI {
   private backdrop: HTMLElement;
@@ -79,9 +104,13 @@ export class LoginUI {
           <button class="login-create" type="button">Create account</button>
           <button class="login-forgot" type="button">Forgot your password?</button>
           <div class="login-msg"></div>
+          <div class="login-raw"></div>
         </form>
+        ${staleNotice()}
         <button class="login-offline" type="button">Play offline</button>
-        <div class="login-foot">Same account as the idle game. Offline play saves only in this browser.</div>
+        <div class="login-foot">Same account as the idle game and Hearthkeep — one sign-in across every
+          IronVail game. Offline play saves only in this browser.</div>
+        <div class="login-ref">this build talks to <b>${projectRef()}</b></div>
         <button class="login-mute" type="button"></button>
       </div>`;
 
@@ -92,10 +121,14 @@ export class LoginUI {
     const create = this.backdrop.querySelector(".login-create") as HTMLButtonElement;
     const msg = this.backdrop.querySelector(".login-msg") as HTMLElement;
 
+    const raw = this.backdrop.querySelector(".login-raw") as HTMLElement;
     const busy = (on: boolean): void => { go.disabled = on; create.disabled = on; };
     const say = (m: string, ok = false): void => {
       msg.textContent = m;
       msg.classList.toggle("ok", ok);
+      // The verbatim refusal, under the sentence, in small type. It is the
+      // difference between "sign in is broken" and knowing WHICH thing said no.
+      raw.textContent = ok || m === "" ? "" : lastAuthFailure();
     };
 
     form.addEventListener("submit", (e) => {
