@@ -21,10 +21,17 @@ import type { Content, EquipSlot, ItemDef, ItemId } from "../core/types.ts";
 import { materialOf, TIER_LADDER } from "./palette.ts";
 
 export interface Metal { base: string; edge: string }
+
+/** Which silhouette an offhand is carried as. */
+export type ShieldShape = "kite" | "buckler" | "orb";
 /** Which silhouette a worn piece draws as: heavy plate, light leather (Draw
  *  gear), or a flowing robe (Devotion/magic). Drives shape, not just colour. */
 export type ArmorStyle = "plate" | "leather" | "robe";
-export interface GearPiece extends Metal { style: ArmorStyle }
+export interface GearPiece extends Metal {
+  style: ArmorStyle;
+  /** Offhand only: which silhouette to carry (see shieldShape). */
+  shape?: ShieldShape;
+}
 export interface GearLook {
   helmet?: GearPiece;
   body?: GearPiece;
@@ -200,6 +207,23 @@ function weaponShape(item: ItemDef): string {
   return "sword";
 }
 
+/**
+ * What an offhand IS, so the figure can carry the right thing.
+ *
+ * Every offhand in the game classifies as "plate" armour — none of the
+ * seventeen is flagged magic or ranged — so styling the shield by armour school
+ * alone would have left a buckler and a delver's lantern drawn as the same kite
+ * shield forever. The item says what it is in its own name, which is the same
+ * trick `weaponShape` uses for bows and staves.
+ */
+export function shieldShape(item: ItemDef): ShieldShape {
+  const s = (item.id + " " + (item.name ?? "")).toLowerCase();
+  if (/buckler|targe/.test(s)) return "buckler";
+  if (/lantern|orb|focus|tome|ward\b/.test(s)) return "orb";
+  if (item.magic) return "orb";
+  return "kite";
+}
+
 /** Resolve worn equipment into the visuals the avatar should layer on. */
 export function resolveGear(
   eq: Partial<Record<EquipSlot, ItemId>>,
@@ -216,6 +240,10 @@ export function resolveGear(
   piece("legs", "legs");
   piece("boots", "boots");
   piece("offhand", "shield");
+  // The shield's silhouette comes from what the item is, not from which combat
+  // school its stats belong to.
+  const off = eq.offhand ? content.items[eq.offhand] : undefined;
+  if (off && out.shield) out.shield.shape = shieldShape(off);
   const cape = eq.cape ? content.items[eq.cape] : undefined;
   if (cape) out.cape = { color: capeColor(cape) };
   const main = eq.mainhand ? content.items[eq.mainhand] : undefined;

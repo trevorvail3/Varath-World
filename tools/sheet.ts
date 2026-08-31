@@ -184,16 +184,43 @@ async function main(): Promise<void> {
       ["staff", { mainhand: "staff_greyoak" }],
       ["cape", { cape: "cape_founder" }],
     ];
+    // The three offhands and the three boots, which used to be one shape each.
+    const kitRows = [
+      ["boot plate", { boots: "boot_5" }],
+      ["boot leather", { boots: "cured_boots" }],
+      ["boot robe", { boots: "mag_boots_2" }],
+      ["kite shield", { offhand: "shield_6" }],
+      ["buckler", { offhand: "watchmans_buckler" }],
+      ["lantern", { offhand: "delvers_lantern" }],
+    ];
+    // A weapon ladder: a caster's and an archer's progression were invisible.
+    const tierRows = [
+      ["bow t1", { mainhand: "crude_shortbow" }],
+      ["bow t5", { mainhand: "greyoak_longbow" }],
+      ["bow t10", { mainhand: "ascendant_bow" }],
+      ["staff t1", { mainhand: "staff_ashwood" }],
+      ["staff t5", { mainhand: "staff_greyoak" }],
+      ["staff t10", { mainhand: "ascendant_staff" }],
+    ];
+    const clean = (eq) => {
+      const out = {};
+      for (const k of Object.keys(eq)) if (items[eq[k]]) out[k] = eq[k];
+      return out;
+    };
     const cells = [];
     for (const [label, eq] of wanted) {
-      const clean = {};
-      for (const k of Object.keys(eq)) if (items[eq[k]]) clean[k] = eq[k];
       for (const f of ["down", "left", "up", "right"]) {
-        cells.push({ look: { ...D }, label: label + " · " + f, facing: f, gear: A.resolveGear(clean, A.content) });
+        cells.push({ look: { ...D }, label: label + " · " + f, facing: f, gear: A.resolveGear(clean(eq), A.content) });
       }
     }
-    return cells;
-  })()`) as unknown[];
+    const kit = [];
+    for (const [label, eq] of [...kitRows, ...tierRows]) {
+      const resolved = A.resolveGear(clean(eq), A.content);
+      const missing = Object.keys(eq).length > 0 && Object.keys(clean(eq)).length === 0;
+      kit.push({ look: { ...D }, label: missing ? label + " (no item)" : label, facing: "down", gear: resolved });
+    }
+    return { cells, kit };
+  })()`) as { cells: unknown[]; kit: unknown[] };
 
   console.log(`contact sheets → ${OUT}/`);
   const now = 4200; // a fixed clock: mid-stride, so the walk pose is comparable
@@ -206,7 +233,8 @@ async function main(): Promise<void> {
   await sheet(page, "markings", { title: "Scars, paint and ink", cells: specs["markings"], cols: 5, now });
   await sheet(page, "faces", { title: "Eyes, brows, jaws and irises", cells: specs["faces"], cols: 5, now });
   await sheet(page, "palette", { title: "Skin and hair palettes", cells: specs["palette"], cols: 7, now });
-  await sheet(page, "gear", { title: "Worn gear × facings", cells: gear, cols: 4, now });
+  await sheet(page, "gear", { title: "Worn gear × facings", cells: gear.cells, cols: 4, now });
+  await sheet(page, "kit", { title: "Boots, offhands and weapon tiers", cells: gear.kit, cols: 6, now });
   await sheet(page, "walk", { title: "Walk cycle", cells: specs["facings"], cols: 4, now, moving: true });
 
   await browser.close();

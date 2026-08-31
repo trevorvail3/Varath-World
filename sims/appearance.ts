@@ -226,7 +226,39 @@ for (const m of MARKING_STYLES) {
 check(hydrateBlock.includes('"marking"') && hydrateBlock.includes('"markingColor"'),
   "markings are not in the save's allow-list and will not survive a reload");
 
-// --- 10) The creator can be operated without a pointer -----------------------
+// --- 10) Worn gear reads on the figure ---------------------------------------
+// Boots and shields ignored ArmorStyle entirely: a mage's slipper, a ranger's
+// boot and a plate sabaton were the same three rectangles, and a buckler, a
+// kite shield and a lantern were the same hexagon at a fixed offset.
+for (const st of ["robe", "leather"]) {
+  check(new RegExp(`bs === "${st}"`).test(avatar), `boots no longer have a "${st}" shape`);
+}
+for (const sh of ["orb", "buckler"]) {
+  check(new RegExp(`st === "${sh}"`).test(avatar), `offhands no longer have a "${sh}" shape`);
+}
+// Every offhand in the game is plate-styled, so the shape must come from the
+// item rather than from the armour school, or two of the three are dead code.
+const gearSrc = read("src/client/gearLook.ts");
+check(/export function shieldShape/.test(gearSrc), "the offhand's silhouette is back to being styled by armour school");
+const offhands = Object.values(content.items).filter((i) => i && i.slot === "offhand");
+check(offhands.length > 0, "no offhand items found — is the probe reading the right slot?");
+const shapes = new Set(offhands.map((i) => {
+  const t = (i!.id + " " + (i!.name ?? "")).toLowerCase();
+  return /buckler|targe/.test(t) ? "buckler" : /lantern|orb|focus|tome|ward\b/.test(t) ? "orb" : "kite";
+}));
+check(shapes.size >= 2, `all ${offhands.length} offhands resolve to one silhouette (${[...shapes].join(", ")})`);
+
+// Bows, staves and rods ignored the metal argument, so a ranger's and a
+// caster's whole progression was invisible on the figure.
+const toolBody = avatar.slice(avatar.indexOf("export function drawTool"));
+const bowCase = toolBody.slice(toolBody.indexOf('case "bow"'), toolBody.indexOf('case "staff"'));
+check(/\biron\b|\bsteel\b/.test(bowCase), "the bow ignores its weapon's material again");
+const staffCase = toolBody.slice(toolBody.indexOf('case "staff"'), toolBody.indexOf('default:'));
+check(/\biron\b|\bsteel\b/.test(staffCase), "the staff ignores its weapon's material again");
+check(/function tierGlow\(/.test(avatar), "every staff glows the same colour again");
+check(/tool === "bow" && tier >= 4/.test(avatar), "a bow's tier no longer shows on the weapon");
+
+// --- 11) The creator can be operated without a pointer -----------------------
 const creator = read("src/client/characterCreator.ts");
 check(!creator.includes('addEventListener("pointerdown"'),
   "the creator is bound to pointerdown again — Enter and Space on a focused control will do nothing");

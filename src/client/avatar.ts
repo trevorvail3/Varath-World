@@ -449,10 +449,30 @@ function drawAvatarInner(
       }
     }
     if (gear.boots) {
-      // Plated sabaton replaces the cloth shoe.
-      g.fillStyle = D(gear.boots.base); R(bx - 0.4, 9.8 + y, L(5.8), 3);
-      g.fillStyle = D(gear.boots.edge); R(bx - 0.4, 9.8 + y, L(5.8), 0.8);
-      g.fillStyle = shade(gear.boots.base, 0.35); R(bx - 0.4, 12.2 + y, L(5.8), 0.6); // sole
+      // Worn footwear by what it IS, not just what colour it is. Every boot in
+      // the game used to be the same three rectangles: a mage's slipper, a
+      // ranger's boot and a plate sabaton differed only in tint.
+      const bs = gear.boots.style;
+      if (bs === "robe") {
+        // A soft slipper: low, no sole to speak of, gathered at the ankle.
+        g.fillStyle = D(gear.boots.base); R(bx + 0.1, 10.6 + y, L(5.2), 2.2);
+        g.fillStyle = D(gear.boots.edge); R(bx + 0.1, 10.6 + y, L(5.2), 0.6);
+        g.fillStyle = shade(gear.boots.base, 0.3); R(bx + 0.5, 9.6 + y, L(4.4), 1.1); // cuff
+      } else if (bs === "leather") {
+        // A tall soft boot with a turned-down top and a laced shaft.
+        g.fillStyle = D(gear.boots.base); R(bx - 0.1, 8.2 + y, L(5.4), 4.6);
+        g.fillStyle = D(gear.boots.edge); R(bx - 0.4, 8.2 + y, L(6.0), 1.2);  // turned top
+        g.fillStyle = shade(gear.boots.base, 0.32);
+        for (const ly of [10.0, 11.2] as const) R(bx + 1.0, ly + y, L(3.2), 0.5); // laces
+        g.fillStyle = shade(gear.boots.base, 0.42); R(bx - 0.1, 12.4 + y, L(5.4), 0.6);
+      } else {
+        // A plate sabaton: articulated, square-toed, heavy at the ankle.
+        g.fillStyle = D(gear.boots.base); R(bx - 0.4, 9.4 + y, L(5.8), 3.2);
+        g.fillStyle = D(gear.boots.edge); R(bx - 0.4, 9.4 + y, L(5.8), 0.8);
+        g.fillStyle = shade(gear.boots.base, 0.22); R(bx - 0.4, 11.1 + y, L(5.8), 0.5); // lame
+        g.fillStyle = D(gear.boots.base); R(bx - 0.9, 11.6 + y, L(6.6), 1.2);           // toe cap
+        g.fillStyle = shade(gear.boots.base, 0.38); R(bx - 0.9, 12.6 + y, L(6.6), 0.6); // sole
+      }
       return;
     }
     g.fillStyle = D(look.shoeColor);
@@ -625,21 +645,50 @@ function drawAvatarInner(
   // Seen from behind, the cloak covers everything the body was wearing.
   if (back) drawCape();
 
-  // --- Shield in the off hand (drawn to the far side) ---
+  // --- The off hand's shield ---
+  // It used to be one hexagon at a fixed offset for every offhand in the game —
+  // a buckler, a kite shield and a caster's orb were the same picture — and it
+  // never moved. It is carried on the off ARM now, so it swings with the walk,
+  // and it is carried as what it actually is — a kite shield, a buckler or a
+  // caster's focus — derived from the item (gearLook.shieldShape), because
+  // every offhand in the game classifies as plate armour and styling by armour
+  // school alone would have left a lantern drawn as a kite shield forever.
   if (gear.shield) {
-    const hx = cx + V.shieldX * s, hy = cy + 1 * s + bob;
+    const armSwing = farAngle * 0.55;      // the off arm's sway, damped
+    const hx = cx + (V.shieldX + Math.sin(armSwing) * 1.6) * s;
+    const hy = cy + (1 + Math.cos(armSwing) * 0.6) * s + bob;
+    const st = gear.shield.shape ?? "kite";
     g.fillStyle = gear.shield.base;
-    g.beginPath();
-    g.moveTo(hx, hy - 4 * s);
-    g.lineTo(hx + 3 * s, hy - 2.5 * s);
-    g.lineTo(hx + 3 * s, hy + 2 * s);
-    g.lineTo(hx, hy + 4.5 * s);
-    g.lineTo(hx - 3 * s, hy + 2 * s);
-    g.lineTo(hx - 3 * s, hy - 2.5 * s);
-    g.closePath();
-    g.fill();
-    g.fillStyle = gear.shield.edge;
-    g.fillRect(hx - 0.6 * s, hy - 4 * s, 1.2 * s, 8.5 * s); // boss ridge
+    if (st === "orb") {
+      // A focus, not a shield: a floating orb with a ring and a soft core.
+      g.beginPath(); g.arc(hx, hy, 3.1 * s, 0, Math.PI * 2); g.fill();
+      g.fillStyle = gear.shield.edge;
+      g.beginPath(); g.arc(hx, hy, 3.1 * s, 0, Math.PI * 2);
+      g.arc(hx, hy, 2.2 * s, 0, Math.PI * 2, true); g.fill();
+      g.fillStyle = "rgba(255,255,255,0.55)";
+      g.beginPath(); g.arc(hx - 0.9 * s, hy - 0.9 * s, 0.8 * s, 0, Math.PI * 2); g.fill();
+    } else if (st === "buckler") {
+      // A buckler: small, round, one central boss.
+      g.beginPath(); g.arc(hx, hy, 3.3 * s, 0, Math.PI * 2); g.fill();
+      g.fillStyle = shade(gear.shield.base, 0.28);
+      g.beginPath(); g.arc(hx, hy, 3.3 * s, Math.PI * 0.15, Math.PI * 0.85); g.fill();
+      g.fillStyle = gear.shield.edge;
+      g.beginPath(); g.arc(hx, hy, 1.2 * s, 0, Math.PI * 2); g.fill();
+    } else {
+      // A kite shield: broad at the shoulder, tapering to a point at the knee.
+      g.beginPath();
+      g.moveTo(hx - 3.2 * s, hy - 4.6 * s);
+      g.lineTo(hx + 3.2 * s, hy - 4.6 * s);
+      g.lineTo(hx + 3.0 * s, hy + 1.8 * s);
+      g.lineTo(hx, hy + 5.4 * s);
+      g.lineTo(hx - 3.0 * s, hy + 1.8 * s);
+      g.closePath(); g.fill();
+      g.fillStyle = gear.shield.edge;
+      g.fillRect(hx - 0.6 * s, hy - 4.6 * s, 1.2 * s, 9 * s);   // spine
+      g.fillRect(hx - 3.2 * s, hy - 4.6 * s, 6.4 * s, 0.9 * s); // rim
+      g.fillStyle = shade(gear.shield.base, 0.3);
+      g.beginPath(); g.arc(hx, hy - 1.4 * s, 1.3 * s, 0, Math.PI * 2); g.fill(); // boss
+    }
   }
 
   // --- Head (bobs) ---
@@ -801,6 +850,16 @@ export function actionArmAngle(frac: number, kind: string): number {
 
 /** A tool/weapon in the hand, drawn in the arm's local frame (points "down").
  *  `metal` tints weapon blades/heads by material tier; gathering tools ignore it. */
+/** What a staff's orb is made of, by tier. A caster's progression was invisible
+ *  on the figure: every staff in the game glowed the same blue-white. */
+function tierGlow(tier: number): { halo: string; fade: string; core: string } {
+  if (tier >= 10) return { halo: "rgba(255,214,140,0.95)", fade: "rgba(230,150,50,0)", core: "#ffe9b8" };
+  if (tier >= 8) return { halo: "rgba(214,180,255,0.95)", fade: "rgba(140,90,220,0)", core: "#e8dcff" };
+  if (tier >= 6) return { halo: "rgba(255,170,150,0.95)", fade: "rgba(220,80,60,0)", core: "#ffdccf" };
+  if (tier >= 4) return { halo: "rgba(170,245,235,0.95)", fade: "rgba(60,180,180,0)", core: "#d6fbf6" };
+  return { halo: "rgba(190,225,255,0.95)", fade: "rgba(90,150,230,0)", core: "#cfe6ff" };
+}
+
 export function drawTool(g: Ctx, s: number, tool: string, metal?: Metal & { tier?: number }): void {
   const handle = "#6a4a2e";
   const steel = metal?.edge ?? "#bcc2cc"; // bright face / blade
@@ -867,27 +926,41 @@ export function drawTool(g: Ctx, s: number, tool: string, metal?: Metal & { tier
       g.fillStyle = iron; g.fillRect(-3 * s, 7 * s, 6 * s, 1.2 * s);
       g.fillStyle = steel; g.fillRect(-1.1 * s, 8 * s, 2.2 * s, 11 * s);
       break;
-    case "bow":
-      g.strokeStyle = "#7a5a36"; g.lineWidth = 1.3 * s; g.lineCap = "round";
+    case "bow": {
+      // The bow's wood is the weapon's own material, and its limbs and nocks
+      // take the material's lit tone. Bows, staves and rods ignored the metal
+      // argument entirely, so a ranger's whole progression — every tier from an
+      // Ashwood Shortbow to the Ascendant Longbow — was the same picture in the
+      // same brown, while melee got both a tint and a pommel jewel.
+      g.strokeStyle = iron; g.lineWidth = 1.3 * s; g.lineCap = "round";
       g.beginPath(); g.arc(0, 9 * s, 5 * s, -Math.PI * 0.55, Math.PI * 0.55); g.stroke();
+      g.strokeStyle = steel; g.lineWidth = 0.6 * s;   // the lit outer edge of the limb
+      g.beginPath(); g.arc(0, 9 * s, 5.5 * s, -Math.PI * 0.42, Math.PI * 0.42); g.stroke();
       g.lineCap = "butt";
       g.strokeStyle = "rgba(230,230,236,0.6)"; g.lineWidth = 0.5 * s;
       g.beginPath(); g.moveTo(0, 4.4 * s); g.lineTo(0, 13.6 * s); g.stroke(); // string
+      g.fillStyle = iron;                              // the grip
+      g.fillRect(-1.0 * s, 7.6 * s, 2.0 * s, 2.8 * s);
       break;
+    }
     case "staff": {
-      // A tall wooden casting staff with a glowing orb at the head.
-      g.strokeStyle = "#6a5236"; g.lineWidth = 1.5 * s; g.lineCap = "round";
+      // A tall casting staff. Its shaft is the weapon's own wood and its head
+      // is bound in the material's lit tone; the orb takes the tier's colour, so
+      // a Deeproot staff no longer glows exactly like an Ashwood one.
+      g.strokeStyle = iron; g.lineWidth = 1.5 * s; g.lineCap = "round";
       g.beginPath(); g.moveTo(0, 2 * s); g.lineTo(0, 20 * s); g.stroke();
       g.lineCap = "butt";
-      g.strokeStyle = "rgba(210,190,150,0.5)"; g.lineWidth = 0.5 * s;
+      g.strokeStyle = steel; g.lineWidth = 0.5 * s;
       g.beginPath(); g.moveTo(0, 4 * s); g.lineTo(0, 18 * s); g.stroke();
-      // orb: a soft blue-white glow at the tip
-      const gr = g.createRadialGradient(0, 1.5 * s, 0, 0, 1.5 * s, 3.2 * s);
-      gr.addColorStop(0, "rgba(190,225,255,0.95)");
-      gr.addColorStop(1, "rgba(90,150,230,0)");
+      g.fillStyle = steel;                              // binding under the head
+      g.fillRect(-1.2 * s, 3.4 * s, 2.4 * s, 1.4 * s);
+      const orb = tierGlow(metal?.tier ?? 0);
+      const gr = g.createRadialGradient(0, 1.5 * s, 0, 0, 1.5 * s, 3.4 * s);
+      gr.addColorStop(0, orb.halo);
+      gr.addColorStop(1, orb.fade);
       g.fillStyle = gr;
-      g.beginPath(); g.arc(0, 1.5 * s, 3.2 * s, 0, Math.PI * 2); g.fill();
-      g.fillStyle = "#cfe6ff";
+      g.beginPath(); g.arc(0, 1.5 * s, 3.4 * s, 0, Math.PI * 2); g.fill();
+      g.fillStyle = orb.core;
       g.beginPath(); g.arc(0, 1.5 * s, 1.3 * s, 0, Math.PI * 2); g.fill();
       break;
     }
@@ -898,6 +971,13 @@ export function drawTool(g: Ctx, s: number, tool: string, metal?: Metal & { tier
   // reads as ornate in the hand — not just a recoloured stock sword.
   const tier = metal?.tier ?? 0;
   const melee = tool === "sword" || tool === "dagger" || tool === "claymore" || tool === "spear" || tool === "hammer";
+  // A bow gets its jewel set into the grip, where a melee weapon gets a pommel.
+  // Staves carry theirs as the orb itself (above), so they are not doubled here.
+  if (tool === "bow" && tier >= 4) {
+    const gem = tier >= 10 ? "#ffd06a" : tier >= 8 ? "#b98cff" : tier >= 6 ? "#ff7a6a" : "#7fe0e0";
+    g.fillStyle = gem;
+    g.beginPath(); g.arc(0, 9 * s, (tier >= 8 ? 1.2 : 0.95) * s, 0, Math.PI * 2); g.fill();
+  }
   if (melee && tier >= 4) {
     const gem = tier >= 10 ? "#ffd06a" : tier >= 8 ? "#b98cff" : tier >= 6 ? "#ff7a6a" : "#7fe0e0";
     const r = (tier >= 8 ? 1.3 : 1.0) * s;
