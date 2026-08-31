@@ -10,24 +10,44 @@ separate from any other project.
 
 ---
 
-## The first playable slice
+## What is in it
 
-A small hand-made zone, **The Knuckle Hills**:
+Varath World is **generated from the idle game's canon** — see
+`docs/CANON_LEDGER.md` — so the items, skills and creatures are the same world,
+walked rather than watched.
 
-- An avatar that walks tile-to-tile with **A\*** pathfinding (8-directional,
-  no cutting through wall corners), smooth movement, and a camera that follows.
-- **Tap the ground** to walk there. **Tap an object** to walk next to it and
-  then perform the action.
-- Things to do, all routed through the rules engine:
-  - **Trees** → Forestry XP + _Ashwood Log_; the tree depletes, then respawns.
-  - **Rocks** → Mining XP + _Knucklestone Ore_; depletes, then respawns.
-  - **Fishing spots** in the pond → Fishing XP + _Ashfin_ (chance-based).
-  - **Aldric** the NPC → opens a short dialogue box.
-  - **Knuckle Boar** → timed combat; drops _Boar Hide_ and _Worn Coin_ and
-    respawns. You have HP and respawn if you’re knocked out.
-- A RuneScape-style **XP curve**, per-skill levels (Forestry, Mining, Fishing,
-  Combat), a **28-slot inventory**, an OSRS-style **game log**, and live skill
-  readouts on screen.
+| | |
+|---|---|
+| Skills | **21**, on the idle game's own XP curve |
+| Items | **467**, ported verbatim from canon |
+| World | **8 zones**, 6 towns, 8 dungeons |
+| Creatures | 33 |
+| Quests | 49, with a dialogue system behind them |
+| Also | banking, a grand exchange, shops, duels, trade, friends and chat, hiscores, achievements, a collection log, diaries, farming, construction, spellcasting |
+
+Tap the ground to walk. Tap a person, rock, tree or beast to act on it. Hold to
+inspect. It is mobile-first and plays in a browser with no install.
+
+**Sign-in is the same account as the idle game and Hearthkeep** — one Supabase
+project, one `auth.users`. There is a **"Play offline"** door too: a purely
+local character kept in this browser, which never touches the cloud.
+
+---
+
+## Where it lives
+
+`ivstudios.vercel.app/world/` — proxied in under the studio's one origin, which
+is deliberate: `localStorage` is per-origin, so a shared sign-in only carries
+between the games if they are served from the same one. See `DEPLOY.md` in the
+`ivstudios` repo.
+
+> [!warning] The trailing slash is load-bearing
+> Link to `/world/`, never `/world`. A rewrite is a proxy, so the address bar
+> keeps the path you asked for — and this builds with Vite's `base: "./"`, so
+> the HTML asks for `./assets/…`, which a browser resolves against the
+> **directory** of the current URL. At `/world` that directory is `/`, and the
+> bundle 404s into a blank page. `ivstudios/vercel.json` redirects the unslashed
+> form for exactly this reason.
 
 ---
 
