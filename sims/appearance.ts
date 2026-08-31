@@ -134,7 +134,24 @@ for (const [k, v] of Object.entries(DEFAULT_APPEARANCE)) {
     `the core's fresh-world appearance disagrees with DEFAULT_APPEARANCE on ${k}: ${String(worldDefault[k])} vs ${String(v)}`);
 }
 
-// --- 6) The creator can be operated without a pointer ------------------------
+// --- 6) The figure has four views, not one ----------------------------------
+// `down` and `right` used to be byte-identical and `up` was that same body with
+// the head recoloured. The view table is what makes them differ; assert it is
+// still there and that the three views are genuinely distinct geometry.
+const views = avatar.slice(avatar.indexOf("const VIEWS:"), avatar.indexOf("function drawAvatarInner("));
+for (const v of ["front", "back", "side"]) {
+  check(new RegExp(`\\b${v}: \\{`).test(views), `the "${v}" view is gone from the view table`);
+}
+const halves = [...views.matchAll(/torsoHalf: ([0-9.]+)/g)].map((m) => Number(m[1]));
+check(halves.length === 3, `expected three views, found ${halves.length}`);
+check(new Set(halves).size > 1, "every view has the same shoulder width — the figure does not turn");
+check(/const lx = flip \? -1 : 1;/.test(avatar),
+  "the light no longer follows the screen — it will swap sides when the player turns around");
+check(!/\banim\.flip\b/.test(read("src/client/render.ts")) &&
+      !/flip: /.test(read("src/client/duelUI.ts")),
+  "a caller is back on the legacy `flip` boolean and cannot show the back view");
+
+// --- 7) The creator can be operated without a pointer ------------------------
 const creator = read("src/client/characterCreator.ts");
 check(!creator.includes('addEventListener("pointerdown"'),
   "the creator is bound to pointerdown again — Enter and Space on a focused control will do nothing");

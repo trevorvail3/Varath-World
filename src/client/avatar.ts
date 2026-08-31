@@ -162,6 +162,43 @@ export const BUILD_STYLES: { id: string; label: string }[] = [
   { id: "broad", label: "Broad" },
 ];
 
+/**
+ * The three views of the figure, in the numbers that differ between them.
+ *
+ * Everything else — the walk cycle, the clothing styles, every layer of worn
+ * gear — is shared, so a change to the torso or to a piece of armour lands on
+ * all three rather than needing to be made three times. A front and a back view
+ * share a silhouette and differ in what faces the camera; a profile is a
+ * genuinely narrower body with its legs and arms stacked in depth.
+ */
+type View = "front" | "back" | "side";
+
+interface ViewGeom {
+  /** Half the shoulder width. A torso seen edge-on is about two-thirds as wide. */
+  torsoHalf: number;
+  /** Left edge of each leg. In profile they overlap, one behind the other. */
+  legX: readonly [number, number];
+  /** Shoulder x for the near arm and the far arm. */
+  armX: readonly [number, number];
+  /** Where the off-hand shield sits. Negative puts it behind the body. */
+  shieldX: number;
+  /** How much the far side of the figure is darkened, for depth. */
+  farShade: number;
+  /** Whether a face is drawn at all. */
+  face: boolean;
+}
+
+const VIEWS: Record<View, ViewGeom> = {
+  front: { torsoHalf: 7, legX: [-6, 1], armX: [-6.4, 6.4], shieldX: 7.2, farShade: 0.12, face: true },
+  // The back is the same build seen from behind: the off hand — and so the
+  // shield — is now on the other side of the screen, and there is no face.
+  back: { torsoHalf: 7, legX: [-6, 1], armX: [6.4, -6.4], shieldX: -7.2, farShade: 0.12, face: false },
+  // A profile: a narrower body, both legs on nearly the same line (the walk
+  // cycle separates them), both arms close to the centre with the far one
+  // behind, and the shield carried on the hidden side.
+  side: { torsoHalf: 5.0, legX: [-3.4, -1.4], armX: [1.0, -2.2], shieldX: -3.8, farShade: 0.3, face: true },
+};
+
 function drawAvatarInner(
   g: Ctx,
   cx: number,
@@ -207,14 +244,24 @@ function drawAvatarInner(
     g.arc(cx + dx * s, cy + dy * s + bob, r * s, a0, a1, b);
   };
 
-  // Face the way we're walking. Left/right mirror the 3/4 view around the
-  // figure's centre; "up" shows the back of the head (drawn further down); the
-  // rest is the plain front view. `facing` wins when given, else fall back to
-  // the old left/right `flip` boolean.
+  // Which way the figure is facing, and what that means for its geometry.
+  // There used to be one body here: `down` and `right` drew the same pixels,
+  // `left` was that image mirrored, and `up` was the same body with the back of
+  // the head swapped in — so walking north, south and east all looked the same.
+  // The three views below differ in the numbers that actually change when a
+  // person turns: how wide the shoulders read, where the legs sit, whether both
+  // arms are visible, and which side the shield and the weapon are on.
   const facing = anim.facing ?? (anim.flip === true ? "left" : "right");
   const flip = facing === "left";
-  const back = facing === "up";
+  const view: View = facing === "up" ? "back" : (facing === "left" || facing === "right") ? "side" : "front";
+  const back = view === "back";
+  const side = view === "side";
+  const V = VIEWS[view];
   if (flip) { g.save(); g.translate(2 * cx, 0); g.scale(-1, 1); }
+  // Light comes from the same side of the SCREEN whichever way the figure
+  // faces. The mirror above flips geometry and shading alike, so every shading
+  // offset is multiplied by this to put it back where the sun is.
+  const lx = flip ? -1 : 1;
 
   // --- Shadow (planted) --- (a rider casts no shadow of their own; the mount's
   // ground shadow already anchors the pair — a second ellipse mid-horse reads
@@ -226,20 +273,28 @@ function drawAvatarInner(
     g.fill();
   }
 
-  // --- Cape (behind the body, drapes from the shoulders with a faint sway) ---
-  if (gear.cape) {
+  // --- Cape ---
+  // From behind, a cloak is the thing you see: it hangs over the whole back
+  // rather than peeking out at the ankles, so it is drawn after the body. From
+  // the front and in profile it stays behind the figure, as before.
+  const drawCape = (): void => {
+    if (!gear.cape) return;
     const sway = (moving ? Math.sin(step) * 0.8 : Math.sin(t / 300) * 0.4) * s;
-    g.fillStyle = gear.cape.color;
+    const w = side ? 2.6 : 5;      // edge-on a cloak is a trailing sheet
+    const hemOut = side ? 1.6 : 2;
+    const drift = side ? -2.4 * s : 0; // and it streams out behind the walker
+    g.fillStyle = side ? shade(gear.cape.color, 0.16) : gear.cape.color;
     g.beginPath();
-    g.moveTo(cx - 5 * s, cy - 6 * s + bob);
-    g.lineTo(cx + 5 * s, cy - 6 * s + bob);
-    g.lineTo(cx + 7 * s + sway, cy + 11 * s);
-    g.lineTo(cx - 7 * s + sway, cy + 11 * s);
+    g.moveTo(cx - w * s + drift, cy - 6 * s + bob);
+    g.lineTo(cx + w * s + drift, cy - 6 * s + bob);
+    g.lineTo(cx + (w + hemOut) * s + sway + drift, cy + 11 * s);
+    g.lineTo(cx - (w + hemOut) * s + sway + drift, cy + 11 * s);
     g.closePath();
     g.fill();
     g.fillStyle = shade(gear.cape.color, 0.28);
     g.fillRect(cx - 0.8 * s + sway * 0.5, cy - 6 * s + bob, 1.6 * s, 17 * s); // centre fold
-  }
+  };
+  if (!back) drawCape();
 
   // --- Kilt is a single panel drawn before the (lifting) feet ---
   if (look.legs === "kilt") {
@@ -256,33 +311,36 @@ function drawAvatarInner(
   }
 
   // --- Each leg + its shoe, lifting with the walk cycle ---
-  const foot = (bx: number, lift: number): void => {
+  // `far` darkens the whole leg so that in profile, where the two overlap, the
+  // trailing one reads as being on the other side of the body.
+  const foot = (bx: number, lift: number, far = false): void => {
     const y = -lift;
+    const D = (hex: string): string => (far ? shade(hex, V.farShade) : hex);
     if (look.legs === "shorts") {
-      g.fillStyle = look.legColor; R(bx, 5 + y, 5, 3);
-      g.fillStyle = look.skin; R(bx + 0.5, 8 + y, 4, 2.5); // bare shin
+      g.fillStyle = D(look.legColor); R(bx, 5 + y, 5, 3);
+      g.fillStyle = D(look.skin); R(bx + 0.5, 8 + y, 4, 2.5); // bare shin
     } else if (look.legs !== "kilt") {
-      g.fillStyle = look.legColor; R(bx, 5 + y, 5, 6); // trousers
+      g.fillStyle = D(look.legColor); R(bx, 5 + y, 5, 6); // trousers
     }
     // Worn leg armour: a metal greave (plate), slim chaps (leather) — or nothing
     // here for robes, whose skirt is a single panel drawn after both feet.
     if (gear.legs && gear.legs.style !== "robe") {
       if (gear.legs.style === "leather") {
-        g.fillStyle = gear.legs.base; R(bx + 0.2, 5 + y, 4.6, 5);       // slim leather chap
+        g.fillStyle = D(gear.legs.base); R(bx + 0.2, 5 + y, 4.6, 5);       // slim leather chap
         g.fillStyle = shade(gear.legs.base, 0.3); R(bx + 0.2, 7.6 + y, 4.6, 0.5); // lace seam
       } else {
-        g.fillStyle = gear.legs.base; R(bx - 0.2, 5 + y, 5.4, 5.2);
-        g.fillStyle = gear.legs.edge; R(bx - 0.2, 5 + y, 1, 5.2);       // edge highlight
+        g.fillStyle = D(gear.legs.base); R(bx - 0.2, 5 + y, 5.4, 5.2);
+        g.fillStyle = D(gear.legs.edge); R(bx - 0.2, 5 + y, 1, 5.2);       // edge highlight
       }
     }
     if (gear.boots) {
       // Plated sabaton replaces the cloth shoe.
-      g.fillStyle = gear.boots.base; R(bx - 0.4, 9.8 + y, 5.8, 3);
-      g.fillStyle = gear.boots.edge; R(bx - 0.4, 9.8 + y, 5.8, 0.8);
+      g.fillStyle = D(gear.boots.base); R(bx - 0.4, 9.8 + y, 5.8, 3);
+      g.fillStyle = D(gear.boots.edge); R(bx - 0.4, 9.8 + y, 5.8, 0.8);
       g.fillStyle = shade(gear.boots.base, 0.35); R(bx - 0.4, 12.2 + y, 5.8, 0.6); // sole
       return;
     }
-    g.fillStyle = look.shoeColor;
+    g.fillStyle = D(look.shoeColor);
     if (look.shoes === "sandals") {
       R(bx, 11.4 + y, 5, 1.1);
       g.fillStyle = shade(look.shoeColor, 0.3); R(bx + 1.6, 10.4 + y, 0.8, 1.1); // strap
@@ -305,8 +363,10 @@ function drawAvatarInner(
     cuff(-6);
     cuff(1);
   } else {
-    foot(-6, liftL);
-    foot(1, liftR);
+    // The far leg first so the near one overlaps it — which is what makes a
+    // profile read as a body with depth rather than two legs side by side.
+    foot(V.legX[1], liftR, side);
+    foot(V.legX[0], liftL);
   }
 
   // --- Robe skirt: a single flaring panel over both legs (magic leg gear) ---
@@ -326,16 +386,37 @@ function drawAvatarInner(
   }
 
   // --- The far arm (drawn before the torso so it reads as "behind") ---
-  drawArm(g, cx, cy, s, bob, look, 6.4, farAngle);
+  // In profile it is darkened and set back, so the two arms read as one in
+  // front of the body and one behind it rather than as a pair side by side.
+  drawArm(g, cx, cy, s, bob, look, V.armX[1], farAngle, "", undefined, side ? V.farShade : 0);
+
+  // --- A neck, which the figure has never had. Drawn before the torso so the
+  //     collar covers its base — it is what stops the head reading as a ball
+  //     balanced on a box.
+  g.fillStyle = shade(look.skin, 0.22);
+  Rb(side ? -1.8 : -2.2, -9.5, side ? 3.4 : 4.4, 4);
 
   // --- Torso / top (bobs) ---
+  const TW = V.torsoHalf;
   g.fillStyle = look.tunic;
-  Rb(-7, -7, 14, 12);
+  Rb(-TW, -7, TW * 2, 12);
   g.fillStyle = "rgba(0,0,0,0.16)";
-  Rb(-7, 3, 14, 2); // belt line
+  Rb(-TW, 3, TW * 2, 2); // belt line
   g.fillStyle = shade(look.tunic, 0.18);
-  Rb(2.5, -7, 1.2, 10); // side shade for form
-  if (look.top === "vneck") {
+  Rb((TW - 4.5) * lx, -7, 1.2, 10); // side shade for form, on the shaded side
+  if (side) {
+    // A body seen edge-on has a chest and a back, not a flat front: a lit strip
+    // down the leading edge and a deeper shadow down the trailing one.
+    g.fillStyle = shade(look.tunic, 0.3);
+    Rb(-TW * lx, -7, 1.1, 12);
+    g.fillStyle = "rgba(255,240,210,0.10)";
+    Rb((TW - 1.1) * lx, -7, 1.1, 12);
+  }
+  if (back) {
+    // From behind, a top has a seam and a yoke, not a neckline.
+    g.fillStyle = shade(look.tunic, 0.24);
+    Rb(-TW, -7, TW * 2, 1.6);
+  } else if (look.top === "vneck") {
     g.fillStyle = look.skin;
     g.beginPath();
     g.moveTo(cx - 3 * s, cy - 7 * s + bob);
@@ -343,14 +424,14 @@ function drawAvatarInner(
     g.lineTo(cx, cy - 2.5 * s + bob);
     g.closePath();
     g.fill();
-  } else if (look.top === "sash") {
+  } else if (!back && look.top === "sash") {
     g.strokeStyle = shade(look.tunic, 0.4);
     g.lineWidth = 2.2 * s;
     g.beginPath();
     g.moveTo(cx - 7 * s, cy - 6 * s + bob);
     g.lineTo(cx + 7 * s, cy + 2 * s + bob);
     g.stroke();
-  } else {
+  } else if (!back) {
     g.fillStyle = "rgba(0,0,0,0.16)";
     Rb(-0.6, -7, 1.2, 10); // plain front seam
   }
@@ -367,21 +448,17 @@ function drawAvatarInner(
     g.closePath();
     g.fill();
     g.fillStyle = gear.body.edge;
-    Rb(-0.6, -7, 1.2, 13);                 // centre trim, collar to hem
+    Rb(-0.6, -7, 1.2, 13);                 // centre trim, collar to hem — a robe has one front and back
     g.fillStyle = shade(gear.body.base, 0.22);
-    Rb(3.8, -7, 1.1, 12.5);                // a side fold for form
-    g.fillStyle = look.skin;
-    arc(0, -6.8, 1.9, 0, Math.PI, false);  // V collar
-    g.fill();
+    Rb(3.8 * lx, -7, 1.1, 12.5);           // a side fold, on the shaded side
+    if (!back) { g.fillStyle = look.skin; arc(0, -6.8, 1.9, 0, Math.PI, false); g.fill(); } // V collar
   } else if (gear.body && gear.body.style === "leather") {
     // A fitted leather jerkin — lighter than plate, laced up the front.
     g.fillStyle = gear.body.base;
-    Rb(-6, -6.4, 12, 9);
+    Rb(-(TW - 1), -6.4, (TW - 1) * 2, 9);
     g.fillStyle = gear.body.edge;
-    Rb(-6, -6.4, 12, 1);                   // shoulder seam highlight
-    g.fillStyle = look.skin;
-    arc(0, -6.4, 1.8, 0, Math.PI, false);  // open V-neck
-    g.fill();
+    Rb(-(TW - 1), -6.4, (TW - 1) * 2, 1);   // shoulder seam highlight
+    if (!back) { g.fillStyle = look.skin; arc(0, -6.4, 1.8, 0, Math.PI, false); g.fill(); } // open V-neck
     g.strokeStyle = shade(gear.body.base, 0.42);
     g.lineWidth = 0.5 * s;
     for (const ly of [-3, -1, 1] as const) { // cross-lacing down the centre
@@ -393,23 +470,21 @@ function drawAvatarInner(
   } else if (gear.body) {
     // Heavy plate chestplate (melee).
     g.fillStyle = gear.body.base;
-    Rb(-6.6, -6.6, 13.2, 9.4);
+    Rb(-(TW - 0.4), -6.6, (TW - 0.4) * 2, 9.4);
     g.fillStyle = gear.body.edge;
-    Rb(-6.6, -6.6, 13.2, 1.2);            // top rim highlight
-    Rb(-6.6, -6.6, 1.2, 9.4);             // left edge highlight
+    Rb(-(TW - 0.4), -6.6, (TW - 0.4) * 2, 1.2);  // top rim highlight
+    Rb(-(TW - 0.4) * lx, -6.6, 1.2, 9.4);        // lit edge, screen-left
     g.fillStyle = shade(gear.body.base, 0.3);
-    Rb(-0.7, -6.6, 1.4, 9.4);             // central ridge
-    g.fillStyle = look.skin;
-    arc(0, -6.6, 2.2, 0, Math.PI, false); // neckline opening
-    g.fill();
+    if (!back) Rb(-0.7, -6.6, 1.4, 9.4);         // central ridge (front only)
+    if (!back) { g.fillStyle = look.skin; arc(0, -6.6, 2.2, 0, Math.PI, false); g.fill(); } // neckline
   }
 
   // --- The near arm (in front of the torso), holding the weapon/tool ---
-  drawArm(g, cx, cy, s, bob, look, -6.4, nearAngle, nearTool, nearMetal);
+  drawArm(g, cx, cy, s, bob, look, V.armX[0], nearAngle, nearTool, nearMetal);
 
   // --- Pauldrons over both shoulders (plate only — leather/robes have none) ---
   if (gear.body && gear.body.style === "plate") {
-    for (const sx of [-6.6, 6.6]) {
+    for (const sx of (side ? [-1.2, 1.2] : [-6.6, 6.6])) {
       g.fillStyle = gear.body.base;
       g.beginPath();
       g.ellipse(cx + sx * s, cy - 5 * s + bob, 2.6 * s, 2 * s, 0, 0, Math.PI * 2);
@@ -421,9 +496,12 @@ function drawAvatarInner(
     }
   }
 
+  // Seen from behind, the cloak covers everything the body was wearing.
+  if (back) drawCape();
+
   // --- Shield in the off hand (drawn to the far side) ---
   if (gear.shield) {
-    const hx = cx + 7.2 * s, hy = cy + 1 * s + bob;
+    const hx = cx + V.shieldX * s, hy = cy + 1 * s + bob;
     g.fillStyle = gear.shield.base;
     g.beginPath();
     g.moveTo(hx, hy - 4 * s);
@@ -440,8 +518,31 @@ function drawAvatarInner(
 
   // --- Head (bobs) ---
   g.fillStyle = look.skin;
-  arc(0, -12, 6, 0, Math.PI * 2);
-  g.fill();
+  if (side) {
+    // Seen edge-on, a head is not a disc: it has a brow, a nose and a chin on
+    // the leading edge and a rounder skull behind. This is the single silhouette
+    // that tells a walking figure's direction at a glance.
+    // Skull and face in ONE path. Every fill in this figure is drawn with a
+    // global shadow rim (see drawAvatar), which is what pops it off the terrain
+    // — but it also outlines any shape drawn over another, so a face laid on top
+    // of a skull came out with a seam ruled down it. One path, one contour.
+    g.beginPath();
+    g.arc(cx - 1.1 * s, cy - 12 * s + bob, 5.2 * s, 0, Math.PI * 2);
+    // The leading edge: a brow, a small nose and a jaw. Deliberately shallow —
+    // a bigger nose becomes a beak at 31 pixels.
+    g.moveTo(cx - 1.0 * s, cy - 16.8 * s + bob);
+    g.quadraticCurveTo(cx + 3.6 * s, cy - 16.4 * s + bob, cx + 3.9 * s, cy - 13.0 * s + bob);
+    g.lineTo(cx + 5.4 * s, cy - 11.0 * s + bob);   // the nose
+    g.lineTo(cx + 3.7 * s, cy - 10.2 * s + bob);
+    g.quadraticCurveTo(cx + 4.0 * s, cy - 7.6 * s + bob, cx + 0.6 * s, cy - 7.2 * s + bob);
+    g.lineTo(cx - 1.0 * s, cy - 8.4 * s + bob);
+    g.closePath();
+    g.fill();
+  } else {
+    arc(0, -12, 6, 0, Math.PI * 2);
+    g.fill();
+  }
+  g.fillStyle = look.skin;
 
   if (back) {
     // Facing away: the back of the head. Hair (or a bare nape) fills the crown
@@ -510,16 +611,20 @@ function drawAvatarInner(
 function drawArm(
   g: Ctx, cx: number, cy: number, s: number, bob: number, look: Appearance,
   shoulderDX: number, angle: number, tool = "", metal?: Metal,
+  /** Darken the whole limb — the far arm in a profile, which is on the other
+   *  side of the body and should sit behind it rather than beside it. */
+  depth = 0,
 ): void {
   const px = cx + shoulderDX * s;
   const py = cy - 5 * s + bob;
+  const D = (hex: string): string => (depth > 0 ? shade(hex, depth) : hex);
   g.save();
   g.translate(px, py);
   g.rotate(angle);
   if (tool) drawTool(g, s, tool, metal); // behind the hand, swings with the arm
-  g.fillStyle = look.tunic; // sleeve (upper arm)
+  g.fillStyle = D(look.tunic); // sleeve (upper arm)
   g.fillRect(-1.3 * s, 0, 2.6 * s, 4.2 * s);
-  g.fillStyle = look.skin; // forearm
+  g.fillStyle = D(look.skin); // forearm
   g.fillRect(-1.1 * s, 3.8 * s, 2.2 * s, 3.6 * s);
   g.beginPath(); // hand
   g.arc(0, 7.7 * s, 1.6 * s, 0, Math.PI * 2);

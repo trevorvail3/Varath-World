@@ -28,6 +28,13 @@ const URL_BASE = `http://127.0.0.1:${PORT}`;
 const args = process.argv.slice(2);
 const outIdx = args.indexOf("--out");
 const OUT = join("shots", outIdx >= 0 ? args[outIdx + 1] ?? "current" : "current");
+/** `--zoom 3` draws every cell three times the size — for looking closely at a
+ *  silhouette rather than comparing a whole row of them. */
+const zoomIdx = args.indexOf("--zoom");
+const ZOOM = zoomIdx >= 0 ? Math.max(1, Number(args[zoomIdx + 1] ?? 1)) : 1;
+/** `--only facings` writes just that sheet. */
+const onlyIdx = args.indexOf("--only");
+const ONLY = onlyIdx >= 0 ? args[onlyIdx + 1] ?? "" : "";
 
 async function startServer(): Promise<ChildProcess> {
   const srv = spawn("npx", ["vite", "preview", "--port", String(PORT), "--strictPort"], {
@@ -52,7 +59,8 @@ async function startServer(): Promise<ChildProcess> {
  */
 const SHEET = `(spec) => {
   const A = window.__varathArt;
-  const CELL = 132, PAD = 26, LABEL = 18;
+  const Z = spec.zoom ?? 1;
+  const CELL = 132 * Z, PAD = 26, LABEL = 18;
   const cells = spec.cells;
   const cols = Math.min(spec.cols ?? 8, cells.length);
   const rows = Math.ceil(cells.length / cols);
@@ -75,7 +83,7 @@ const SHEET = `(spec) => {
     g.strokeStyle = "rgba(255,255,255,0.07)";
     g.strokeRect((i % cols) * CELL + 0.5, Math.floor(i / cols) * (CELL + LABEL) + PAD + 0.5, CELL - 1, CELL - 1);
     A.drawAvatar(
-      g, cx, cy + 6, 3.2,
+      g, cx, cy + 6 * Z, 3.2 * Z,
       A.withDefaults(cell.look),
       { now: spec.now ?? 0, moving: !!spec.moving, ...(cell.facing ? { facing: cell.facing } : {}) },
       cell.gear ?? {},
@@ -89,8 +97,9 @@ const SHEET = `(spec) => {
   return c.toDataURL("image/png");
 }`;
 
-async function sheet(page: Page, name: string, spec: unknown): Promise<void> {
-  const url = await page.evaluate(`(${SHEET})(${JSON.stringify(spec)})`) as string;
+async function sheet(page: Page, name: string, spec: Record<string, unknown>): Promise<void> {
+  if (ONLY && !name.includes(ONLY)) return;
+  const url = await page.evaluate(`(${SHEET})(${JSON.stringify({ ...spec, zoom: ZOOM })})`) as string;
   const buf = Buffer.from(url.split(",")[1] ?? "", "base64");
   const { writeFileSync } = await import("node:fs");
   writeFileSync(join(OUT, `sheet-${name}.png`), buf);
