@@ -258,8 +258,34 @@ check(/\biron\b|\bsteel\b/.test(staffCase), "the staff ignores its weapon's mate
 check(/function tierGlow\(/.test(avatar), "every staff glows the same colour again");
 check(/tool === "bow" && tier >= 4/.test(avatar), "a bow's tier no longer shows on the weapon");
 
-// --- 11) The creator can be operated without a pointer -----------------------
+// --- 11) The creator offers everything the figure can be --------------------
 const creator = read("src/client/characterCreator.ts");
+// Seven rows of cyclers in one column could not hold a face, a build, a height
+// and markings, so the screen is sectioned. The rows are declared as data and
+// read by both the row builder and the randomiser; this asserts that between
+// them the sections reach every field the renderer draws.
+const OFFERED = [
+  ...[...creator.matchAll(/styleKey: "([a-zA-Z]+)"/g)].map((m) => m[1]!),
+  ...[...creator.matchAll(/pseudo: "([a-zA-Z]+)"/g)].map((m) => m[1]!),
+  ...[...creator.matchAll(/colorKey: "([a-zA-Z]+)"/g)].map((m) => m[1]!),
+];
+for (const field of Object.keys(DEFAULT_APPEARANCE)) {
+  if (field === "name") continue; // its own control, not a style row
+  check(OFFERED.includes(field), `appearance.${field} is drawn by the figure but the creator cannot set it`);
+}
+for (const field of ["build", "height", "marking", "markingColor", "beardColor"]) {
+  check(OFFERED.includes(field), `the creator cannot set ${field}`);
+}
+check(/const PRESETS/.test(creator) && (creator.match(/label: "The /g) ?? []).length >= 5,
+  "the creator's starting characters are gone");
+check(/creator-turn-btn/.test(creator), "the portrait can no longer be turned");
+check(/type = "color"/.test(creator), "the any-colour picker is gone — the ramps are the only choice again");
+// The barber reuses this screen rather than duplicating it.
+for (const opt of ["initial", "lockName", "hideMode"]) {
+  check(creator.includes(`${opt}?:`), `the creator has lost its "${opt}" option and cannot serve the barber`);
+}
+
+// --- 12) The creator can be operated without a pointer -----------------------
 check(!creator.includes('addEventListener("pointerdown"'),
   "the creator is bound to pointerdown again — Enter and Space on a focused control will do nothing");
 check(creator.includes('setAttribute("aria-label"'),

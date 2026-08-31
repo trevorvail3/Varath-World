@@ -4081,8 +4081,12 @@ button.inv-slot {
   pointer-events: auto;
   padding: 20px;
 }
+.login-box { width: min(420px, 94vw); }
+/* The creator carries a portrait beside four sections of controls, so it needs
+   the width the sign-in box does not. Below 560px the two stack (see the phone
+   layer) and this becomes the full screen. */
+.creator-box { width: min(580px, 94vw); }
 .login-box, .creator-box {
-  width: min(420px, 94vw);
   max-height: 92vh;
   overflow-y: auto;
   background: var(--panel);
@@ -4152,17 +4156,77 @@ button.inv-slot {
      right at the width where an eight-swatch row stops fitting. */
   flex-wrap: wrap;
 }
+.creator-stage { flex: 0 0 auto; display: flex; flex-direction: column; gap: 8px; }
 .creator-preview {
   /* An explicit CSS box. The canvas used to carry a fixed 130x180 backing store
      and no CSS size at all, so the flex row stretched it to the column height
      and the portrait came out as a smeared column. The script sizes the backing
      store from this box times the device pixel ratio. */
-  flex: 0 0 auto;
-  width: 150px;
-  height: 210px;
+  width: 170px;
+  height: 240px;
   background: radial-gradient(ellipse at 50% 60%, #2a2018 0%, #14100c 100%);
   border: 1px solid var(--panel-edge);
   border-radius: var(--r-lg);
+}
+/* Turn the figure. These are the only place a player can see that the character
+   has a back and a profile at all, so they sit under the portrait rather than
+   in a menu. */
+.creator-turn { display: flex; gap: 4px; justify-content: center; flex-wrap: wrap; }
+.creator-turn-btn {
+  min-width: 30px; min-height: 26px;
+  font-size: var(--t-small);
+  background: var(--btn); color: var(--ink-dim);
+  border: 1px solid var(--edge); border-radius: var(--r-sm);
+  cursor: pointer;
+}
+.creator-turn-btn:hover { color: var(--ink); border-color: var(--gold); }
+.creator-turn-btn.on { background: var(--btn-hi); color: var(--gold); border-color: var(--gold); }
+.creator-walk { padding: 0 8px; font-family: "Cinzel", serif; }
+
+/* Presets: six people, not six rolls. */
+.creator-presets { display: flex; flex-wrap: wrap; gap: 5px; margin: 9px 0 4px; }
+.creator-preset {
+  font-family: "EB Garamond", serif; font-size: var(--t-small);
+  background: var(--btn); color: var(--ink-dim);
+  border: 1px solid var(--edge); border-radius: var(--r-pill);
+  padding: 4px 10px; cursor: pointer;
+}
+.creator-preset:hover { color: var(--gold); border-color: var(--gold); }
+.creator-preset.creator-random { color: var(--ember); border-color: rgba(var(--ember-rgb), 0.4); }
+
+/* Sections, so the row count can grow without the box becoming a scroll. */
+.creator-tabs {
+  display: flex; gap: 4px; margin: 8px 0 6px;
+  border-bottom: 1px solid var(--panel-edge);
+}
+.creator-tab {
+  flex: 1;
+  font-family: "Cinzel", serif; font-size: var(--t-small); letter-spacing: 0.04em;
+  background: transparent; color: var(--ink-dim);
+  border: 1px solid transparent; border-bottom: none;
+  border-radius: var(--r-sm) var(--r-sm) 0 0;
+  padding: 6px 0; cursor: pointer;
+}
+.creator-tab:hover { color: var(--ink); }
+.creator-tab.on {
+  background: var(--btn-hi); color: var(--gold);
+  border-color: var(--gold); border-bottom: none;
+}
+.creator-rows { min-height: 168px; }
+
+/* "Any colour", behind the curated ramp. The native picker is keyboard- and
+   screen-reader-operable for free, and it writes plain #rrggbb — which is
+   exactly what the save's validator accepts. */
+.creator-swatch-any {
+  position: relative; overflow: hidden;
+  background: conic-gradient(#c25b4a, #c9a24a, #6fae72, #4a7fb5, #8a6bc0, #c25b4a);
+  display: inline-block;
+}
+.creator-swatch-any input[type="color"] {
+  position: absolute; inset: -4px;
+  width: 200%; height: 200%;
+  border: none; padding: 0; background: transparent; cursor: pointer;
+  opacity: 0;
 }
 .creator-controls { flex: 1; display: flex; flex-direction: column; }
 .creator-label {
@@ -4654,7 +4718,7 @@ button.inv-slot {
   }
   .login-backdrop, .creator-backdrop { padding: 0; }
   .creator-main { flex-direction: column; align-items: center; gap: 12px; }
-  .creator-preview { width: min(220px, 60vw); height: min(300px, 40vh); }
+  .creator-preview { width: min(210px, 58vw); height: min(290px, 38vh); }
   .creator-controls { width: 100%; }
   .creator-title { font-size: var(--t-display); }
   /* Bigger targets: a 24px swatch is under the 44px a thumb wants, and there is

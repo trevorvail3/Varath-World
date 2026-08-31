@@ -1,26 +1,28 @@
 /**
  * src/client/characterCreator.ts
  * ------------------------------
- * Character creator: a name, body-part styles (hair, facial hair, top, legs,
- * shoes) and colours, with a live preview of the figure. Returns the chosen
- * look to main.ts, which stamps it onto the new player and saves it.
+ * Where a character is made — and, at the barber, remade.
  *
  * The figure is drawn by the shared drawAvatar (src/client/avatar.ts), so the
- * preview and the in-world player always match.
+ * portrait here and the player in the world are the same code. What the screen
+ * adds is a way to steer it: the look is split into Body, Face, Hair and
+ * Clothes so the row count can grow without the box becoming a scroll, presets
+ * and a randomiser for players who would rather not dial one in, and a portrait
+ * that turns and walks — which is also the quickest way to see that the figure
+ * has four views at all.
+ *
+ * The same screen serves the barber (see `opts.initial` / `lockName` /
+ * `hideMode`), so there is one of it rather than two that drift apart.
  */
 
 import type { Appearance } from "../core/types.ts";
 import type { AccountMode } from "../core/worldCore.ts";
 import {
-  BUILD_STYLES, CLOTH, DEFAULT_APPEARANCE, drawAvatar,
-  FACIAL_STYLES, HAIR_STYLES, HAIRS, LEG_STYLES, SHOE_STYLES, SKINS, TOP_STYLES,
-  withDefaults,
+  BROW_STYLES, BUILD_STYLES, CLOTH, DEFAULT_APPEARANCE, drawAvatar, EYE_STYLES, EYES,
+  FACIAL_STYLES, HAIR_STYLES, HAIRS, HEIGHT_STYLES, JAW_STYLES, LEG_STYLES,
+  MARKING_COLORS, MARKING_STYLES, SHOE_STYLES, SKINS, TOP_STYLES, withDefaults,
 } from "./avatar.ts";
-
-/** The preview's fallback size, used only before the element has been laid out
- *  (its real size comes from the CSS box — see sizePreview). */
-const PREVIEW_W = 150;
-const PREVIEW_H = 210;
+import type { GearLook } from "./gearLook.ts";
 
 /** What the creator hands back: the look, plus the account mode chosen for the
  *  life of the character. The mode is offered here and only here — an Ironman's
@@ -28,12 +30,97 @@ const PREVIEW_H = 210;
 export type CreatedCharacter = Appearance & { mode?: AccountMode };
 
 /** Colour-field keys (string hex) and style-field keys (string id). */
-type ColorKey = "skin" | "hair" | "tunic" | "legColor" | "shoeColor";
-type StyleKey = "hairStyle" | "facial" | "top" | "legs" | "shoes";
+type ColorKey = "skin" | "hair" | "tunic" | "legColor" | "shoeColor"
+  | "eyeColor" | "beardColor" | "markingColor";
+type StyleKey = "hairStyle" | "facial" | "top" | "legs" | "shoes"
+  | "eyes" | "brows" | "jaw" | "marking";
+/** The two closed unions, which are handled apart from the free-form ids. */
+type PseudoKey = "build" | "height";
+
+/** The preview's fallback size, used only before the element has been laid out
+ *  (its real size comes from the CSS box — see sizePreview). */
+const PREVIEW_W = 170;
+const PREVIEW_H = 240;
+
+type SectionId = "body" | "face" | "hair" | "clothes";
+const SECTIONS: { id: SectionId; label: string }[] = [
+  { id: "body", label: "Body" },
+  { id: "face", label: "Face" },
+  { id: "hair", label: "Hair" },
+  { id: "clothes", label: "Clothes" },
+];
+
+const FACINGS: { id: "left" | "down" | "up" | "right"; label: string; glyph: string }[] = [
+  { id: "left", label: "Face left", glyph: "◀" },
+  { id: "down", label: "Face the camera", glyph: "▼" },
+  { id: "up", label: "Face away", glyph: "▲" },
+  { id: "right", label: "Face right", glyph: "▶" },
+];
+
+/**
+ * Hand-made starting characters. Six people rather than six random rolls: a
+ * player who does not want to fiddle should be able to pick someone and be in
+ * the world in five seconds, and what they pick should look like it was chosen.
+ */
+const PRESETS: { label: string; look: Partial<Appearance> }[] = [
+  {
+    label: "The Hillwalker",
+    look: {
+      skin: SKINS[1]!, hair: HAIRS[1]!, hairStyle: "short", facial: "stubble",
+      tunic: CLOTH[0]!, legColor: CLOTH[7]!, shoeColor: CLOTH[8]!,
+      eyes: "open", brows: "even", jaw: "oval", eyeColor: EYES[1]!,
+    },
+  },
+  {
+    label: "The Wayfarer",
+    look: {
+      skin: SKINS[3]!, hair: HAIRS[0]!, hairStyle: "ponytail", facial: "none",
+      tunic: CLOTH[2]!, legColor: CLOTH[0]!, shoeColor: CLOTH[8]!,
+      eyes: "sharp", brows: "arched", jaw: "narrow", eyeColor: EYES[2]!,
+      build: "lean", height: "tall",
+    },
+  },
+  {
+    label: "The Smith",
+    look: {
+      skin: SKINS[2]!, hair: HAIRS[0]!, hairStyle: "undercut", facial: "beard",
+      tunic: CLOTH[3]!, legColor: CLOTH[0]!, shoeColor: CLOTH[8]!,
+      eyes: "narrow", brows: "heavy", jaw: "square", eyeColor: EYES[0]!,
+      build: "broad", marking: "ash", markingColor: MARKING_COLORS[4]!,
+    },
+  },
+  {
+    label: "The Hedge-Witch",
+    look: {
+      skin: SKINS[0]!, hair: HAIRS[7]!, hairStyle: "long", facial: "none",
+      tunic: CLOTH[4]!, legColor: CLOTH[4]!, shoeColor: CLOTH[8]!,
+      eyes: "wide", brows: "thin", jaw: "narrow", eyeColor: EYES[5]!,
+      build: "lean", height: "short",
+    },
+  },
+  {
+    label: "The Outrider",
+    look: {
+      skin: SKINS[4]!, hair: HAIRS[0]!, hairStyle: "braid", facial: "chops",
+      tunic: CLOTH[6]!, legColor: CLOTH[0]!, shoeColor: CLOTH[8]!,
+      eyes: "open", brows: "angled", jaw: "square", eyeColor: EYES[3]!,
+      marking: "scar_cheek", markingColor: MARKING_COLORS[0]!,
+    },
+  },
+  {
+    label: "The Ashfen Pilgrim",
+    look: {
+      skin: SKINS[5]!, hair: HAIRS[0]!, hairStyle: "shaved", facial: "goatee",
+      tunic: CLOTH[8]!, legColor: CLOTH[8]!, shoeColor: CLOTH[8]!,
+      eyes: "tired", brows: "even", jaw: "round", eyeColor: EYES[4]!,
+      build: "heavy", marking: "warpaint_bar", markingColor: MARKING_COLORS[1]!,
+    },
+  },
+];
 
 export class CharacterCreator {
   private backdrop: HTMLElement;
-  private draft: Appearance = { ...DEFAULT_APPEARANCE, name: "" };
+  private draft: Appearance;
   private mode: AccountMode = "standard";
   private preview!: HTMLCanvasElement;
   private rowsEl!: HTMLElement;
@@ -42,6 +129,9 @@ export class CharacterCreator {
   private raf = 0;
   private lastFrame = 0;
   private onResize = (): void => { this.renderPreview(); };
+  private section: SectionId = "body";
+  private facing: "up" | "down" | "left" | "right" = "down";
+  private walking = false;
 
   private checkSeq = 0;
   private checkTimer: ReturnType<typeof setTimeout> | 0 = 0;
@@ -58,30 +148,59 @@ export class CharacterCreator {
       /** Atomically claim the name on submit. "taken" blocks creation; "ok" and
        *  "error" (offline / no backend) both let it proceed. */
       reserveName?: (name: string) => Promise<"ok" | "taken" | "error">;
+      /** An existing look to open with — the barber, editing a character who
+       *  already exists rather than making one. */
+      initial?: Appearance;
+      /** Lock the name field. The name is a join key (pier records attribute by
+       *  it, and the name registry's claim is one-way), so the barber may change
+       *  everything about a character except what they are called. */
+      lockName?: boolean;
+      /** Hide the account-mode picker. Mode is chosen once, at creation. */
+      hideMode?: boolean;
+      /** What the figure is wearing in the portrait — the barber shows you as
+       *  you actually are, kit and all. */
+      gear?: GearLook;
+      /** Wording for the screen and its confirm button. */
+      title?: string;
+      subtitle?: string;
+      confirmLabel?: string;
     },
   ) {
     this.taken = new Set(opts.takenNames.map((n) => n.toLowerCase()));
+    this.draft = opts.initial
+      ? withDefaults(opts.initial)
+      : { ...DEFAULT_APPEARANCE, name: "" };
     this.backdrop = document.createElement("div");
     this.backdrop.className = "creator-backdrop";
+    this.backdrop.setAttribute("role", "dialog");
+    this.backdrop.setAttribute("aria-modal", "true");
+    this.backdrop.setAttribute("aria-label", opts.title ?? "Create your character");
     this.backdrop.innerHTML = `
       <div class="creator-box">
-        <div class="creator-title">VARATH</div>
-        <div class="creator-sub">Who will you become?</div>
+        <div class="creator-title">${opts.title ?? "VARATH"}</div>
+        <div class="creator-sub">${opts.subtitle ?? "Who will you become?"}</div>
         <div class="creator-main">
-          <canvas class="creator-preview"></canvas>
+          <div class="creator-stage">
+            <canvas class="creator-preview"></canvas>
+            <div class="creator-turn"></div>
+          </div>
           <div class="creator-controls">
-            <label class="creator-label">Name</label>
-            <input class="creator-name" type="text" maxlength="16" placeholder="Your name" />
-            <div class="creator-name-hint"></div>
+            <label class="creator-label" for="creator-name-input">Name</label>
+            <input class="creator-name" id="creator-name-input" type="text" maxlength="16" placeholder="Your name" />
+            <div class="creator-name-hint" aria-live="polite"></div>
+            <div class="creator-presets"></div>
+            <div class="creator-tabs" role="tablist"></div>
             <div class="creator-rows"></div>
-            <label class="creator-label">Account</label>
-            <div class="creator-modes"></div>
-            <div class="creator-mode-note"></div>
+            <div class="creator-account">
+              <label class="creator-label">Account</label>
+              <div class="creator-modes"></div>
+              <div class="creator-mode-note"></div>
+            </div>
           </div>
         </div>
         <div class="creator-nav">
           <button class="creator-back" type="button">◀ Back</button>
-          <button class="creator-go" type="button" disabled>Enter Varath</button>
+          <button class="creator-go" type="button" disabled>${opts.confirmLabel ?? "Enter Varath"}</button>
         </div>
       </div>`;
     root.appendChild(this.backdrop);
@@ -95,41 +214,47 @@ export class CharacterCreator {
       hintEl.classList.toggle("warn", state === "warn");
       hintEl.classList.toggle("ok", state === "ok");
     };
-    nameEl.addEventListener("input", () => {
-      this.draft.name = nameEl.value.trim();
-      const key = this.draft.name.toLowerCase();
-      const seq = ++this.checkSeq; // invalidate any in-flight remote check
-      if (this.checkTimer) { clearTimeout(this.checkTimer); this.checkTimer = 0; }
-      // Instant local rules first.
-      if (this.draft.name.length < 1) { setHint("1–16 characters.", ""); goEl.disabled = true; return; }
-      if (this.taken.has(key)) { setHint("That name is already taken.", "warn"); goEl.disabled = true; return; }
-      // No cloud check available — local rules are all we have.
-      if (!this.opts.checkName) { setHint("1–16 characters.", ""); goEl.disabled = false; return; }
-      // Debounced live availability check against the backend.
-      setHint("Checking availability…", "busy");
-      goEl.disabled = true;
-      this.checkTimer = setTimeout(() => {
-        void this.opts.checkName!(this.draft.name).then((free) => {
-          if (seq !== this.checkSeq) return; // a newer keystroke superseded this
-          if (free) { setHint("That name is available.", "ok"); goEl.disabled = false; }
-          else { setHint("That name is already taken.", "warn"); goEl.disabled = true; }
-        });
-      }, 350);
-    });
 
-    const rows = this.backdrop.querySelector(".creator-rows") as HTMLElement;
-    this.rowsEl = rows;
+    if (opts.lockName) {
+      // The barber can change everything about you except what you are called.
+      nameEl.value = this.draft.name;
+      nameEl.disabled = true;
+      setHint("A name, once claimed, is yours for good.", "");
+      goEl.disabled = false;
+    } else {
+      nameEl.addEventListener("input", () => {
+        this.draft.name = nameEl.value.trim();
+        const key = this.draft.name.toLowerCase();
+        const seq = ++this.checkSeq; // invalidate any in-flight remote check
+        if (this.checkTimer) { clearTimeout(this.checkTimer); this.checkTimer = 0; }
+        // Instant local rules first.
+        if (this.draft.name.length < 1) { setHint("1–16 characters.", ""); goEl.disabled = true; return; }
+        if (this.taken.has(key)) { setHint("That name is already taken.", "warn"); goEl.disabled = true; return; }
+        // No cloud check available — local rules are all we have.
+        if (!this.opts.checkName) { setHint("1–16 characters.", ""); goEl.disabled = false; return; }
+        // Debounced live availability check against the backend.
+        setHint("Checking availability…", "busy");
+        goEl.disabled = true;
+        this.checkTimer = setTimeout(() => {
+          void this.opts.checkName!(this.draft.name).then((free) => {
+            if (seq !== this.checkSeq) return; // a newer keystroke superseded this
+            if (free) { setHint("That name is available.", "ok"); goEl.disabled = false; }
+            else { setHint("That name is already taken.", "warn"); goEl.disabled = true; }
+          });
+        }, 350);
+      });
+    }
+
+    this.rowsEl = this.backdrop.querySelector(".creator-rows") as HTMLElement;
+    this.buildTurnControls();
+    this.buildPresets();
+    this.buildTabs();
     this.buildRows();
-    this.buildModes();
-
-    // "Surprise me" — a random pick per row + build, for players who'd rather
-    // roll a look than dial one in (T7·07). Rebuilds every control + the preview.
-    const randBtn = document.createElement("button");
-    randBtn.type = "button";
-    randBtn.className = "creator-random";
-    randBtn.textContent = "Surprise me";
-    randBtn.addEventListener("click", (e) => { e.stopPropagation(); this.randomize(); });
-    rows.parentElement?.insertBefore(randBtn, rows);
+    if (opts.hideMode) {
+      (this.backdrop.querySelector(".creator-account") as HTMLElement).remove();
+    } else {
+      this.buildModes();
+    }
 
     const backBtn = this.backdrop.querySelector(".creator-back") as HTMLElement;
     if (this.opts.onBack) {
@@ -142,6 +267,8 @@ export class CharacterCreator {
     goEl.addEventListener("click", (e) => {
       e.stopPropagation();
       if (goEl.disabled) return;
+      // The barber has nothing to claim: the name is already this player's.
+      if (this.opts.lockName) { this.close(); this.opts.onCreate(this.made()); return; }
       if (this.draft.name.length < 1 || this.taken.has(this.draft.name.toLowerCase())) return;
       // No backend reservation — proceed as before (offline / local play).
       if (!this.opts.reserveName) { this.close(); this.opts.onCreate(this.made()); return; }
@@ -182,7 +309,7 @@ export class CharacterCreator {
     };
     this.raf = requestAnimationFrame(loop);
     window.addEventListener("resize", this.onResize);
-    setTimeout(() => nameEl.focus(), 50);
+    if (!opts.lockName) setTimeout(() => nameEl.focus(), 50);
   }
 
   /** The finished character: look plus mode (standard is left off entirely, so
@@ -191,99 +318,197 @@ export class CharacterCreator {
     return this.mode === "standard" ? { ...this.draft } : { ...this.draft, mode: this.mode };
   }
 
-  /** The account-mode picker. Each mode is a permanent choice made here, so the
-   *  cost of each is spelled out rather than hidden behind a name. */
-  private buildModes(): void {
-    const wrap = this.backdrop.querySelector(".creator-modes") as HTMLElement;
-    const note = this.backdrop.querySelector(".creator-mode-note") as HTMLElement;
-    const MODES: { id: AccountMode; label: string; blurb: string }[] = [
-      { id: "standard", label: "Standard", blurb: "Varath as it comes. Trade, the Grand Exchange and staked duels are all open to you." },
-      { id: "ironman", label: "Ironman", blurb: "Everything you have, you get yourself. No Grand Exchange, no trading, no staked duels." },
-      { id: "hardcore", label: "Hardcore", blurb: "Ironman, and one life. A death spends it — you carry on as an Ironman, and the record of how it ended stands." },
-      { id: "ultimate", label: "Ultimate", blurb: "Ironman, and no bank at all. What you carry is everything you own." },
-    ];
-    for (const m of MODES) {
+  // --- The portrait's controls ----------------------------------------------
+
+  /** Turn the figure, and set it walking. The four facings are not decoration:
+   *  they are the only place a player can see that the character has a back and
+   *  a profile at all. */
+  private buildTurnControls(): void {
+    const wrap = this.backdrop.querySelector(".creator-turn") as HTMLElement;
+    wrap.setAttribute("role", "group");
+    wrap.setAttribute("aria-label", "Turn your character");
+    for (const f of FACINGS) {
       const b = document.createElement("button");
       b.type = "button";
-      b.className = `creator-mode${m.id === this.mode ? " on" : ""}`;
-      b.dataset["mode"] = m.id;
-      b.textContent = m.label;
+      b.className = "creator-turn-btn" + (f.id === this.facing ? " on" : "");
+      b.textContent = f.glyph;
+      b.title = f.label;
+      b.setAttribute("aria-label", f.label);
+      b.setAttribute("aria-pressed", f.id === this.facing ? "true" : "false");
       b.addEventListener("click", (e) => {
         e.stopPropagation();
-        this.mode = m.id;
-        for (const el of wrap.querySelectorAll(".creator-mode")) {
-          el.classList.toggle("on", (el as HTMLElement).dataset["mode"] === this.mode);
+        this.facing = f.id;
+        for (const el of wrap.querySelectorAll(".creator-turn-btn")) {
+          const on = el === b;
+          el.classList.toggle("on", on);
+          el.setAttribute("aria-pressed", on ? "true" : "false");
         }
-        note.textContent = m.blurb;
+        this.renderPreview();
       });
       wrap.appendChild(b);
     }
-    note.textContent = MODES[0]!.blurb;
+    const walk = document.createElement("button");
+    walk.type = "button";
+    walk.className = "creator-turn-btn creator-walk";
+    walk.textContent = "Walk";
+    walk.setAttribute("aria-pressed", "false");
+    walk.addEventListener("click", (e) => {
+      e.stopPropagation();
+      this.walking = !this.walking;
+      walk.classList.toggle("on", this.walking);
+      walk.setAttribute("aria-pressed", this.walking ? "true" : "false");
+    });
+    wrap.appendChild(walk);
   }
 
-  /** (Re)build every appearance row from the current draft. Called on open and
-   *  after "Surprise me" so the controls reflect a freshly-rolled look. */
-  private buildRows(): void {
-    const rows = this.rowsEl;
-    rows.innerHTML = "";
-    this.partRow(rows, "Build", "build", BUILD_STYLES, null, null);
-    this.partRow(rows, "Skin", null, null, "skin", SKINS);
-    this.partRow(rows, "Hair", "hairStyle", HAIR_STYLES, "hair", HAIRS);
-    this.partRow(rows, "Beard", "facial", FACIAL_STYLES, null, null);
-    this.partRow(rows, "Top", "top", TOP_STYLES, "tunic", CLOTH);
-    this.partRow(rows, "Legs", "legs", LEG_STYLES, "legColor", CLOTH);
-    this.partRow(rows, "Shoes", "shoes", SHOE_STYLES, "shoeColor", CLOTH);
+  // --- Presets and the randomiser -------------------------------------------
+
+  private buildPresets(): void {
+    const wrap = this.backdrop.querySelector(".creator-presets") as HTMLElement;
+    wrap.setAttribute("role", "group");
+    wrap.setAttribute("aria-label", "Starting characters");
+    for (const p of PRESETS) {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "creator-preset";
+      b.textContent = p.label;
+      b.addEventListener("click", (e) => {
+        e.stopPropagation();
+        // The name and the account mode are the player's, not the preset's.
+        const name = this.draft.name;
+        this.draft = withDefaults({ ...DEFAULT_APPEARANCE, ...p.look, name });
+        this.normalise();
+        this.buildRows();
+        this.renderPreview();
+      });
+      wrap.appendChild(b);
+    }
+    const rand = document.createElement("button");
+    rand.type = "button";
+    rand.className = "creator-preset creator-random";
+    rand.textContent = "Surprise me";
+    rand.addEventListener("click", (e) => { e.stopPropagation(); this.randomize(); });
+    wrap.appendChild(rand);
   }
 
-  /** "Surprise me" — roll a random value for every style + colour + build, then
-   *  rebuild the controls and preview so the figure updates in one go (T7·07). */
+  /** Roll every field the current section owns — so a player who likes their
+   *  face can reroll a body without losing it. */
   private randomize(): void {
-    const pick = <T>(list: T[]): T => list[Math.floor(Math.random() * list.length)]!;
-    this.draft.hairStyle = pick(HAIR_STYLES).id;
-    this.draft.facial = pick(FACIAL_STYLES).id;
-    this.draft.top = pick(TOP_STYLES).id;
-    this.draft.legs = pick(LEG_STYLES).id;
-    this.draft.shoes = pick(SHOE_STYLES).id;
-    this.draft.skin = pick(SKINS);
-    this.draft.hair = pick(HAIRS);
-    this.draft.tunic = pick(CLOTH);
-    this.draft.legColor = pick(CLOTH);
-    this.draft.shoeColor = pick(CLOTH);
-    const build = pick(BUILD_STYLES).id;
-    if (build === "average") delete this.draft.build;
-    else this.draft.build = build as "lean" | "broad";
+    const pick = <T,>(xs: T[]): T => xs[Math.floor(Math.random() * xs.length)]!;
+    const set = (k: PseudoKey, id: string): void => {
+      if (id === "average") delete this.draft[k];
+      else if (k === "build") this.draft.build = id as "lean" | "broad" | "heavy";
+      else this.draft.height = id as "short" | "tall";
+    };
+    for (const row of this.rowsFor(this.section)) {
+      if (row.pseudo && row.styles) set(row.pseudo, pick(row.styles).id);
+      else if (row.styleKey && row.styles) this.draft[row.styleKey] = pick(row.styles).id;
+      if (row.colorKey && row.colors) this.draft[row.colorKey] = pick(row.colors);
+    }
+    this.normalise();
     this.buildRows();
     this.renderPreview();
   }
 
-  /** A labelled row: optional style cycler + optional colour swatches. */
-  private partRow(
-    parent: HTMLElement,
-    label: string,
-    styleKey: StyleKey | "build" | null,
-    styles: { id: string; label: string }[] | null,
-    colorKey: ColorKey | null,
-    colors: string[] | null,
-  ): void {
-    const row = document.createElement("div");
-    row.className = "creator-part";
-    const head = document.createElement("div");
-    head.className = "creator-part-head";
-    head.innerHTML = `<span class="creator-label">${label}</span>`;
-    if (styleKey && styles) head.appendChild(this.cycler(styleKey, styles));
-    row.appendChild(head);
-    if (colorKey && colors) row.appendChild(this.swatches(colorKey, colors, label));
-    parent.appendChild(row);
+  /** Keep the draft in a shape the renderer and the save both accept: unset
+   *  optionals are DELETED, never set to undefined (exactOptionalPropertyTypes). */
+  private normalise(): void {
+    if (this.draft.build === undefined) delete this.draft.build;
+    if (this.draft.height === undefined) delete this.draft.height;
   }
 
-  /** A ◀ name ▶ control cycling a style list. `build` is special-cased: its
-   *  "average" id maps to an absent Appearance.build (exactOptionalPropertyTypes). */
-  private cycler(key: StyleKey | "build", list: { id: string; label: string }[]): HTMLElement {
+  // --- Sections --------------------------------------------------------------
+
+  private buildTabs(): void {
+    const wrap = this.backdrop.querySelector(".creator-tabs") as HTMLElement;
+    for (const sec of SECTIONS) {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "creator-tab" + (sec.id === this.section ? " on" : "");
+      b.textContent = sec.label;
+      b.setAttribute("role", "tab");
+      b.setAttribute("aria-selected", sec.id === this.section ? "true" : "false");
+      b.addEventListener("click", (e) => {
+        e.stopPropagation();
+        this.section = sec.id;
+        for (const el of wrap.querySelectorAll(".creator-tab")) {
+          const on = el === b;
+          el.classList.toggle("on", on);
+          el.setAttribute("aria-selected", on ? "true" : "false");
+        }
+        this.buildRows();
+      });
+      wrap.appendChild(b);
+    }
+  }
+
+  /** Every control in a section, as data — so the randomiser and the row
+   *  builder read the same list and can never disagree about what a section
+   *  contains. */
+  private rowsFor(section: SectionId): {
+    label: string;
+    styleKey?: StyleKey;
+    pseudo?: PseudoKey;
+    styles?: { id: string; label: string }[];
+    colorKey?: ColorKey;
+    colors?: string[];
+  }[] {
+    switch (section) {
+      case "body":
+        return [
+          { label: "Build", pseudo: "build", styles: BUILD_STYLES },
+          { label: "Height", pseudo: "height", styles: HEIGHT_STYLES },
+          { label: "Skin", colorKey: "skin", colors: SKINS },
+        ];
+      case "face":
+        return [
+          { label: "Eyes", styleKey: "eyes", styles: EYE_STYLES, colorKey: "eyeColor", colors: EYES },
+          { label: "Brows", styleKey: "brows", styles: BROW_STYLES },
+          { label: "Jaw", styleKey: "jaw", styles: JAW_STYLES },
+          { label: "Beard", styleKey: "facial", styles: FACIAL_STYLES, colorKey: "beardColor", colors: HAIRS },
+          { label: "Markings", styleKey: "marking", styles: MARKING_STYLES, colorKey: "markingColor", colors: MARKING_COLORS },
+        ];
+      case "hair":
+        return [{ label: "Hair", styleKey: "hairStyle", styles: HAIR_STYLES, colorKey: "hair", colors: HAIRS }];
+      case "clothes":
+        return [
+          { label: "Top", styleKey: "top", styles: TOP_STYLES, colorKey: "tunic", colors: CLOTH },
+          { label: "Legs", styleKey: "legs", styles: LEG_STYLES, colorKey: "legColor", colors: CLOTH },
+          { label: "Shoes", styleKey: "shoes", styles: SHOE_STYLES, colorKey: "shoeColor", colors: CLOTH },
+        ];
+    }
+  }
+
+  /** (Re)build every row of the active section from the current draft. */
+  private buildRows(): void {
+    const rows = this.rowsEl;
+    rows.innerHTML = "";
+    for (const r of this.rowsFor(this.section)) {
+      const row = document.createElement("div");
+      row.className = "creator-part";
+      const head = document.createElement("div");
+      head.className = "creator-part-head";
+      head.innerHTML = `<span class="creator-label">${r.label}</span>`;
+      if (r.styles && (r.styleKey || r.pseudo)) {
+        head.appendChild(this.cycler(r.pseudo ?? r.styleKey!, r.styles, r.label));
+      }
+      row.appendChild(head);
+      if (r.colorKey && r.colors) row.appendChild(this.swatches(r.colorKey, r.colors, r.label));
+      rows.appendChild(row);
+    }
+  }
+
+  /** A ◀ name ▶ control cycling a style list. The two closed unions (`build`,
+   *  `height`) are special-cased: their "average" id maps to an ABSENT field,
+   *  because exactOptionalPropertyTypes forbids assigning undefined. */
+  private cycler(
+    key: StyleKey | PseudoKey, list: { id: string; label: string }[], label: string,
+  ): HTMLElement {
     const wrap = document.createElement("div");
     wrap.className = "creator-cycler";
     const prev = document.createElement("button");
     prev.type = "button"; prev.className = "creator-cyc-btn"; prev.textContent = "◀";
-    prev.setAttribute("aria-label", `Previous ${key}`);
+    prev.setAttribute("aria-label", `Previous ${label.toLowerCase()}`);
     const name = document.createElement("span");
     name.className = "creator-cyc-name";
     // The value announces itself when it changes; without this the arrows read
@@ -291,22 +516,26 @@ export class CharacterCreator {
     name.setAttribute("aria-live", "polite");
     const next = document.createElement("button");
     next.type = "button"; next.className = "creator-cyc-btn"; next.textContent = "▶";
-    next.setAttribute("aria-label", `Next ${key}`);
+    next.setAttribute("aria-label", `Next ${label.toLowerCase()}`);
+    const pseudo = key === "build" || key === "height";
     const current = (): string =>
-      key === "build" ? (this.draft.build ?? "average") : this.draft[key];
+      pseudo ? (this.draft[key as PseudoKey] ?? "average") : (this.draft[key as StyleKey] ?? "");
     const apply = (id: string): void => {
       if (key === "build") {
         if (id === "average") delete this.draft.build;
-        else this.draft.build = id as "lean" | "broad";
+        else this.draft.build = id as "lean" | "broad" | "heavy";
+      } else if (key === "height") {
+        if (id === "average") delete this.draft.height;
+        else this.draft.height = id as "short" | "tall";
       } else {
-        this.draft[key] = id;
+        this.draft[key as StyleKey] = id;
       }
     };
-    const sync = () => {
+    const sync = (): void => {
       const i = Math.max(0, list.findIndex((o) => o.id === current()));
       name.textContent = list[i]?.label ?? list[0]!.label;
     };
-    const step = (d: number) => {
+    const step = (d: number): void => {
       let i = Math.max(0, list.findIndex((o) => o.id === current()));
       i = (i + d + list.length) % list.length;
       apply(list[i]!.id);
@@ -319,7 +548,8 @@ export class CharacterCreator {
     return wrap;
   }
 
-  /** A row of colour swatches bound to a colour field.
+  /** A row of colour swatches bound to a colour field, plus a picker for
+   *  anything the curated ramp does not cover.
    *
    *  These were unlabelled colour-only buttons, so anything that reads the page
    *  aloud found eight identical empty controls in a row. They are a radio group
@@ -330,6 +560,13 @@ export class CharacterCreator {
     wrap.className = "creator-swatches";
     wrap.setAttribute("role", "radiogroup");
     wrap.setAttribute("aria-label", `${label} colour`);
+    const mark = (chosen: HTMLElement | null): void => {
+      for (const sib of Array.from(wrap.querySelectorAll(".creator-swatch"))) {
+        const on = sib === chosen;
+        sib.classList.toggle("on", on);
+        sib.setAttribute("aria-checked", on ? "true" : "false");
+      }
+    };
     colors.forEach((c, i) => {
       const b = document.createElement("button");
       b.type = "button";
@@ -343,17 +580,68 @@ export class CharacterCreator {
       b.addEventListener("click", (e) => {
         e.stopPropagation();
         this.draft[key] = c;
-        for (const sib of Array.from(wrap.children)) {
-          sib.classList.remove("on");
-          sib.setAttribute("aria-checked", "false");
-        }
-        b.classList.add("on");
-        b.setAttribute("aria-checked", "true");
+        mark(b);
         this.renderPreview();
       });
       wrap.appendChild(b);
     });
+    // Any colour at all. The curated ramp stays the default path — it is what
+    // stops a world of neon characters — but six skin tones and eight hair
+    // colours is not a range, and the picker writes plain #rrggbb, which is
+    // exactly what the save's validator demands.
+    const custom = document.createElement("label");
+    custom.className = "creator-swatch creator-swatch-any";
+    custom.title = "Any colour";
+    const input = document.createElement("input");
+    input.type = "color";
+    input.value = this.draft[key] ?? colors[0]!;
+    input.setAttribute("aria-label", `${label} — any colour`);
+    input.addEventListener("input", () => {
+      this.draft[key] = input.value;
+      custom.style.background = input.value;
+      mark(null);
+      this.renderPreview();
+    });
+    custom.appendChild(input);
+    if (!colors.includes(this.draft[key] ?? "")) custom.style.background = this.draft[key] ?? "";
+    wrap.appendChild(custom);
     return wrap;
+  }
+
+  /** The account-mode picker. Each mode is a permanent choice made here, so the
+   *  cost of each is spelled out rather than hidden behind a name. */
+  private buildModes(): void {
+    const wrap = this.backdrop.querySelector(".creator-modes") as HTMLElement;
+    const note = this.backdrop.querySelector(".creator-mode-note") as HTMLElement;
+    wrap.setAttribute("role", "radiogroup");
+    wrap.setAttribute("aria-label", "Account type");
+    const MODES: { id: AccountMode; label: string; blurb: string }[] = [
+      { id: "standard", label: "Standard", blurb: "Varath as it comes. Trade, the Grand Exchange and staked duels are all open to you." },
+      { id: "ironman", label: "Ironman", blurb: "Everything you have, you get yourself. No Grand Exchange, no trading, no staked duels." },
+      { id: "hardcore", label: "Hardcore", blurb: "Ironman, and one life. A death spends it — you carry on as an Ironman, and the record of how it ended stands." },
+      { id: "ultimate", label: "Ultimate", blurb: "Ironman, and no bank at all. What you carry is everything you own." },
+    ];
+    for (const m of MODES) {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = `creator-mode${m.id === this.mode ? " on" : ""}`;
+      b.dataset["mode"] = m.id;
+      b.textContent = m.label;
+      b.setAttribute("role", "radio");
+      b.setAttribute("aria-checked", m.id === this.mode ? "true" : "false");
+      b.addEventListener("click", (e) => {
+        e.stopPropagation();
+        this.mode = m.id;
+        for (const el of wrap.querySelectorAll(".creator-mode")) {
+          const on = (el as HTMLElement).dataset["mode"] === this.mode;
+          el.classList.toggle("on", on);
+          el.setAttribute("aria-checked", on ? "true" : "false");
+        }
+        note.textContent = m.blurb;
+      });
+      wrap.appendChild(b);
+    }
+    note.textContent = MODES[0]!.blurb;
   }
 
   /**
@@ -414,12 +702,16 @@ export class CharacterCreator {
     key.addColorStop(1, "rgba(240,200,130,0)");
     g.fillStyle = key;
     g.fillRect(0, 0, w, h);
-    // The figure idles (breathing bob comes from the shared avatar's own clock).
-    // Scaled to the box it is actually in — the figure is ~31 base units tall,
-    // so this fills about three-quarters of the height whatever the layout does.
+    // The figure, at whatever facing the player has turned it to. Scaled to the
+    // box it is actually in — the figure is ~31 base units tall, so this fills
+    // about three-quarters of the height whatever the layout does.
     // `withDefaults` guards a draft missing a field the renderer expects.
     const fs = Math.min(h / 42, w / 26);
-    drawAvatar(g, w / 2, h / 2 + fs * 6, fs, withDefaults(this.draft), { now: t });
+    drawAvatar(
+      g, w / 2, h / 2 + fs * 6, fs, withDefaults(this.draft),
+      { now: t, moving: this.walking, facing: this.facing },
+      this.opts.gear ?? {},
+    );
     // soft vignette frame
     const vg = g.createRadialGradient(w / 2, h / 2, h * 0.36, w / 2, h / 2, h * 0.72);
     vg.addColorStop(0, "rgba(0,0,0,0)");
