@@ -21,6 +21,7 @@ import { readFileSync } from "node:fs";
 import { content } from "./harness.ts";
 import { BUILDINGS, CITY, REGIONS } from "../src/content/map.ts";
 import { materialOf, MATERIALS, TERRAIN } from "../src/client/palette.ts";
+import { humanoidKit } from "../src/client/monsterKit.ts";
 
 const fails: string[] = [];
 const check = (ok: boolean, msg: string): void => { if (!ok) fails.push(msg); };
@@ -110,7 +111,41 @@ for (const [key] of MATERIALS) {
     `materialOf cannot find "${key}" — its ordering has broken`);
 }
 
-// --- 6) The world's moods cover the world ------------------------------------
+// --- 6) The humanoid foes are not one foe ------------------------------------
+// Forty-seven of the eighty-five monsters share `drawHumanoid` and used to
+// differ by exactly two hex values. The kit is derived from the stat block, so
+// this asserts the derivation actually produces a spread rather than collapsing
+// everything onto one silhouette again.
+const dispatchSrc = render.slice(
+  render.indexOf("function drawMonsterBody"), render.indexOf("function drawUnknownBody"),
+);
+const humanoids = [...dispatchSrc.matchAll(/case "([a-z0-9_]+)":[\s\S]{0,40}?return H\(/g)].map((m) => m[1]!);
+check(humanoids.length > 30, `only ${humanoids.length} humanoid foes found — is the dispatch still shaped like this?`);
+const kits = new Set<string>();
+for (const id of humanoids) {
+  const k = humanoidKit(id);
+  kits.add(`${k.helm}|${k.weapon}|${k.cloak}`);
+}
+check(kits.size >= 12, `the humanoid foes collapse onto ${kits.size} silhouettes`);
+check(render.includes('from "./monsterKit.ts"'), "the renderer no longer reads the humanoid kit — every human foe is one figure again");
+
+// --- 7) Items do not all look the same ---------------------------------------
+// 710 items are classified into shapes by keyword. The measure that matters is
+// how many distinct SILHOUETTES that produces — colour alone does not tell a
+// cape from a cape at icon size. Thirty-seven cooked dishes were one portion and
+// thirty-six cloaks were one outline; both are broken up by the item's own hash.
+const icon = read("src/client/itemIcon.ts");
+check(/const ARMOUR_SHAPES/.test(icon), "worn armour no longer routes through the tier ladder — the arbitrary brown is back");
+check(/function armourRank/.test(icon), "armourRank is gone; armour with no authored tier falls back to a hash again");
+for (const sh of ["pickaxe", "hatchet", "bow", "staff", "cape", "ring", "amulet"]) {
+  check(new RegExp(`"${sh}"`).test(icon.slice(icon.indexOf("const TIER_SHAPES"), icon.indexOf("function armourRank"))),
+    `"${sh}" has lost its tier flourish — its whole ladder is one picture again`);
+}
+for (const sh of ["helmHood", "helmCoif", "bodyRobe", "bodyJerkin"]) {
+  check(icon.includes(`case "${sh}":`), `the "${sh}" silhouette is gone — helms and bodies collapse back to one shape each`);
+}
+
+// --- 8) The world's moods cover the world ------------------------------------
 // The whole point of the atmosphere step: `hills` was 97.4% of the overworld
 // and had no grade and no weather. Assert every biome the renderer can return
 // has a tint, and that the open country is genuinely split up.
@@ -124,7 +159,8 @@ for (const b of biomes) {
 check(REGIONS.length === 6 && CITY.x1 > CITY.x0, "the regions/city the biome map is built on have moved");
 
 console.log(
-  `monsters ${Object.keys(content.monsters).length} · weapons ${RANGED.size} ranged / ${MAGIC.size} magic / ${swordish} melee` +
+  `monsters ${Object.keys(content.monsters).length} (${humanoids.length} humanoid → ${kits.size} silhouettes)` +
+  ` · weapons ${RANGED.size} ranged / ${MAGIC.size} magic / ${swordish} melee` +
   ` · css vars ${defined.size} defined, ${used.size} used · materials ${MATERIALS.length} · biomes ${biomes.length}`,
 );
 if (fails.length) {

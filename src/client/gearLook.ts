@@ -145,7 +145,15 @@ function clothOf(id: string): Metal | null {
 /** The silhouette a worn piece draws as: robes for Devotion/magic gear, light
  *  leather for Draw/ranged (and the crafted leather sets), heavy plate for the
  *  rest. Read from the item's category/skill so it never guesses from stats. */
-function gearStyle(item: ItemDef): ArmorStyle {
+/**
+ * Plate, leather or robe — what a piece of armour IS, not what it is made of.
+ *
+ * Exported so the pack icons can read it too: helms and bodies used to be one
+ * silhouette apiece, so a mage's hood, a ranger's coif and a knight's great helm
+ * were the same picture in three tints. Derived from the item's own combat
+ * school, exactly as the worn figure has always derived it.
+ */
+export function gearStyle(item: ItemDef): ArmorStyle {
   if (item.cat === "Magic Robes" || item.equipSkill === "faith" || item.magic) return "robe";
   if (item.cat === "Ranged Armour" || item.equipSkill === "draw" || item.ranged) return "leather";
   if (leatherStep(item.id) !== null) return "leather";

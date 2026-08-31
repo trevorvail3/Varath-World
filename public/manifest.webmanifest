@@ -1,0 +1,13 @@
+{
+  "name": "Varath World",
+  "short_name": "Varath",
+  "description": "A tile-based world of the Knuckle Hills — skills, quests and the long walk out.",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#13100d",
+  "theme_color": "#13100d",
+  "orientation": "any",
+  "icons": [
+    { "src": "./icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}

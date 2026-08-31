@@ -35,6 +35,7 @@ import { type GearLook, resolveGear } from "./gearLook.ts";
 import { itemIconSVG } from "./itemIcon.ts";
 import { findPath } from "./pathfinding.ts";
 import { TERRAIN, darken } from "./palette.ts";
+import { humanoidKit, type HumanoidKit } from "./monsterKit.ts";
 
 // Ground loot renders as the actual item's icon: rasterise each item's SVG badge
 // to an <img> once (async), cache by id, and draw it on the tile. Until an image
@@ -1568,6 +1569,7 @@ export function drawWorld(
   // it needs the live map. It is a standalone export (the audio engine calls it
   // too), so the reference is parked here rather than threaded through.
   biomeMap = state.map;
+  labelRects.length = 0;   // names claim their spot afresh each frame
 
   // When the player is inside a sealed instance (a home or a boss arena), the
   // view is masked to that one region — everything outside it is void, so you
@@ -6902,7 +6904,10 @@ function drawMonsterBody(
   action?: AvatarAnim["action"],
 ): void {
   // Human-type foes share the animated humanoid figure (arms, walk, attack swing).
-  const H = (body: string, trim: string) => drawHumanoid(g, cx, cy, now, body, trim, moving, action);
+  // Every humanoid foe is drawn with the kit its own stat block implies, so the
+  // sixty that share this figure stop being the same figure.
+  const H = (body: string, trim: string) =>
+    drawHumanoid(g, cx, cy, now, body, trim, moving, action, humanoidKit(monster));
   switch (monster) {
     case "hill_wolf":
     case "ridge_wolf":
@@ -7453,6 +7458,7 @@ function drawHumanoid(
   trim: string,
   moving = false,
   action?: AvatarAnim["action"],
+  kit: HumanoidKit = { helm: "cap", weapon: "sword", cloak: false, build: 1 },
 ): void {
   const acting = !!action;
   const a = walkAnim(now, moving && !acting);
@@ -7462,7 +7468,26 @@ function drawHumanoid(
   const nearAngle = acting ? actionArmAngle(action!.frac, action!.kind) : -0.12 + a.swing;
   const farAngle = acting ? 0.22 : 0.12 - a.swing;
   const nearTool = acting ? action!.tool : "";
-  shadow(g, cx, cy + 12, 8, 3);
+  const B = kit.build;
+  shadow(g, cx, cy + 12 * B, 8 * B, 3 * B);
+  // The whole figure is drawn about its feet at the kit's build, so a level-90
+  // warlord looms over a level-10 footpad instead of matching him pixel for
+  // pixel. Everything below keeps its original numbers.
+  const grounded = B !== 1;
+  if (grounded) { g.save(); g.translate(cx, cy + 14); g.scale(B, B); g.translate(-cx, -(cy + 14)); }
+  // A cloak hangs behind the torso, so it is drawn before anything else.
+  if (kit.cloak) {
+    g.fillStyle = trim;
+    g.globalAlpha = 0.55;
+    g.beginPath();
+    g.moveTo(cx - 6, cy - 7 + bob);
+    g.quadraticCurveTo(cx - 11, cy + 4 + bob, cx - 8, cy + 13 + bob);
+    g.lineTo(cx + 8, cy + 13 + bob);
+    g.quadraticCurveTo(cx + 11, cy + 4 + bob, cx + 6, cy - 7 + bob);
+    g.closePath();
+    g.fill();
+    g.globalAlpha = 1;
+  }
   // legs (feet lift while walking)
   g.fillStyle = "#2b2620";
   g.fillRect(cx - 5, cy + 6 - a.liftL, 4, 8);
@@ -7509,6 +7534,104 @@ function drawHumanoid(
   g.fillStyle = "rgba(255,240,220,0.9)"; // eye glints under the brow
   g.fillRect(cx - 2.6, cy - 11.4 + bob, 1.4, 1.2);
   g.fillRect(cx + 1.2, cy - 11.4 + bob, 1.4, 1.2);
+
+  // --- The kit: the head-shape and the weapon that make one figure sixty. ---
+  const hy = cy - 12 + bob;
+  switch (kit.helm) {
+    case "hood": // a caster's cowl, falling to the shoulders
+      g.fillStyle = body;
+      g.beginPath();
+      g.moveTo(cx - 6.5, cy - 5 + bob);
+      g.quadraticCurveTo(cx - 6.5, hy - 6, cx, hy - 6.5);
+      g.quadraticCurveTo(cx + 6.5, hy - 6, cx + 6.5, cy - 5 + bob);
+      g.closePath(); g.fill();
+      g.fillStyle = "rgba(0,0,0,0.55)"; // the dark inside the cowl
+      g.beginPath(); g.ellipse(cx, hy + 1.2, 3.4, 3.8, 0, 0, Math.PI * 2); g.fill();
+      break;
+    case "cap": // a leather cap with a short brim
+      g.fillStyle = trim;
+      g.beginPath(); g.arc(cx, hy + 0.5, 5, Math.PI, 0); g.fill();
+      g.fillRect(cx - 5.6, hy + 0.2, 11.2, 1.4);
+      break;
+    case "kettle": // a wide-brimmed watchman's kettle helm
+      g.fillStyle = trim;
+      g.beginPath(); g.arc(cx, hy + 0.5, 4.6, Math.PI, 0); g.fill();
+      g.fillRect(cx - 7, hy + 0.2, 14, 1.6);
+      g.fillStyle = "rgba(255,255,255,0.22)";
+      g.fillRect(cx - 3.6, hy - 3.4, 2, 3.6);
+      break;
+    case "great": // a closed great helm with a viewing slit
+      g.fillStyle = trim;
+      g.beginPath(); g.arc(cx, hy + 0.6, 5.2, Math.PI, 0); g.fill();
+      g.fillRect(cx - 5.2, hy + 0.4, 10.4, 5);
+      g.fillStyle = "#12100e";
+      g.fillRect(cx - 4, hy + 1.8, 8, 1.5); // the slit
+      g.fillStyle = "rgba(255,255,255,0.18)";
+      g.fillRect(cx - 4.6, hy - 2.6, 1.8, 4);
+      break;
+    case "crown": // a circlet over a bare head — rank, not protection
+      g.fillStyle = trim;
+      g.fillRect(cx - 5, hy - 0.6, 10, 2);
+      for (const dx of [-4, -1.4, 1.4, 4]) {
+        g.beginPath();
+        g.moveTo(cx + dx - 1, hy - 0.6);
+        g.lineTo(cx + dx, hy - 3.8);
+        g.lineTo(cx + dx + 1, hy - 0.6);
+        g.closePath(); g.fill();
+      }
+      break;
+    case "none": break;
+  }
+  // The idle weapon, carried in the far hand. While attacking, the animation's
+  // own tool is already in the near hand, so this stands down.
+  if (!acting && kit.weapon !== "none") drawKitWeapon(g, cx + 7.5, cy - 3 + bob, kit.weapon, trim);
+  if (grounded) g.restore();
+}
+
+/** The weapon a humanoid carries at rest — a silhouette, not a model: it is
+ *  eight pixels tall and its job is to be recognisable at a glance. */
+function drawKitWeapon(
+  g: CanvasRenderingContext2D, x: number, y: number, kind: HumanoidKit["weapon"], trim: string,
+): void {
+  const HAFT = "#6a5236";
+  switch (kind) {
+    case "sword":
+      g.fillStyle = "#2f2822"; g.fillRect(x - 0.8, y + 1, 1.6, 2.4);
+      g.fillStyle = trim; g.fillRect(x - 2.4, y + 3, 4.8, 1);
+      g.fillStyle = "#b9bec7"; g.fillRect(x - 0.9, y + 4, 1.8, 8);
+      break;
+    case "spear":
+      g.fillStyle = HAFT; g.fillRect(x - 0.5, y - 6, 1, 19);
+      g.fillStyle = "#c3c8d1";
+      g.beginPath(); g.moveTo(x, y - 10); g.lineTo(x - 1.7, y - 5.5); g.lineTo(x + 1.7, y - 5.5); g.closePath(); g.fill();
+      break;
+    case "maul":
+      g.fillStyle = HAFT; g.fillRect(x - 0.6, y + 1, 1.2, 12);
+      g.fillStyle = trim; g.fillRect(x - 3, y - 2, 6, 4.2);
+      g.fillStyle = "rgba(0,0,0,0.25)"; g.fillRect(x - 3, y + 0.6, 6, 1.6);
+      break;
+    case "axe":
+      g.fillStyle = HAFT; g.fillRect(x - 0.6, y - 1, 1.2, 14);
+      g.fillStyle = "#b9bec7";
+      g.beginPath(); g.moveTo(x, y - 2); g.quadraticCurveTo(x + 5, y + 1, x, y + 4.5); g.closePath(); g.fill();
+      break;
+    case "staff": {
+      g.strokeStyle = HAFT; g.lineWidth = 1.3; g.lineCap = "round";
+      g.beginPath(); g.moveTo(x, y - 9); g.lineTo(x, y + 13); g.stroke();
+      g.lineCap = "butt";
+      g.fillStyle = trim;
+      g.beginPath(); g.arc(x, y - 10.5, 2, 0, Math.PI * 2); g.fill();
+      break;
+    }
+    case "bow":
+      g.strokeStyle = HAFT; g.lineWidth = 1.2; g.lineCap = "round";
+      g.beginPath(); g.arc(x + 2, y + 2, 6, Math.PI * 0.45, Math.PI * 1.55); g.stroke();
+      g.lineCap = "butt";
+      g.strokeStyle = "rgba(230,230,236,0.55)"; g.lineWidth = 0.5;
+      g.beginPath(); g.moveTo(x - 2.2, y - 3.5); g.lineTo(x - 2.2, y + 7.5); g.stroke();
+      break;
+    case "none": break;
+  }
 }
 
 // --- Moor Rat: small, long-tailed ---
@@ -8443,6 +8566,15 @@ function label(
   g.textAlign = "center";
   g.textBaseline = "bottom";
   const wpx = g.measureText(text).width;
+  // In a busy clearing a dozen names land on top of one another and none of
+  // them can be read. First name to the spot keeps it; the rest stand down
+  // until whatever they name moves. (Drawing order is depth order, so the
+  // nearest thing wins, which is the one you are most likely to want.)
+  const x0 = x - wpx / 2 - 3.5, y0 = y - 11, x1 = x0 + wpx + 7, y1 = y0 + 13;
+  for (const r of labelRects) {
+    if (x0 < r[2] && x1 > r[0] && y0 < r[3] && y1 > r[1]) return;
+  }
+  labelRects.push([x0, y0, x1, y1]);
   g.fillStyle = "rgba(14,11,8,0.45)";
   g.beginPath();
   g.roundRect(x - wpx / 2 - 3.5, y - 11, wpx + 7, 13, 3);
@@ -8457,3 +8589,7 @@ function label(
 /** Set once — `g.font` is one of the more expensive canvas properties, and the
  *  label was re-assigning the same string on every name, every frame. */
 const LABEL_FONT = "11px 'EB Garamond', serif";
+
+/** Label plates already placed this frame, so names do not stack on each other.
+ *  Cleared at the top of every frame; a few dozen entries at most. */
+const labelRects: [number, number, number, number][] = [];

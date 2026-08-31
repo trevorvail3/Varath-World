@@ -536,6 +536,39 @@ body {
   scroll-behavior: auto !important;
 }
 
+/* The same, for anyone who has already told their system they want it. There
+   was a toggle in Settings but no honouring of the OS preference, so a player
+   who had set it everywhere else still got 45 transitions and 16 keyframes. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* --- Focus ------------------------------------------------------------------
+   Across 4,700 lines of CSS there were eight :focus rules and no :focus-visible
+   at all, so playing by keyboard meant guessing where you were. One ring, on
+   everything focusable, shown only when focus came from the keyboard — a mouse
+   click never draws it. */
+:where(button, [role="button"], a, input, select, textarea, summary, [tabindex]):focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+  border-radius: var(--r-xs);
+}
+/* Some controls sit flush against a panel edge where an outline would clip;
+   they take the ring as a shadow instead. */
+.dock-tab:focus-visible,
+.inv-slot:focus-visible,
+.skill-cell:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--gold);
+}
+
 .hp-fill {
   height: 100%;
   width: 100%;
@@ -4828,4 +4861,91 @@ button.inv-slot {
   font-variant-numeric: tabular-nums;
   pointer-events: none;
   user-select: none;
+}
+
+/* ---------------------------------------------------------------------------
+   One modal, one scrim.
+
+   Thirteen backdrops and eleven modal shells had grown apart independently:
+   three different scrim alphas (0.55 / 0.6 / 0.62), four z-index bands, and
+   radii from 8 to 12 with three different shadows. Nothing here changes what a
+   panel *contains* — the markup and the JS are untouched — it just puts every
+   one of them on the same chrome, so opening the Bank and opening the Exchange
+   feels like the same interface.
+
+   The treatment is .levelup's (style.css's best-built component): a gold hairline
+   over a warm dark ground, a soft lift shadow, and a faint inner glow. Appended
+   at the end of the sheet so it wins on order, not on !important.
+   --------------------------------------------------------------------------- */
+.bank-backdrop,
+.bugreport-backdrop,
+.duel-backdrop,
+.founder-backdrop,
+.ge-backdrop,
+.hiscores-backdrop,
+.players-backdrop,
+.shop-backdrop,
+.skilldetail-backdrop,
+.skillpick-backdrop,
+.trade-backdrop,
+.worldmap-backdrop {
+  background: rgba(6, 5, 4, 0.58);
+  -webkit-backdrop-filter: blur(1.5px);
+  backdrop-filter: blur(1.5px);
+}
+
+.bank-modal,
+.duel-modal,
+.ge-modal,
+.hiscores-modal,
+.players-modal,
+.records-modal,
+.shop-modal,
+.skilldetail-modal,
+.skillpick-modal,
+.trade-modal,
+.worldmap-modal {
+  border: 1px solid var(--gold);
+  border-radius: var(--r-xl);
+  background: linear-gradient(180deg, rgba(34, 27, 18, 0.97), rgba(22, 17, 11, 0.97));
+  box-shadow:
+    0 8px 28px rgba(0, 0, 0, 0.55),
+    inset 0 0 22px rgba(var(--gold-rgb), 0.1);
+}
+
+/* Eleven close buttons had eleven sizes and hover colours. One target, big
+   enough to hit on a phone, ember on hover — and reachable by keyboard, which
+   several of them were not. */
+.bank-x,
+.shop-x,
+.shop-info-x,
+.ge-x,
+.hiscores-x,
+.players-x,
+.trade-x,
+.duel-x,
+.skilldetail-x,
+.worldmap-x {
+  min-width: 28px;
+  min-height: 28px;
+  line-height: 1;
+  border-radius: var(--r-md);
+  color: var(--ink-dim);
+  background: transparent;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: color 0.14s ease, border-color 0.14s ease;
+}
+.bank-x:hover,
+.shop-x:hover,
+.shop-info-x:hover,
+.ge-x:hover,
+.hiscores-x:hover,
+.players-x:hover,
+.trade-x:hover,
+.duel-x:hover,
+.skilldetail-x:hover,
+.worldmap-x:hover {
+  color: var(--ember);
+  border-color: rgba(var(--ember-rgb), 0.4);
 }

@@ -15,7 +15,8 @@
  */
 
 import type { ItemDef } from "../core/types.ts";
-import { MATERIALS } from "./palette.ts";
+import { MATERIALS, TIER_LADDER } from "./palette.ts";
+import { gearStyle } from "./gearLook.ts";
 
 // ── tiny colour maths ──────────────────────────────────────────────────────
 function hexRgb(h: string): [number, number, number] {
@@ -95,7 +96,8 @@ const MATS: ReadonlyArray<readonly [string, string]> = MATERIALS.map(
 type Shape =
   | "ore" | "ingot" | "log" | "board" | "shaft" | "pickaxe" | "hatchet" | "rod"
   | "sword" | "dagger" | "claymore" | "spear" | "hammer" | "saw" | "staff" | "bow" | "bowU"
-  | "arrow" | "arrowhead" | "shield" | "helm" | "body" | "legs" | "boot" | "cape"
+  | "arrow" | "arrowhead" | "shield" | "helm" | "helmHood" | "helmCoif"
+  | "body" | "bodyRobe" | "bodyJerkin" | "legs" | "boot" | "cape"
   | "ring" | "amulet" | "gem" | "bead" | "vial" | "herb" | "seed" | "mushroom"
   | "fish" | "meat" | "cooked" | "bowl" | "bread" | "hide" | "pet" | "mount" | "coin"
   | "scroll" | "key" | "trophy" | "powder" | "rivet" | "sack" | "rune"
@@ -127,7 +129,13 @@ function classify(def: ItemDef): Shape {
   // NB: match "arrow" as a whole word — otherwise "marrow", "barrow", "narrow"
   // (e.g. Marrowbone Greaves, Marrow Shard) get mis-iconed as arrows.
   if (slot === "ammo" || cat === "Arrows" || (/\barrow\b/.test(s) && !has("arrowhead"))) return "arrow";
-  if (slot === "helmet" || has("helm") || id.endsWith("_hat") || has(" hat")) return "helm";
+  // Head and chest split by combat school: a magus's hood, a ranger's coif and
+  // a knight's great helm are three different objects, and the item already
+  // says which it is (see gearStyle — the worn figure has always known).
+  if (slot === "helmet" || has("helm") || id.endsWith("_hat") || has(" hat")) {
+    const st = gearStyle(def);
+    return st === "robe" ? "helmHood" : st === "leather" ? "helmCoif" : "helm";
+  }
   if (slot === "offhand" || has("shield") || has("ward shield")) return "shield";
   if (slot === "cape" || cat === "Capes" || has("cape")) return "cape";
   if (slot === "ring" || id.startsWith("ring_") || id.includes("_ring") || has("ring")) return "ring";
@@ -140,7 +148,10 @@ function classify(def: ItemDef): Shape {
     slot === "armor" || cat.includes("Armour") || cat === "Armor" ||
     has("plate") || has("mail") || has("jacket") || has(" top") || has("cuirass") ||
     has("body")
-  ) return "body";
+  ) {
+    const st = gearStyle(def);
+    return st === "robe" ? "bodyRobe" : st === "leather" ? "bodyJerkin" : "body";
+  }
 
   // The bounty board's field tools are cat "Combat" but aren't weapons — each
   // gets its own icon instead of falling through to the generic sword.
@@ -252,6 +263,18 @@ function paletteFor(def: ItemDef, shape: Shape): Pal {
       }
       return shadeFrom(tweak(hex, id, 8, 8, 8));
     }
+  }
+
+  // 1b) Worn armour that names no material — seventy-two helms, bodies, legs,
+  //     boots and shields — used to fall all the way past the per-shape switch
+  //     to its hashed default and come out an arbitrary brown. Brown boots,
+  //     brown cuirasses, brown bucklers: it was the single largest reason a
+  //     whole gear ladder looked like one item. What rank a piece is, the item
+  //     already says (its own `tier`, or the level needed to wear it), and the
+  //     tier ladder already knows what a piece of that rank is made of.
+  if (ARMOUR_SHAPES.has(shape)) {
+    const m = TIER_LADDER[Math.max(0, Math.min(TIER_LADDER.length - 1, armourRank(def) - 1))]!;
+    return shadeFrom(tweak(m.base, id, 6, 6, 6), m.edge);
   }
 
   // 2) gathering gear keeps its green guild look
@@ -623,10 +646,34 @@ function draw(shape: Shape, p: Pal, id: string): string {
     case "arrowhead": return `<polygon points="16,5 22,20 16,16 10,20" fill="${p.base}" stroke="${p.edge}" stroke-width="1" stroke-linejoin="round"/><line x1="16" y1="16" x2="16" y2="27" stroke="${WOOD}" stroke-width="1.4"/>`;
     case "shield": return `<path d="M16,5 L26,8 Q26,20 16,28 Q6,20 6,8 Z" fill="${p.base}" stroke="${p.edge}" stroke-width="1.2" stroke-linejoin="round"/><line x1="16" y1="6" x2="16" y2="27" stroke="${p.dark}" stroke-width="1"/><line x1="7" y1="11" x2="25" y2="11" stroke="${p.dark}" stroke-width="1" opacity="0.6"/><circle cx="16" cy="13" r="2" fill="${p.accent}"/>`;
     case "helm": return `<path d="M8,14 Q8,7 16,7 Q24,7 24,14 L24,22 Q24,25 16,25 Q8,25 8,22 Z" fill="${p.base}" stroke="${p.edge}" stroke-width="1.2" stroke-linejoin="round"/><rect x="15" y="12" width="2" height="10" fill="${p.dark}"/><rect x="11" y="15" width="10" height="2" fill="${p.dark}"/><path d="M9,12 Q16,9 23,12" fill="none" stroke="${p.light}" stroke-width="0.8" opacity="0.6"/>`;
+    case "helmHood": return `<path d="M8,15 Q8,6 16,6 Q24,6 24,15 L23,24 Q16,27 9,24 Z" fill="${p.base}" stroke="${p.edge}" stroke-width="1.2" stroke-linejoin="round"/><ellipse cx="16" cy="16" rx="4.6" ry="5.4" fill="${p.dark}" opacity="0.85"/><path d="M9,24 Q16,21 23,24" fill="none" stroke="${p.light}" stroke-width="0.9" opacity="0.55"/>`;
+    case "helmCoif": return `<path d="M8,15 Q8,8 16,8 Q24,8 24,15 L24,21 Q20,24 16,24 Q12,24 8,21 Z" fill="${p.base}" stroke="${p.edge}" stroke-width="1.1" stroke-linejoin="round"/><path d="M8,14 Q16,11 24,14" fill="none" stroke="${p.dark}" stroke-width="1.4"/><rect x="11" y="16" width="10" height="2.4" rx="1.2" fill="${p.dark}" opacity="0.8"/><path d="M12,10 Q16,8 20,10" fill="none" stroke="${p.light}" stroke-width="0.8" opacity="0.6"/>`;
+    case "bodyRobe": return `<path d="M11,7 Q16,9 21,7 L24,11 L22,14 L23,26 Q16,28 9,26 L10,14 L8,11 Z" fill="${p.base}" stroke="${p.edge}" stroke-width="1.1" stroke-linejoin="round"/><path d="M13,8 L16,17 L19,8" fill="none" stroke="${p.dark}" stroke-width="1.1" opacity="0.7"/><path d="M9,26 Q16,24 23,26" fill="none" stroke="${p.light}" stroke-width="0.9" opacity="0.5"/>`;
+    case "bodyJerkin": return `<path d="M10,8 L13,7 Q16,9 19,7 L22,8 L23,13 L21,14 L21,23 Q16,25 11,23 L11,14 L9,13 Z" fill="${p.base}" stroke="${p.edge}" stroke-width="1.1" stroke-linejoin="round"/><line x1="16" y1="9" x2="16" y2="23" stroke="${p.dark}" stroke-width="0.7" opacity="0.5"/><circle cx="13" cy="13" r="0.9" fill="${p.light}" opacity="0.75"/><circle cx="19" cy="13" r="0.9" fill="${p.light}" opacity="0.75"/><circle cx="13" cy="19" r="0.9" fill="${p.light}" opacity="0.75"/><circle cx="19" cy="19" r="0.9" fill="${p.light}" opacity="0.75"/>`;
     case "body": return `<path d="M9,8 L13,7 Q16,9 19,7 L23,8 L24,13 L21,15 L21,24 Q16,26 11,24 L11,15 L8,13 Z" fill="${p.base}" stroke="${p.edge}" stroke-width="1.1" stroke-linejoin="round"/><line x1="16" y1="9" x2="16" y2="24" stroke="${p.dark}" stroke-width="0.8" opacity="0.6"/><path d="M11,16 Q16,18 21,16" fill="none" stroke="${p.light}" stroke-width="0.8" opacity="0.5"/>`;
     case "legs": return `<path d="M9,7 L15,7 L14,26 L10,26 Z" fill="${p.base}" stroke="${p.edge}" stroke-width="1"/><path d="M17,7 L23,7 L22,26 L18,26 Z" fill="${p.base}" stroke="${p.edge}" stroke-width="1"/><rect x="9" y="7" width="14" height="3" rx="1" fill="${p.dark}"/>`;
     case "boot": return `<path d="M11,6 L16,6 L16,20 L24,20 L24,26 L11,26 Z" fill="${p.base}" stroke="${p.edge}" stroke-width="1" stroke-linejoin="round"/><rect x="11" y="24" width="13" height="2.6" fill="${p.dark}"/>`;
-    case "cape": return `<path d="M11,7 Q16,5 21,7 L24,26 Q16,23 8,26 Z" fill="${p.base}" stroke="${p.edge}" stroke-width="1.1" stroke-linejoin="round"/><path d="M13,8 Q16,7 19,8 L20,11 Q16,10 12,11 Z" fill="${p.dark}"/><line x1="16" y1="8" x2="16" y2="24" stroke="${p.light}" stroke-width="0.7" opacity="0.5"/>`;
+    case "cape": {
+      // Thirty-six capes shared one outline. The cut of the hem and the shape of
+      // the clasp are the two things that actually distinguish a cloak at a
+      // glance, so both are picked from the item's own hash: three hems, three
+      // clasps, nine cloaks where there was one.
+      const hem = hash(id) % 3;
+      const clasp = (hash(id) >> 3) % 3;
+      const body = hem === 0
+        ? `M11,7 Q16,5 21,7 L24,26 Q16,23 8,26 Z`                       // straight fall
+        : hem === 1
+          ? `M11,7 Q16,5 21,7 L25,25 Q21,27 19,24 Q16,27 13,24 Q11,27 7,25 Z` // scalloped
+          : `M11,7 Q16,5 21,7 L23,20 L26,27 Q16,23 6,27 L9,20 Z`;       // swallow-tailed
+      const fastening = clasp === 0
+        ? `<path d="M13,8 Q16,7 19,8 L20,11 Q16,10 12,11 Z" fill="${p.dark}"/>`
+        : clasp === 1
+          ? `<circle cx="16" cy="9" r="2.4" fill="${p.dark}" stroke="${p.light}" stroke-width="0.7"/>`
+          : `<rect x="11.5" y="7.5" width="9" height="2.6" rx="1.3" fill="${p.dark}"/><circle cx="16" cy="8.8" r="1" fill="${p.light}"/>`;
+      return `<path d="${body}" fill="${p.base}" stroke="${p.edge}" stroke-width="1.1" stroke-linejoin="round"/>`
+        + fastening
+        + `<line x1="16" y1="12" x2="16" y2="24" stroke="${p.light}" stroke-width="0.7" opacity="0.5"/>`;
+    }
     case "ring": return `<circle cx="16" cy="19" r="7" fill="none" stroke="${p.base}" stroke-width="3"/><circle cx="16" cy="19" r="7" fill="none" stroke="${p.light}" stroke-width="0.8"/><polygon points="16,5 20,10 16,14 12,10" fill="${p.accent}" stroke="${p.edge}" stroke-width="0.6"/>`;
     case "amulet": return `<path d="M9,7 Q16,18 23,7" fill="none" stroke="#caa24a" stroke-width="1.4"/><polygon points="16,13 21,18 16,26 11,18" fill="${p.base}" stroke="${p.edge}" stroke-width="1" stroke-linejoin="round"/><circle cx="16" cy="18.5" r="2" fill="${p.accent}"/>`;
     // Sinew: a coiled hank of cord (bowstring stock), bound at the middle.
@@ -645,15 +692,27 @@ function draw(shape: Shape, p: Pal, id: string): string {
       + `<path d="M5,16 Q12,14 20,15 M11,20 Q18,19 26,17 M6,19 Q13,20 22,21" fill="none" stroke="${p.light}" stroke-width="0.7" opacity="0.7"/>`;
     case "fish": return fishShape(p, id);
     case "meat": return `<line x1="9" y1="22" x2="14" y2="17" stroke="#efe6d4" stroke-width="3.2" stroke-linecap="round"/><circle cx="8.5" cy="22.5" r="2.2" fill="#efe6d4"/><circle cx="11" cy="20" r="2.2" fill="#efe6d4"/><ellipse cx="18" cy="13" rx="8" ry="7.5" fill="${p.base}" stroke="${p.edge}" stroke-width="1"/><ellipse cx="15" cy="10" rx="2.5" ry="2" fill="${p.light}" opacity="0.55"/>`;
-    case "cooked": // a plated, grill-marked, steaming portion — unmistakably cooked
+    case "cooked": { // a plated, grill-marked, steaming portion — unmistakably cooked
+      // Thirty-seven cooked dishes were the same portion in one brown. The
+      // portion on the plate now varies: a fillet, a joint on the bone, or a
+      // pair of small cuts — picked from the item's own hash.
+      const cut = hash(id) % 3;
+      const portion = cut === 0
+        ? `<path d="M8,19 Q10,12.5 16,12.5 Q22,12.5 24,19 Q20,22 16,22 Q12,22 8,19 Z" fill="${p.base}" stroke="${p.edge}" stroke-width="1" stroke-linejoin="round"/>`
+        : cut === 1
+          ? `<path d="M9,20 Q9,13 16,13 Q23,13 23,20 Q16,23 9,20 Z" fill="${p.base}" stroke="${p.edge}" stroke-width="1" stroke-linejoin="round"/>`
+            + `<rect x="15.2" y="6" width="1.6" height="8" rx="0.8" fill="#e6e0cf" stroke="#b9b2a0" stroke-width="0.5"/>`
+          : `<ellipse cx="12" cy="17.5" rx="5" ry="4" fill="${p.base}" stroke="${p.edge}" stroke-width="1"/>`
+            + `<ellipse cx="20.5" cy="18.5" rx="4.2" ry="3.4" fill="${p.base}" stroke="${p.edge}" stroke-width="1"/>`;
       return `<ellipse cx="16" cy="22.5" rx="11" ry="3.8" fill="#c9c3b4" stroke="#8f897a" stroke-width="0.8"/>`
         + `<ellipse cx="16" cy="22" rx="8.5" ry="2.6" fill="#9c937f"/>`
-        + `<path d="M8,19 Q10,12.5 16,12.5 Q22,12.5 24,19 Q20,22 16,22 Q12,22 8,19 Z" fill="${p.base}" stroke="${p.edge}" stroke-width="1" stroke-linejoin="round"/>`
+        + portion
         + `<path d="M11,17 Q16,15 21,17" stroke="${p.dark}" stroke-width="0.9" fill="none" opacity="0.7"/>`
         + `<path d="M12.5,19.2 Q16,17.4 19.5,19.2" stroke="${p.dark}" stroke-width="0.9" fill="none" opacity="0.6"/>`
         + `<ellipse cx="13.5" cy="15" rx="1.8" ry="1" fill="${p.light}" opacity="0.6"/>`
         + `<path d="M13,11.5 Q11,8.5 13,5.5 Q14.6,3.5 13,1.5" stroke="#e8e8e8" stroke-width="1" fill="none" opacity="0.5" stroke-linecap="round"/>`
         + `<path d="M19,11.5 Q21,8.5 19,5.5 Q17.4,3.5 19,1.5" stroke="#e8e8e8" stroke-width="1" fill="none" opacity="0.42" stroke-linecap="round"/>`;
+    }
     case "bowl": return `<path d="M5,15 Q16,13 27,15 Q25,25 16,25 Q7,25 5,15 Z" fill="#7a5236" stroke="${p.edge}" stroke-width="1" stroke-linejoin="round"/><ellipse cx="16" cy="15" rx="11" ry="3" fill="${p.base}"/><circle cx="12" cy="15" r="1.2" fill="${p.light}"/><circle cx="19" cy="14.5" r="1" fill="${p.dark}"/>`;
     case "bread": return `<path d="M6,18 Q6,11 16,11 Q26,11 26,18 Q26,23 16,23 Q6,23 6,18 Z" fill="${p.base}" stroke="${p.edge}" stroke-width="1"/><line x1="11" y1="13" x2="9" y2="21" stroke="${p.dark}" stroke-width="0.8" opacity="0.5"/><line x1="16" y1="12.5" x2="16" y2="22" stroke="${p.dark}" stroke-width="0.8" opacity="0.5"/><line x1="21" y1="13" x2="23" y2="21" stroke="${p.dark}" stroke-width="0.8" opacity="0.5"/>`;
     case "hide": return `<path d="M16,5 Q21,7 20,12 Q26,14 24,19 Q26,24 20,24 Q18,28 16,24 Q14,28 12,24 Q6,24 8,19 Q6,14 12,12 Q11,7 16,5 Z" fill="${p.base}" stroke="${p.edge}" stroke-width="1" stroke-linejoin="round"/><ellipse cx="16" cy="16" rx="4" ry="6" fill="${p.light}" opacity="0.4"/>`;
@@ -762,10 +821,37 @@ function draw(shape: Shape, p: Pal, id: string): string {
 // a visible flourish — a hilt/centre jewel that appears mid-ladder and a bright
 // edge sheen near the top — so a tier-1 piece reads as plain and a tier-10 one
 // as ornate at a glance, not just a different shade of the same silhouette.
+/** The worn-armour silhouettes: the ones whose colour should say what rank they
+ *  are rather than what their id hashes to. */
+const ARMOUR_SHAPES = new Set<Shape>([
+  "helm", "helmHood", "helmCoif", "body", "bodyRobe", "bodyJerkin", "legs", "boot", "shield",
+]);
+
+/** Shapes that carry the tier flourish. Pickaxes, hatchets, bows, staves, capes
+ *  and jewellery were left off, so a Hearthite pickaxe and a Knucklestone one
+ *  were the same picture — and the top-tier bow, the one thing a ranger works
+ *  the whole game toward, had no mark on it at all. */
 const TIER_SHAPES = new Set<Shape>([
   "sword", "dagger", "claymore", "spear", "hammer", "saw",
-  "helm", "body", "legs", "boot", "shield", "rod",
+  "helm", "helmHood", "helmCoif", "body", "bodyRobe", "bodyJerkin",
+  "legs", "boot", "shield", "rod",
+  "pickaxe", "hatchet", "bow", "bowU", "staff", "cape", "ring", "amulet",
 ]);
+
+/**
+ * What rank a piece of gear is, 1–10.
+ *
+ * `tier` is authored on some items and a trailing `_N` carries it on others,
+ * but plenty of armour has neither — and those were exactly the pieces that
+ * came out an arbitrary brown. The level you must reach to wear a thing is the
+ * game's own statement of its rank, so it stands in when nothing else does.
+ */
+function armourRank(def: ItemDef): number {
+  const t = itemTier(def);
+  if (t > 0) return Math.min(10, t);
+  const lvl = def.equipLevel ?? 0;
+  return lvl > 0 ? Math.max(1, Math.min(10, Math.ceil(lvl / 10))) : 1;
+}
 function itemTier(def: ItemDef): number {
   if (typeof def.tier === "number") return def.tier;
   const m = /_(\d+)$/.exec(def.id);
@@ -785,17 +871,36 @@ function tierAccent(shape: Shape, tier: number): string {
   if (!gem) return "";
   // Where the jewel sits, by shape family.
   const weapon = shape === "sword" || shape === "dagger" || shape === "claymore" || shape === "spear" || shape === "hammer" || shape === "saw";
-  const cxcy: [number, number] = shape === "helm" ? [16, 11]
+  const cxcy: [number, number] = shape === "helm" || shape === "helmHood" || shape === "helmCoif" ? [16, 11]
     : shape === "shield" ? [16, 17]
     : shape === "body" ? [16, 14]
     : shape === "legs" ? [16, 11]
     : shape === "boot" ? [18, 22]
-    : shape === "rod" ? [11, 23]   // set into the reel
-    : weapon ? [16, 21]   // on the hilt / guard
+    : shape === "rod" ? [11, 23]     // set into the reel
+    : shape === "pickaxe" || shape === "hatchet" ? [16, 9]  // where head meets haft
+    : shape === "bow" || shape === "bowU" ? [16, 16]        // the grip
+    : shape === "staff" ? [16, 6]    // the orb at the head
+    : shape === "cape" ? [16, 8]     // the clasp at the throat
+    : shape === "ring" ? [16, 11]
+    : shape === "amulet" ? [16, 20]
+    : weapon ? [16, 21]              // on the hilt / guard
     : [16, 16];
   const gx = cxcy[0], gy = cxcy[1];
   const rad = tier >= 9 ? 2.5 : tier >= 7 ? 2.1 : 1.7;
-  let out = `<circle cx="${gx}" cy="${gy}" r="${rad}" fill="${gem}" stroke="#1a140f" stroke-width="0.5"/>`;
+  let out = "";
+  // The flourish is more than a jewel now. A tier-10 blade should read as a
+  // different object from a tier-1, not the same one wearing a different bead:
+  // the top ranks get a bright edge down the blade or a trim band across the
+  // armour, so the ladder is legible at icon size and not only up close.
+  if (tier >= 6) {
+    if (weapon) {
+      out += `<line x1="16" y1="5" x2="16" y2="18" stroke="${gem}" stroke-width="${tier >= 9 ? 1.1 : 0.7}" opacity="${tier >= 9 ? 0.75 : 0.5}"/>`;
+    } else if (ARMOUR_SHAPES.has(shape) && shape !== "boot") {
+      const bandY = shape.startsWith("helm") ? 14 : shape === "shield" ? 22 : 20;
+      out += `<line x1="8" y1="${bandY}" x2="24" y2="${bandY}" stroke="${gem}" stroke-width="${tier >= 9 ? 1.2 : 0.8}" opacity="${tier >= 9 ? 0.7 : 0.45}"/>`;
+    }
+  }
+  out += `<circle cx="${gx}" cy="${gy}" r="${rad}" fill="${gem}" stroke="#1a140f" stroke-width="0.5"/>`;
   out += `<circle cx="${gx - rad * 0.35}" cy="${gy - rad * 0.35}" r="${rad * 0.35}" fill="#ffffff" opacity="0.7"/>`;
   // A faint outer glow for the very top tiers.
   if (tier >= 8) out += `<circle cx="${gx}" cy="${gy}" r="${rad + 1.6}" fill="${gem}" opacity="0.18"/>`;
@@ -833,7 +938,7 @@ export function itemIconSVG(def: ItemDef): string {
   }
   const shape = classify(def);
   const pal = paletteFor(def, shape);
-  const accent = TIER_SHAPES.has(shape) ? tierAccent(shape, itemTier(def)) : "";
+  const accent = TIER_SHAPES.has(shape) ? tierAccent(shape, armourRank(def)) : "";
   const svg =
     `<svg viewBox="0 0 32 32" class="item-svg" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet">` +
     draw(shape, pal, def.id) + accent +
