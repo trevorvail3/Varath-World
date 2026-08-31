@@ -6786,7 +6786,8 @@ function npcTheme(x: number, y: number): NpcTheme {
 const NPC_SKINS = ["#caa472", "#b3895a", "#9a6b41", "#e0be93", "#8a5a36"];
 const NPC_HAIRS = ["#5b4a33", "#2e2620", "#7a6a4a", "#8a8f98", "#3a2c1e", "#a06a3a"];
 
-function drawNpc(g: CanvasRenderingContext2D, cx: number, cy: number, now: number, moving = false, wx = 0, wy = 0, facing: Facing = "down"): void {
+/** Exported for the contact sheet — see drawHumanoid. */
+export function drawNpc(g: CanvasRenderingContext2D, cx: number, cy: number, now: number, moving = false, wx = 0, wy = 0, facing: Facing = "down"): void {
   const a = walkAnim(now, moving);
   const th = npcTheme(wx, wy);
   const h = frac(wx * 12.9898 + wy * 78.233);
@@ -6804,16 +6805,25 @@ function drawNpc(g: CanvasRenderingContext2D, cx: number, cy: number, now: numbe
   g.fillRect(cx - 5, cy + 6 - a.liftL, 4, 7);
   g.fillRect(cx + 1, cy + 6 - a.liftR, 4, 7);
   // far arm (behind the body)
-  limbArm(g, cx + 5.5, cy - 4 + a.bob, 0.12 - a.swing, tunic, skin);
-  // tunic + collar + belt (bob)
+  limbArm(g, cx + 6.2, cy - 4 + a.bob, 0.12 - a.swing, tunic, skin);
+  // Tunic, collar and belt (bob). The tunic was one fillRect — the plainest box
+  // in Varath, and the figure a player sees more than any other.
   g.fillStyle = tunic;
-  g.fillRect(cx - 6, cy - 6 + a.bob, 12, 14);
-  g.fillStyle = th.collar;
-  g.fillRect(cx - 6, cy - 6 + a.bob, 12, 3);
+  torsoShape(g, cx, cy + a.bob, -6, 8, 6.6, 5.0);
+  g.fill();
+  g.save();
+  torsoShape(g, cx, cy + a.bob, -6, 8, 6.6, 5.0);
+  g.clip();
+  g.fillStyle = th.collar;                 // follows the new shoulder line
+  g.fillRect(cx - 6.8, cy - 4.1 + a.bob, 13.6, 2.6);
+  g.fillStyle = "rgba(0,0,0,0.12)";        // armholes
+  g.fillRect(cx - 6.6, cy - 3.8 + a.bob, 1.3, 8.5);
+  g.fillRect(cx + 5.3, cy - 3.8 + a.bob, 1.3, 8.5);
   g.fillStyle = th.belt;
   g.fillRect(cx - 6, cy + 4 + a.bob, 12, 2);
+  g.restore();
   // near arm (in front)
-  limbArm(g, cx - 5.5, cy - 4 + a.bob, -0.12 + a.swing, tunic, skin);
+  limbArm(g, cx - 6.2, cy - 4 + a.bob, -0.12 + a.swing, tunic, skin);
   // head + hair
   g.fillStyle = skin;
   circle(g, cx, cy - 11 + a.bob, 5);
@@ -6845,6 +6855,40 @@ function walkAnim(now: number, moving: boolean): { bob: number; swing: number; l
   };
 }
 
+/**
+ * The NPC torso silhouette, in world pixels about (cx, cy).
+ *
+ * This mirrors the player's `torsoPath` (src/client/avatar.ts) rather than
+ * importing it: the two stacks are deliberately separate, and this one draws in
+ * fixed pixels while the player's is scaled. `sims/art.ts` asserts their
+ * shoulder-to-waist ratios agree, so they cannot drift apart unnoticed.
+ *
+ * The top edge leaves the neck, slopes out and down across the trapezius to a
+ * shoulder that sits below the yoke line; the sides carry a chest swell into the
+ * waist and flare a little again at the hip. Before this, the townsfolk were one
+ * `fillRect` and the foes were a box that was WIDER AT THE HIPS THAN THE
+ * SHOULDERS — an upside-down torso nobody could see at 31 pixels.
+ */
+function torsoShape(
+  g: CanvasRenderingContext2D,
+  cx: number, cy: number, top: number, bot: number, sh: number, wa: number,
+): void {
+  const hip = wa * 1.14;
+  const nk = sh * 0.28;
+  const shoulderY = cy + top + 2.2;
+  const waistY = cy + bot - 3;
+  g.beginPath();
+  g.moveTo(cx - nk, cy + top);
+  g.quadraticCurveTo(cx - sh * 0.88, cy + top + 0.1, cx - sh, shoulderY);
+  g.quadraticCurveTo(cx - sh * 1.06, cy + top + 4, cx - wa, waistY);
+  g.lineTo(cx - hip, cy + bot);
+  g.lineTo(cx + hip, cy + bot);
+  g.lineTo(cx + wa, waistY);
+  g.quadraticCurveTo(cx + sh * 1.06, cy + top + 4, cx + sh, shoulderY);
+  g.quadraticCurveTo(cx + sh * 0.88, cy + top + 0.1, cx + nk, cy + top);
+  g.closePath();
+}
+
 /** One arm from a shoulder (px,py), rotated by `angle`: optional tool + sleeve + hand. */
 function limbArm(
   g: CanvasRenderingContext2D,
@@ -6854,12 +6898,27 @@ function limbArm(
   g.translate(px, py);
   g.rotate(angle);
   if (tool) drawTool(g, 1, tool); // behind the hand, swings with the arm
+  // An arm, not two dominoes: a deltoid caps the joint so the limb reads as
+  // attached, then the upper arm narrows to the elbow and the forearm to the
+  // wrist. Mirrors drawArm in avatar.ts.
+  const taper = (yTop: number, yBot: number, wTop: number, wBot: number): void => {
+    g.beginPath();
+    g.moveTo(-wTop, yTop);
+    g.lineTo(wTop, yTop);
+    g.lineTo(wBot, yBot);
+    g.lineTo(-wBot, yBot);
+    g.closePath();
+    g.fill();
+  };
   g.fillStyle = sleeve;
-  g.fillRect(-1.2, 0, 2.4, 4);
-  g.fillStyle = skin;
-  g.fillRect(-1, 3.6, 2, 3.2);
   g.beginPath();
-  g.arc(0, 7, 1.4, 0, Math.PI * 2);
+  g.arc(0, 0.6, 1.3, 0, Math.PI * 2);
+  g.fill();
+  taper(0.2, 4, 1.4, 1.02);
+  g.fillStyle = skin;
+  taper(3.6, 6.8, 1.02, 0.8);
+  g.beginPath();
+  g.arc(0, 7, 1.35, 0, Math.PI * 2);
   g.fill();
   g.restore();
 }
@@ -7541,7 +7600,9 @@ function drawBat(g: CanvasRenderingContext2D, cx: number, cy: number, now: numbe
 }
 
 // --- Humanoid: a standing figure (knight / brigand / orc / hooded ferryman) ---
-function drawHumanoid(
+/** Exported for the contact sheet (tools/sheet.ts): an NPC is 31 pixels tall in
+ *  the world, which is far too small to judge a silhouette by. */
+export function drawHumanoid(
   g: CanvasRenderingContext2D,
   cx: number,
   cy: number,
@@ -7588,30 +7649,34 @@ function drawHumanoid(
   g.fillRect(cx - 5, cy + 12 - a.liftL, 4, 2);
   g.fillRect(cx + 1, cy + 12 - a.liftR, 4, 2);
   // far arm (behind the torso), sleeved in the body colour
-  limbArm(g, cx + 6, cy - 4 + bob, farAngle, body, skin);
-  // torso silhouette outline — the dark rim that pops the figure off terrain
+  limbArm(g, cx + 6.6, cy - 4 + bob, farAngle, body, skin);
+  // torso silhouette + the dark rim that pops the figure off terrain
   g.strokeStyle = "rgba(0,0,0,0.45)";
   g.lineWidth = 2.5;
-  g.beginPath();
-  g.moveTo(cx - 7, cy + 8 + bob);
-  g.lineTo(cx - 6, cy - 7 + bob);
-  g.quadraticCurveTo(cx, cy - 11 + bob, cx + 6, cy - 7 + bob);
-  g.lineTo(cx + 7, cy + 8 + bob);
-  g.closePath();
+  torsoShape(g, cx, cy + bob, -7, 8, 7.2, 5.4);
   g.stroke();
   g.fillStyle = body; // torso / cloak
   g.fill();
-  // cloth shading: lit left panel, shaded right panel, a belt at the waist
+  // Cloth shading and trim, CLIPPED to that silhouette — they are rectangles,
+  // and the shoulder trim in particular used to be 14 wide on a 12-wide body,
+  // so it hung off both sides.
+  g.save();
+  torsoShape(g, cx, cy + bob, -7, 8, 7.2, 5.4);
+  g.clip();
   g.fillStyle = "rgba(255,255,255,0.10)";
-  g.fillRect(cx - 6, cy - 6 + bob, 4, 13);
+  g.fillRect(cx - 7, cy - 5 + bob, 4.5, 13);
   g.fillStyle = "rgba(0,0,0,0.18)";
-  g.fillRect(cx + 2, cy - 6 + bob, 5, 13);
-  g.fillStyle = "rgba(20,14,8,0.7)"; // belt
+  g.fillRect(cx + 2.5, cy - 5 + bob, 5, 13);
+  g.fillStyle = "rgba(0,0,0,0.13)";      // armholes, where the arms cross the chest
+  g.fillRect(cx - 7.2, cy - 4.6 + bob, 1.4, 9);
+  g.fillRect(cx + 5.8, cy - 4.6 + bob, 1.4, 9);
+  g.fillStyle = "rgba(20,14,8,0.7)";     // belt, at the waist
   g.fillRect(cx - 7, cy + 2 + bob, 14, 2);
-  g.fillStyle = trim; // shoulder trim
-  g.fillRect(cx - 7, cy - 6 + bob, 14, 3);
+  g.fillStyle = trim;                    // yoke, along the new shoulder line
+  g.fillRect(cx - 7.4, cy - 4.9 + bob, 14.8, 2.6);
+  g.restore();
   // near arm (in front of the torso), holding any weapon while attacking
-  limbArm(g, cx - 6, cy - 4 + bob, nearAngle, body, skin, nearTool);
+  limbArm(g, cx - 6.6, cy - 4 + bob, nearAngle, body, skin, nearTool);
   g.fillStyle = skin; // head / hood-shadow
   circle(g, cx, cy - 11 + bob, 4.5);
   g.strokeStyle = "rgba(0,0,0,0.4)"; // head rim

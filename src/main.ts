@@ -43,6 +43,8 @@ import {
 } from "./client/storage.ts";
 import { CharacterCreator, type CreatedCharacter } from "./client/characterCreator.ts";
 import * as avatarArt from "./client/avatar.ts";
+import { drawHumanoid, drawNpc } from "./client/render.ts";
+import { humanoidKit } from "./client/monsterKit.ts";
 import { DEFAULT_APPEARANCE } from "./client/avatar.ts";
 import { resolveGear } from "./client/gearLook.ts";
 import { isNameAvailable, reserveName } from "./client/nameRegistry.ts";
@@ -99,6 +101,10 @@ if (!canvas || !hudRoot || !app) {
 if (TEST_MODE) {
   (window as unknown as Record<string, unknown>)["__varathArt"] = {
     ...avatarArt, resolveGear, content,
+    // The OTHER two humanoid stacks. The player has had a contact sheet since
+    // the character pass; the townsfolk and the sixty humanoid foes have never
+    // been visible at a size where a silhouette can be judged at all.
+    drawNpc, drawHumanoid, humanoidKit,
   };
 }
 

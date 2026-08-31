@@ -158,6 +158,56 @@ for (const b of biomes) {
 }
 check(REGIONS.length === 6 && CITY.x1 > CITY.x0, "the regions/city the biome map is built on have moved");
 
+// --- 10) Every humanoid has a silhouette, and they all agree -----------------
+// There are three humanoid bodies in the client — the player's (avatar.ts) and
+// the two in the renderer — and they are deliberately NOT shared code, so the
+// only thing stopping them drifting apart is this. All three were boxes once:
+// the player's torso had a flat top edge and therefore no shoulders, the
+// townsfolk were a single fillRect, and the foes were WIDER AT THE HIPS THAN
+// THE SHOULDERS. None of that was visible at 31 pixels, which is why it lasted.
+
+const avatarSrc = readFileSync("src/client/avatar.ts", "utf8");
+
+// The player: a curved, shouldered path rather than four corners.
+const torsoPath = avatarSrc.slice(
+  avatarSrc.indexOf("const torsoPath ="), avatarSrc.indexOf("g.fillStyle = look.tunic;"),
+);
+check(/quadraticCurveTo/.test(torsoPath), "the player's torso is back to straight edges — no shoulder slope");
+check(/shoulderY/.test(torsoPath), "the player's shoulder no longer sits below the yoke line");
+
+// Both renderer bodies go through the one shared shape.
+check(/function torsoShape\(/.test(render), "the renderer has lost its torso silhouette helper");
+check(!/fillRect\(cx - 6, cy - 6, 12, 14\)/.test(render), "the townsfolk are a plain fillRect again");
+const shapeCalls = [...render.matchAll(/torsoShape\(g, cx, cy \+ [^,]+, (-?[\d.]+), (-?[\d.]+), ([\d.]+), ([\d.]+)\)/g)];
+check(shapeCalls.length >= 4, `only ${shapeCalls.length} torsoShape calls — one of the NPC bodies is not using it`);
+const ratios: number[] = [];
+for (const m of shapeCalls) {
+  const sh = Number(m[3]), wa = Number(m[4]);
+  check(sh > wa, `a torso is ${sh} at the shoulder and ${wa} at the waist — that is upside down`);
+  ratios.push(wa / sh);
+}
+
+// The player's own waist-to-shoulder, read off the tables, must land in the same
+// place — otherwise the player and the crowd stop looking like one species.
+const front = /front: \{ torsoHalf: ([\d.]+)/.exec(avatarSrc);
+const avgWaist = /average: \{ shoulder: 1, waist: ([\d.]+)/.exec(avatarSrc);
+check(!!front && !!avgWaist, "the view/build tables have changed shape — this check needs updating");
+if (front && avgWaist) {
+  const playerRatio = Number(avgWaist[1]);
+  for (const r of ratios) {
+    check(Math.abs(r - playerRatio) < 0.09,
+      `an NPC waist/shoulder ratio is ${r.toFixed(2)} against the player's ${playerRatio} — the two stacks have drifted`);
+  }
+}
+
+// Arms taper from a deltoid instead of being two constant-width rectangles.
+for (const [src, name] of [[avatarSrc, "avatar.ts drawArm"], [render, "render.ts limbArm"]] as const) {
+  const body = src.slice(src.indexOf(name.includes("limbArm") ? "function limbArm(" : "function drawArm("));
+  const fn = body.slice(0, body.indexOf("\n}"));
+  check(/const taper = /.test(fn), `${name} no longer tapers — the arm is a domino again`);
+  check(/g\.arc\(0, 0\.[67]/.test(fn), `${name} has lost the deltoid cap over the shoulder joint`);
+}
+
 console.log(
   `monsters ${Object.keys(content.monsters).length} (${humanoids.length} humanoid → ${kits.size} silhouettes)` +
   ` · weapons ${RANGED.size} ranged / ${MAGIC.size} magic / ${swordish} melee` +

@@ -82,12 +82,28 @@ const SHEET = `(spec) => {
     const cy = Math.floor(i / cols) * (CELL + LABEL) + PAD + CELL / 2;
     g.strokeStyle = "rgba(255,255,255,0.07)";
     g.strokeRect((i % cols) * CELL + 0.5, Math.floor(i / cols) * (CELL + LABEL) + PAD + 0.5, CELL - 1, CELL - 1);
-    A.drawAvatar(
-      g, cx, cy + 6 * Z, 3.2 * Z,
-      A.withDefaults(cell.look),
-      { now: spec.now ?? 0, moving: !!spec.moving, ...(cell.facing ? { facing: cell.facing } : {}) },
-      cell.gear ?? {},
-    );
+    // The NPC stacks draw at a fixed base pixel size (no scale argument), so
+    // they are scaled by the context rather than by a parameter.
+    if (cell.kind === "npc" || cell.kind === "foe") {
+      const K = 3.2 * Z;
+      g.save();
+      g.translate(cx, cy + 6 * Z);
+      g.scale(K, K);
+      g.translate(-cx, -(cy + 6 * Z));
+      if (cell.kind === "npc") {
+        A.drawNpc(g, cx, cy + 6 * Z, spec.now ?? 0, !!spec.moving, cell.wx ?? 0, cell.wy ?? 0, cell.facing ?? "down");
+      } else {
+        A.drawHumanoid(g, cx, cy + 6 * Z, spec.now ?? 0, cell.body, cell.trim, !!spec.moving, undefined, cell.kit);
+      }
+      g.restore();
+    } else {
+      A.drawAvatar(
+        g, cx, cy + 6 * Z, 3.2 * Z,
+        A.withDefaults(cell.look),
+        { now: spec.now ?? 0, moving: !!spec.moving, ...(cell.facing ? { facing: cell.facing } : {}) },
+        cell.gear ?? {},
+      );
+    }
     g.fillStyle = "#b9b09a";
     g.font = "12px system-ui, sans-serif";
     g.textAlign = "center";
@@ -233,6 +249,27 @@ async function main(): Promise<void> {
   await sheet(page, "markings", { title: "Scars, paint and ink", cells: specs["markings"], cols: 5, now });
   await sheet(page, "faces", { title: "Eyes, brows, jaws and irises", cells: specs["faces"], cols: 5, now });
   await sheet(page, "palette", { title: "Skin and hair palettes", cells: specs["palette"], cols: 7, now });
+  // The two NPC stacks. `folk` walks the region themes (drawNpc hashes its
+  // colours off world position, so the coordinates ARE the variety); `foes`
+  // shows one cell per distinct humanoid kit, on a fixed body/trim pair so the
+  // comparison is about silhouette rather than palette.
+  const npcs = await page.evaluate(`(() => {
+    const A = window.__varathArt;
+    const folk = [];
+    const SPOTS = [[197, 190], [160, 163], [95, 245], [282, 250], [330, 330], [287, 49]];
+    for (const [wx, wy] of SPOTS) {
+      for (const f of ["down", "up"]) folk.push({ kind: "npc", wx, wy, facing: f, label: wx + "," + wy + " · " + f });
+    }
+    const seen = new Map();
+    for (const id of Object.keys(A.content.monsters)) {
+      const k = A.humanoidKit(id);
+      const sig = k.helm + "/" + k.weapon + "/" + (k.cloak ? "cloak" : "-") + "/" + k.build.toFixed(1);
+      if (!seen.has(sig)) seen.set(sig, { kind: "foe", body: "#5a4a3a", trim: "#8a7a5a", kit: k, label: sig });
+    }
+    return { folk, foes: [...seen.values()] };
+  })()`) as { folk: unknown[]; foes: unknown[] };
+  await sheet(page, "folk", { title: "Townsfolk — every region theme", cells: npcs.folk, cols: 4, now });
+  await sheet(page, "foes", { title: "Humanoid foes — one cell per kit", cells: npcs.foes, cols: 5, now });
   await sheet(page, "gear", { title: "Worn gear × facings", cells: gear.cells, cols: 4, now });
   await sheet(page, "kit", { title: "Boots, offhands and weapon tiers", cells: gear.kit, cols: 6, now });
   await sheet(page, "walk", { title: "Walk cycle", cells: specs["facings"], cols: 4, now, moving: true });
