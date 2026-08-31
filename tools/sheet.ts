@@ -144,12 +144,19 @@ async function main(): Promise<void> {
       ...A.LEG_STYLES.map((t) => mk({ legs: t.id }, "legs " + t.label, { facing: "down" })),
       ...A.SHOE_STYLES.map((t) => mk({ shoes: t.id }, "shoes " + t.label, { facing: "down" })),
     ];
+    // The face, which the figure did not have: every eye, brow and jaw.
+    const faces = [
+      ...A.EYE_STYLES.map((e) => mk({ eyes: e.id }, "eyes " + e.label, { facing: "down" })),
+      ...A.BROW_STYLES.map((b) => mk({ brows: b.id }, "brow " + b.label, { facing: "down" })),
+      ...A.JAW_STYLES.map((j) => mk({ jaw: j.id }, "jaw " + j.label, { facing: "down" })),
+      ...A.EYES.map((c, i) => mk({ eyeColor: c }, "iris " + i, { facing: "down" })),
+    ];
     // The skin and hair palettes, so a new ramp can be judged as a ramp.
     const palette = [
       ...A.SKINS.map((c, i) => mk({ skin: c }, "skin " + i, { facing: "down" })),
       ...A.HAIRS.map((c, i) => mk({ hair: c }, "hair " + i, { facing: "down" })),
     ];
-    return { hair, hairBack, beards, facings, builds, clothes, palette };
+    return { hair, hairBack, beards, facings, builds, clothes, palette, faces };
   })()`) as Record<string, unknown[]>;
 
   // Gear needs real items, so it is built from the content tables.
@@ -186,6 +193,7 @@ async function main(): Promise<void> {
   await sheet(page, "beards", { title: "Facial hair", cells: specs["beards"], cols: 5, now });
   await sheet(page, "builds", { title: "Builds × facings", cells: specs["builds"], cols: 4, now });
   await sheet(page, "clothes", { title: "Tops, legs, shoes", cells: specs["clothes"], cols: 5, now });
+  await sheet(page, "faces", { title: "Eyes, brows, jaws and irises", cells: specs["faces"], cols: 5, now });
   await sheet(page, "palette", { title: "Skin and hair palettes", cells: specs["palette"], cols: 7, now });
   await sheet(page, "gear", { title: "Worn gear × facings", cells: gear, cols: 4, now });
   await sheet(page, "walk", { title: "Walk cycle", cells: specs["facings"], cols: 4, now, moving: true });

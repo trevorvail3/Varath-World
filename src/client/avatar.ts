@@ -44,6 +44,30 @@ export const HAIR_STYLES = [
   { id: "fringe", label: "Fringe" },
   { id: "bald", label: "Bald" },
 ];
+/** Eye colours — a short, believable range rather than a rainbow. */
+export const EYES = ["#4a3626", "#6b4a2c", "#3f5a46", "#4a6d84", "#5c6470", "#7a5a86"];
+
+export const EYE_STYLES = [
+  { id: "open", label: "Open" },
+  { id: "narrow", label: "Narrow" },
+  { id: "wide", label: "Wide" },
+  { id: "tired", label: "Hooded" },
+  { id: "sharp", label: "Sharp" },
+];
+export const BROW_STYLES = [
+  { id: "even", label: "Even" },
+  { id: "heavy", label: "Heavy" },
+  { id: "arched", label: "Arched" },
+  { id: "angled", label: "Angled" },
+  { id: "thin", label: "Thin" },
+];
+export const JAW_STYLES = [
+  { id: "oval", label: "Oval" },
+  { id: "square", label: "Square" },
+  { id: "narrow", label: "Narrow" },
+  { id: "round", label: "Round" },
+];
+
 export const FACIAL_STYLES = [
   { id: "none", label: "Clean-shaven" },
   { id: "stubble", label: "Stubble" },
@@ -80,6 +104,10 @@ export const DEFAULT_APPEARANCE: Appearance = {
   top: "plain",
   legs: "trousers",
   shoes: "boots",
+  eyes: "open",
+  eyeColor: EYES[0]!,
+  brows: "even",
+  jaw: "oval",
 };
 
 /** Fill the missing fields of a partial look with the defaults (old saves). */
@@ -539,7 +567,13 @@ function drawAvatarInner(
     g.closePath();
     g.fill();
   } else {
-    arc(0, -12, 6, 0, Math.PI * 2);
+    // The jaw: how wide the face reads. An ellipse rather than a circle, so a
+    // square jaw is genuinely broader through the cheeks and a narrow one
+    // tapers — the head was one fixed disc for every character.
+    const jw = look.jaw === "square" ? 6.4 : look.jaw === "narrow" ? 5.3 : 6;
+    const jh = look.jaw === "round" ? 6.1 : look.jaw === "narrow" ? 6.2 : 6;
+    g.beginPath();
+    g.ellipse(cx, cy - 12 * s + bob, jw * s, jh * s, 0, 0, Math.PI * 2);
     g.fill();
   }
   g.fillStyle = look.skin;
@@ -550,7 +584,8 @@ function drawAvatarInner(
     // heading north, not toward the camera.
     drawHairBack(g, cx, cy, s, bob, look);
   } else {
-    // --- Facial hair, then hair (both bob) ---
+    // --- A face, then facial hair, then hair (all bob) ---
+    if (V.face) drawFace(g, cx, cy, s, bob, look, side, lx);
     drawFacial(g, cx, cy, s, bob, look);
     drawHair(g, cx, cy, s, bob, look);
   }
@@ -765,9 +800,109 @@ export function drawTool(g: Ctx, s: number, tool: string, metal?: Metal & { tier
   }
 }
 
+/**
+ * A face.
+ *
+ * The head was a bare skin disc: no eyes, no brow, no mouth, nothing. Every
+ * monster in the game had eye glints and the character you look at for the
+ * whole game did not.
+ *
+ * At this size a face is four or five marks, and it reads through contrast and
+ * placement rather than detail — one pixel of the wrong value in the wrong spot
+ * turns a person into a skull. So: a brow shadow that sits the eyes into the
+ * skull, two irises with a dark lid over them, a hint of a nose, and a mouth
+ * line. In profile only the near half of any of it is visible.
+ *
+ * `lx` carries the mirror's sign so the lit side of the face stays on the same
+ * side of the screen when the figure turns.
+ */
+function drawFace(
+  g: Ctx, cx: number, cy: number, s: number, bob: number,
+  look: Appearance, side: boolean, lx: number,
+): void {
+  const P = (dx: number, dy: number, w: number, h: number): void =>
+    g.fillRect(cx + dx * s, cy + dy * s + bob, w * s, h * s);
+  const iris = look.eyeColor ?? EYES[0]!;
+  const brow = shade(look.hair, 0.15);
+  const skinDark = shade(look.skin, 0.34);
+
+  // The face is drawn without the figure's global contour: these are marks ON a
+  // surface, and an outline round each of them at this scale reads as soot.
+  const blur = g.shadowBlur;
+  g.shadowBlur = 0;
+
+  if (side) {
+    // In profile one eye is visible, close to the leading edge, under the brow.
+    const ex = 2.6 * lx, ey = -12.6;
+    g.fillStyle = brow;
+    P(ex - 1.5 * lx, ey - 1.5, 2.6, browThick(look));
+    g.fillStyle = "#ffffff";
+    P(ex - 0.9 * lx, ey, 1.8, eyeOpen(look));
+    g.fillStyle = iris;
+    P(ex - 0.3 * lx, ey, 1.1, eyeOpen(look));
+    g.fillStyle = skinDark;
+    P(ex - 0.6 * lx, -9.4, 1.9, 0.55); // mouth line, tucked under the nose
+  } else {
+    const open = eyeOpen(look);
+    const thick = browThick(look);
+    const spread = look.jaw === "narrow" ? 1.7 : look.jaw === "square" ? 2.3 : 2.0;
+    for (const sgn of [-1, 1] as const) {
+      const ex = sgn * spread;
+      // Brow: the single most expressive mark on the face at this size.
+      g.fillStyle = brow;
+      const tilt = look.brows === "arched" ? -0.35 : look.brows === "angled" ? 0.35 * sgn : 0;
+      P(ex - 1.3, -13.9 + tilt * sgn, 2.6, thick);
+      // The eye: white, an iris, and a lid shadow above it.
+      g.fillStyle = "#f4efe4";
+      P(ex - 1.1, -12.7, 2.2, open);
+      g.fillStyle = iris;
+      P(ex - 0.5, -12.7, 1.1, open);
+      g.fillStyle = "rgba(0,0,0,0.75)";
+      P(ex - 0.35, -12.7 + open * 0.35, 0.7, Math.max(0.5, open * 0.5)); // pupil
+      g.fillStyle = shade(look.skin, 0.22);
+      P(ex - 1.1, -13.0, 2.2, 0.4); // the lid's own shadow
+    }
+    // A nose: two short shadows rather than a shape, which is all that fits.
+    g.fillStyle = shade(look.skin, 0.18);
+    P(-0.5 * lx, -12.0, 1.0, 1.6);
+    g.fillStyle = skinDark;
+    P(-0.6 * lx, -10.6, 1.2, 0.4);
+    // A mouth.
+    g.fillStyle = skinDark;
+    const mw = look.jaw === "square" ? 3.2 : look.jaw === "narrow" ? 2.2 : 2.6;
+    P(-mw / 2, -9.6, mw, 0.55);
+  }
+  g.shadowBlur = blur;
+}
+
+/** How far the eyes are open, in base units — the difference between a stare
+ *  and a squint is about a pixel, and it is enough. */
+function eyeOpen(look: Appearance): number {
+  switch (look.eyes) {
+    case "narrow": return 0.9;
+    case "wide": return 2.0;
+    case "tired": return 1.1;
+    case "sharp": return 1.2;
+    default: return 1.5;
+  }
+}
+
+/** How heavy the brow reads. */
+function browThick(look: Appearance): number {
+  switch (look.brows) {
+    case "heavy": return 1.5;
+    case "thin": return 0.6;
+    case "arched": return 0.9;
+    case "angled": return 1.0;
+    default: return 1.0;
+  }
+}
+
 function drawFacial(g: Ctx, cx: number, cy: number, s: number, bob: number, look: Appearance): void {
   if (look.facial === "none") return;
-  const hc = look.hair;
+  // A beard's own colour, falling back to the hair's — which is what the figure
+  // did unconditionally before, so a character could never go grey at the chin.
+  const hc = look.beardColor ?? look.hair;
   const Rb = (dx: number, dy: number, w: number, h: number) =>
     g.fillRect(cx + dx * s, cy + dy * s + bob, w * s, h * s);
   if (look.facial === "stubble") {

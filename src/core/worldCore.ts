@@ -826,10 +826,15 @@ export function createWorld(
     achievements: [],
     diariesClaimed: [],
     tradesApplied: [],
+    // The look a fresh character starts with. This is hand-copied from the
+    // client's DEFAULT_APPEARANCE because the core may not import the client
+    // (the core is pure) — sims/appearance.ts asserts the two agree, which is
+    // the only thing keeping them in step.
     appearance: {
       name: "Wanderer", skin: "#e3bd92", hair: "#4a3320", tunic: "#6b6157",
       legColor: "#9a5a2a", shoeColor: "#3a2c20",
       hairStyle: "short", facial: "none", top: "plain", legs: "trousers", shoes: "boots",
+      eyes: "open", eyeColor: "#4a3626", brows: "even", jaw: "oval",
     },
     bounty: { marks: 0, guideId: content.bountyGuides[0]?.id ?? "rook", task: null, streak: 0, tasksDone: 0, lastClaimDay: 0, blocked: [], history: [], unlocks: [] },
     home: { storage: {}, placed: [], tier: 0 },

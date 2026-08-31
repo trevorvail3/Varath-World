@@ -19,8 +19,9 @@ import { readFileSync } from "node:fs";
 import { content, makeWorld, SimClock } from "./harness.ts";
 import { hydratePlayer, serializePlayer } from "../src/core/save.ts";
 import {
-  BUILD_STYLES, CLOTH, DEFAULT_APPEARANCE, FACIAL_STYLES, HAIR_STYLES,
-  HAIRS, LEG_STYLES, SHOE_STYLES, SKINS, TOP_STYLES,
+  BROW_STYLES, BUILD_STYLES, CLOTH, DEFAULT_APPEARANCE, EYE_STYLES, EYES,
+  FACIAL_STYLES, HAIR_STYLES, HAIRS, JAW_STYLES, LEG_STYLES, SHOE_STYLES,
+  SKINS, TOP_STYLES,
 } from "../src/client/avatar.ts";
 import type { Appearance } from "../src/core/types.ts";
 
@@ -151,7 +152,28 @@ check(!/\banim\.flip\b/.test(read("src/client/render.ts")) &&
       !/flip: /.test(read("src/client/duelUI.ts")),
   "a caller is back on the legacy `flip` boolean and cannot show the back view");
 
-// --- 7) The creator can be operated without a pointer ------------------------
+// --- 7) The figure has a face ------------------------------------------------
+// The head was a bare skin disc — no eyes, no brow, no mouth — while every
+// monster in the game had eye glints.
+check(/function drawFace\(/.test(avatar), "the figure has lost its face");
+for (const [list, field] of [[EYE_STYLES, "eyes"], [BROW_STYLES, "brows"], [JAW_STYLES, "jaw"]] as const) {
+  check(list.length >= 4, `only ${list.length} ${field} options`);
+  const v = DEFAULT_APPEARANCE[field];
+  check(list.some((o) => o.id === v), `the default ${field} ("${String(v)}") is not one of the options offered`);
+}
+check(EYES.includes(DEFAULT_APPEARANCE.eyeColor ?? ""), "the default iris colour is not one of the swatches");
+// Every face field must be one hydratePlayer will accept, or it reverts on load.
+const hydrateBlock = save.slice(save.indexOf("const savedApp = raw"), save.indexOf("// Bounty:"));
+for (const k of ["eyes", "brows", "jaw"]) {
+  check(hydrateBlock.includes(`"${k}"`), `appearance.${k} is not in the save's allow-list and will not survive a reload`);
+}
+for (const k of ["eyeColor", "beardColor"]) {
+  check(hydrateBlock.includes(`"${k}"`), `appearance.${k} is not in the save's colour allow-list`);
+}
+check(/look\.beardColor \?\? look\.hair/.test(avatar),
+  "facial hair is hard-wired to the hair colour again — a beard cannot go grey");
+
+// --- 8) The creator can be operated without a pointer ------------------------
 const creator = read("src/client/characterCreator.ts");
 check(!creator.includes('addEventListener("pointerdown"'),
   "the creator is bound to pointerdown again — Enter and Space on a focused control will do nothing");

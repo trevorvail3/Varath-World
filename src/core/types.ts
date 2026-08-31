@@ -1480,10 +1480,27 @@ export interface Appearance {
   legs: string;
   /** Footwear design id (e.g. "boots", "sandals", "clogs"). */
   shoes: string;
-  /** Body silhouette: a lean or broad frame vs the default average build. The
-   *  avatar renders it as a horizontal scale about the figure's centre, so gear
-   *  and animation stay aligned. Optional — old saves read as "average". */
+  /** Body silhouette: a lean or broad frame vs the default average build.
+   *  Optional — old saves read as "average". */
   build?: "lean" | "broad";
+
+  // --- The face -------------------------------------------------------------
+  // Every field below is OPTIONAL and holds a string, which is what makes this
+  // safe to add: hydratePlayer reads an explicit allow-list and ignores anything
+  // that is not on it, so an old save simply arrives without these and falls
+  // back to the default look. Nothing here needs a save-version bump — and a
+  // bump without a migrator would discard every existing character.
+  /** Eye shape id (e.g. "open", "narrow", "wide"). */
+  eyes?: string;
+  /** Iris colour. */
+  eyeColor?: string;
+  /** Brow shape id (e.g. "even", "heavy", "arched"). */
+  brows?: string;
+  /** Face shape id — how wide the jaw reads (e.g. "oval", "square", "narrow"). */
+  jaw?: string;
+  /** Facial-hair colour. Absent means "the same as the hair", which is what the
+   *  figure did unconditionally before — so a beard can now go grey on its own. */
+  beardColor?: string;
 }
 
 /** What the player is currently busy doing, if anything. */
