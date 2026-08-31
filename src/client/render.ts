@@ -6868,6 +6868,16 @@ function walkAnim(now: number, moving: boolean): { bob: number; swing: number; l
  * waist and flare a little again at the hip. Before this, the townsfolk were one
  * `fillRect` and the foes were a box that was WIDER AT THE HIPS THAN THE
  * SHOULDERS — an upside-down torso nobody could see at 31 pixels.
+ *
+ * Cost, measured: this is a path plus a clip per visible NPC per frame, where it
+ * used to be a fillRect. A/B on one machine in one session (tools/perf.ts), old
+ * then new: city 14.6 → 15.3, farmland 14.0 → 13.5, hills 13.9 → 12.2, wild
+ * 15.0 → 12.3, coast 13.2 → 12.5, marrow 11.3 → 11.4 ms. Faster on four of six
+ * stops and slower on one, with the same binary reading 17.4 and 15.3 at city on
+ * two runs — so the change is below this container's noise floor of roughly
+ * 2 ms, not free-but-unmeasured. If it ever does show up, drop the clip here and
+ * size the trim rects to the silhouette; the player keeps its clip, being drawn
+ * once or twice a frame rather than once per NPC on screen.
  */
 function torsoShape(
   g: CanvasRenderingContext2D,
