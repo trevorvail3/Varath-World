@@ -9,10 +9,11 @@
 import type { Content, ObjKind, TileType, Vec2, WorldState } from "../core/types.ts";
 import { objectPos, objectHidden, NPC_STEP_TICKS } from "../core/worldCore.ts";
 import { interpTile, stepProgress } from "./render.ts";
-import { OVERWORLD_HEIGHT, instanceRectAt, REGIONS, CITY } from "../content/map.ts";
+import { OVERWORLD_HEIGHT, instanceRectAt, REGIONS, CITY, BUILDINGS } from "../content/map.ts";
 import type { InstanceRect } from "../content/map.ts";
 import { Camera, TILE } from "./render.ts";
 import { iconize } from "./glyph.ts";
+import { TERRAIN } from "./palette.ts";
 import { currentGhosts } from "./presence.ts";
 
 /** Filterable world-map marker categories: which object kinds each covers, the
@@ -47,37 +48,53 @@ const REGION_NAMES: Record<string, string> = {
   ashfen: "Ashfen Flats", heartmoor: "The Heartmoor", greyoak: "Greyoak Wood",
 };
 
-/** Extra hand-placed landmark labels (hamlets the regions don't cover). */
-const EXTRA_LABELS: { name: string; x: number; y: number }[] = [
-  { name: "Redmouth", x: 86, y: 60 },
-  { name: "Drover's Rest", x: 68, y: 75 },
-  { name: "The Fold", x: 62, y: 16 },
-  // The head of the Varathian Trail (at its first checkpoint / Cael).
-  { name: "Varathian Trail", x: 57, y: 10 },
+/**
+ * The outlying hamlets, which no region box covers.
+ *
+ * These four were hand-typed coordinates from the old 112x108 map, and were
+ * never put through the expansion — so on the 400x400 world the map named four
+ * places roughly two hundred tiles from where they actually are. They are now
+ * derived from the world itself: each hamlet from the centre of the buildings
+ * that carry its architecture palette, and the trail head from the Trailkeeper
+ * standing at it. Move the hamlet and its label moves with it.
+ */
+const HAMLET_LABELS: { name: string; palette: string }[] = [
+  { name: "Redmouth", palette: "redmouth" },
+  { name: "Drover's Rest", palette: "drover" },
+  { name: "The Fold", palette: "fold" },
 ];
+/** A label pinned to a single world object (its name is not the object's). */
+const ANCHOR_LABELS: { name: string; objectId: string }[] = [
+  { name: "Varathian Trail", objectId: "trail_keeper" },
+];
+
+function extraLabels(content: Content): { name: string; x: number; y: number }[] {
+  const out: { name: string; x: number; y: number }[] = [];
+  for (const h of HAMLET_LABELS) {
+    const parts = BUILDINGS.filter((b) => b.palette === h.palette);
+    if (parts.length === 0) continue;
+    let sx = 0, sy = 0;
+    for (const b of parts) { sx += (b.x0 + b.x1) / 2; sy += (b.y0 + b.y1) / 2; }
+    out.push({ name: h.name, x: sx / parts.length, y: sy / parts.length });
+  }
+  for (const a of ANCHOR_LABELS) {
+    const def = content.objects.find((o) => o.id === a.objectId);
+    if (def) out.push({ name: a.name, x: def.x, y: def.y });
+  }
+  return out;
+}
 
 /** Tiles across the (square) minimap — a fixed local radius, OSRS-style, so the
  *  area around the character is always the same regardless of the view's zoom. */
 const MINIMAP_SPAN = 26;
 
-const MM_TILE: Record<TileType, string> = {
-  grass: "#34402d",
-  dirt: "#473720",
-  path: "#5a4d39",
-  stone: "#3a3b43",
-  water: "#1e3142",
-  moss: "#26331f",
-  mountain: "#33343c",
-  snow: "#9aa6b6",
-  bog: "#2c3729",
-  ash: "#40332d",
-  cave: "#16151c",
-  cave_wall: "#0b0a0f",
-  deep: "#101d30",
-  wall: "#736857",
-  plank: "#5e4326",
-  sand: "#a08a5c",
-};
+// How each tile reads on the map — the third column of the shared terrain table
+// (palette.ts), deliberately darker and flatter than the world's own colours:
+// a map is a diagram, not a window. Keeping it in the same table as the world's
+// tones is what stops the two drifting apart.
+const MM_TILE: Record<TileType, string> = Object.fromEntries(
+  (Object.entries(TERRAIN) as [TileType, { map: string }][]).map(([k, v]) => [k, v.map]),
+) as Record<TileType, string>;
 
 const MM_OBJ: Record<ObjKind, string> = {
   stall: "#c98a3a",       // awning cloth
@@ -596,7 +613,7 @@ export class WorldMapModal {
       ...REGIONS.filter((r) => REGION_NAMES[r.key]).map((r) => ({
         name: REGION_NAMES[r.key]!, x: r.nx + r.w / 2, y: r.ny + r.h / 2,
       })),
-      ...EXTRA_LABELS,
+      ...extraLabels(content),
     ];
     for (const l of labels) {
       const el = document.createElement("span");

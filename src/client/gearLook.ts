@@ -18,6 +18,7 @@
  */
 
 import type { Content, EquipSlot, ItemDef, ItemId } from "../core/types.ts";
+import { materialOf, TIER_LADDER } from "./palette.ts";
 
 export interface Metal { base: string; edge: string }
 /** Which silhouette a worn piece draws as: heavy plate, light leather (Draw
@@ -34,43 +35,18 @@ export interface GearLook {
   cape?: { color: string };
 }
 
-// The named metals, in the SAME hues the pack icons use (itemIcon.ts MATS) —
-// what you wear must look like what you carry. Resolved by the material word
-// in the item's name/id, so "Hearthite Leg Plate" is hearthite whatever its
-// tier number happens to be (legs top out at _8, everything else at _10).
-const METAL_BY_NAME: ReadonlyArray<readonly [string, Metal]> = [
-  ["knucklestone", { base: "#8a8275", edge: "#b2a996" }], // stone grey-brown
-  ["ashiron", { base: "#8b909a", edge: "#b8bdc6" }],      // ash iron grey
-  ["ribstone", { base: "#c2b48f", edge: "#e0d5b4" }],     // pale bone-tan (it IS rib-stone)
-  ["spinite", { base: "#9aa0ab", edge: "#cdd3dc" }],      // cold mountain steel
-  ["bloodore", { base: "#a5463a", edge: "#cd6f60" }],     // crimson-rust
-  ["voidstone", { base: "#4b4664", edge: "#7c63c0" }],    // violet-black
-  ["hearthite", { base: "#2f2724", edge: "#c8742e" }],    // warm-black, ember-lit trim
-];
-
-/** The metal a piece is NAMED for (matches the icon's material lookup). */
+/** The metal a piece is NAMED for — resolved against the shared material table
+ *  (palette.ts), which the pack icons read too. This used to be a private list
+ *  of seven metals against the icons' twenty-eight, so eighty-five of the
+ *  hundred and sixty-three worn armour pieces named a material the figure had
+ *  never heard of and fell through to the generic tier ladder below. */
 function namedMetal(item: ItemDef): Metal | null {
-  const s = (item.id + " " + (item.name ?? "")).toLowerCase();
-  for (const [k, m] of METAL_BY_NAME) if (s.includes(k)) return m;
-  return null;
+  return materialOf(item.id + " " + (item.name ?? ""));
 }
 
 // The tier ladder, used only for pieces with NO material in their name (some
-// uniques); the named tiers carry the same tones as METAL_BY_NAME so an
-// inferred unique lands on-theme. Tiers with no smithed gear (2/5/7/8) get
-// sensible in-between tones so inference lands well.
-const METAL: Metal[] = [
-  { base: "#8a8275", edge: "#b2a996" }, // 1  Knucklestone — stone grey-brown
-  { base: "#9a6a3c", edge: "#c08a52" }, // 2  (bronze step)
-  { base: "#8b909a", edge: "#b8bdc6" }, // 3  Ashiron — ash iron grey
-  { base: "#c2b48f", edge: "#e0d5b4" }, // 4  Ribstone — pale bone-tan
-  { base: "#9aa0ab", edge: "#cdd3dc" }, // 5  Spinite — cold steel
-  { base: "#a5463a", edge: "#cd6f60" }, // 6  Bloodore — crimson-rust
-  { base: "#5f6e62", edge: "#8aa093" }, // 7  (slate-green step)
-  { base: "#3f6b6b", edge: "#69a6a6" }, // 8  (teal-steel step)
-  { base: "#4b4664", edge: "#7c63c0" }, // 9  Voidstone — violet-black
-  { base: "#2f2724", edge: "#c8742e" }, // 10 Hearthite — warm-black, ember-lit
-];
+// uniques). Shared with the icons, so an inferred unique lands on-theme.
+const METAL: readonly Metal[] = TIER_LADDER;
 
 // Unique looks keyed by id prefix — drops that should stand out from the metal
 // ladder. The Ashen Wyrm's set reads as black-red scale lit by molten seams.
@@ -197,6 +173,25 @@ function capeColor(item: ItemDef): string {
   return CAPE_PALETTE[h % CAPE_PALETTE.length]!;
 }
 
+/**
+ * The silhouette a weapon should be drawn with.
+ *
+ * `wepType` is only authored on the melee families, so reading it with a plain
+ * `?? "sword"` put a blade in the hand of every bow and every staff in the game
+ * — thirty weapons, including the two Ascendant ones. Nothing needed authoring
+ * to fix it: the items already say what they are (`ranged`, `magic`,
+ * `attackStyle`), so the shape is derived from that and the fallback only ever
+ * catches an actual sword.
+ */
+function weaponShape(item: ItemDef): string {
+  if (item.wepType) return item.wepType;
+  if (item.ranged) return "bow";
+  if (item.magic) return "staff";
+  if (item.attackStyle === "crush") return "hammer"; // e.g. the Marrow Flail
+  if (item.attackStyle === "stab") return "dagger";
+  return "sword";
+}
+
 /** Resolve worn equipment into the visuals the avatar should layer on. */
 export function resolveGear(
   eq: Partial<Record<EquipSlot, ItemId>>,
@@ -220,7 +215,7 @@ export function resolveGear(
     const tier = metalTier(main, "weapon", content);
     const metal = uniqueLook(main.id) ?? namedMetal(main) ?? metalOf(tier);
     // The Bonesaw is a sword in every system, but draws as a unique toothed saw.
-    const shape = main.id === "bonesaw" ? "saw" : (main.wepType ?? "sword");
+    const shape = main.id === "bonesaw" ? "saw" : weaponShape(main);
     out.weapon = { ...metal, type: shape, tier };
   } else if (main && main.tool === "rod") {
     // A wielded fishing rod rides in the hand like a weapon, so an angler reads

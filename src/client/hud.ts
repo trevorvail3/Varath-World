@@ -220,7 +220,9 @@ export class Hud {
   private xpSession = 0;
   private xpFadeTimer = 0;
   private logEl!: HTMLElement;
-  private logLines: { type: "game" | "chat"; html: string }[] = [];
+  private logLines: { type: "game" | "chat"; el: HTMLElement }[] = [];
+  /** Lines ever written — drives the zebra stripe, so it never re-shuffles. */
+  private logCount = 0;
   private chatInput!: HTMLInputElement;
   /** Set by main.ts to route a sent chat line to the world's overhead-chat
    *  renderer (float it above the player's head). */
@@ -605,9 +607,13 @@ export class Hud {
       btn.type = "button";
       btn.className = "dock-tab";
       btn.title = t.title;
-      // Icon + a label that CSS reveals only on the ACTIVE tab, so a touch
-      // player always sees the name of the tab they're in (no hover title).
-      btn.innerHTML = `${iconize(t.icon)}<span class="dock-tab-label">${t.title}</span>`;
+      // Icon only. The label span that used to ride along here was styled
+      // `display: none` and never shown, so it promised an affordance the
+      // interface did not have — and the open tab already names itself in the
+      // panel heading right beside it. An aria-label carries the name to anyone
+      // who cannot see the glyph, which `title` alone does not do reliably.
+      btn.setAttribute("aria-label", t.title);
+      btn.innerHTML = iconize(t.icon);
       btn.addEventListener("click", () => this.setTab(t.id));
       tabsCol.appendChild(btn);
       this.tabButtons.set(t.id, btn);
@@ -1322,19 +1328,37 @@ export class Hud {
   }
 
   /** Append one pre-rendered line, trim history (per stream, so game and chat
-   *  never push each other out), and keep the view pinned. */
+   *  never push each other out), and keep the view pinned.
+   *
+   *  This appends a single node rather than rewriting the whole list. Rebuilding
+   *  the log's innerHTML on every message re-ran the slide-in animation on every
+   *  line at once, so the entire scrollback twitched each time anything was
+   *  said — and it also meant the zebra stripe (`nth-child(even)`) inverted on
+   *  every trim. The stripe is now stamped on at creation from a running count,
+   *  so a line keeps the shade it was born with. */
   private pushLine(html: string, type: "game" | "chat"): void {
-    this.logLines.push({ type, html });
+    const tpl = document.createElement("template");
+    tpl.innerHTML = html;
+    const node = tpl.content.firstElementChild as HTMLElement | null;
+    if (!node) return;
+    if (this.logCount++ % 2 === 1) node.classList.add("alt");
+
+    const el = this.logEl;
+    const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 24;
+    el.appendChild(node);
+    this.logLines.push({ type, el: node });
+
     // Trim the OLDEST line of this stream once it exceeds its own cap.
     const cap = type === "chat" ? MAX_CHAT_LINES : MAX_GAME_LINES;
     let count = 0;
     for (let i = this.logLines.length - 1; i >= 0; i--) {
       if (this.logLines[i]!.type !== type) continue;
-      if (++count > cap) { this.logLines.splice(i, 1); break; }
+      if (++count > cap) {
+        this.logLines[i]!.el.remove();
+        this.logLines.splice(i, 1);
+        break;
+      }
     }
-    const el = this.logEl;
-    const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 24;
-    el.innerHTML = this.logLines.map((l) => l.html).join("");
     if (nearBottom) el.scrollTop = el.scrollHeight;
   }
 

@@ -44,9 +44,9 @@ import type { Guide } from "./guide.ts";
 import type { Tutorial } from "./tutorial.ts";
 import { Hud } from "./hud.ts";
 import { Minimap, WorldMapModal } from "./minimap.ts";
-import { biomeAt, Camera, getFrameMeter, drawWorld, interpTile, stepProgress, setCombatHits, setDrawDistance, setLootLabels, TILE, type HitFx } from "./render.ts";
+import { biomeAt, type Biome, Camera, getFrameMeter, drawWorld, interpTile, stepProgress, setCombatHits, setDrawDistance, setLootLabels, TILE, type HitFx } from "./render.ts";
 import { CRIER_SHOUTS } from "./crier.ts";
-import { audio, type CreatureVoice, type Sfx } from "./audio.ts";
+import { audio, type CreatureVoice, type SceneKey, type Sfx } from "./audio.ts";
 import { currentGhosts, startPresence } from "./presence.ts";
 import { getTrackedQuest } from "./questTrack.ts";
 import { resolveGear } from "./gearLook.ts";
@@ -239,6 +239,25 @@ const LOOT_KEY = "varath-loot-labels";
 function readLootLabels(): boolean {
   return localStorage.getItem(LOOT_KEY) !== "0";
 }
+
+/**
+ * Which ambient bed each mood plays under.
+ *
+ * The renderer now tells apart farmland, open hills, the deep wild, the coast,
+ * the moor and the high ground, which the sound engine has no separate beds for
+ * yet. Rather than invent six soundscapes as a side effect of an art change,
+ * each new mood borrows the nearest existing one — the coast takes the river's
+ * water bed, the high ground the Spine's wind — and this table is the one place
+ * to change when they get beds of their own.
+ */
+const SCENE_OF: Record<Biome, SceneKey> = {
+  spine: "spine", marrow: "marrow", redrun: "redrun", ashfen: "ashfen",
+  heartmoor: "heartmoor", greyoak: "greyoak", city: "city",
+  farmland: "hills", hills: "hills", wild: "hills",
+  coast: "redrun",       // moving water
+  moor: "heartmoor",     // the same wet, open flatness
+  highland: "spine",     // thin cold wind
+};
 
 /** The verb shown for interacting with each kind of object. */
 const VERB: Record<ObjKind, string> = {
@@ -675,7 +694,7 @@ export class Game {
         audio.setScene("marrow", false);
       } else {
         const indoor = instanceRectAt(px, py) !== null || enterableAt(px, py) !== null;
-        audio.setScene(biomeAt(px, py), indoor);
+        audio.setScene(SCENE_OF[biomeAt(px, py)], indoor);
       }
     }
     // Combat engagement: the moment a fight starts the foe speaks (and a named

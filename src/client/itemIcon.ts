@@ -15,6 +15,7 @@
  */
 
 import type { ItemDef } from "../core/types.ts";
+import { MATERIALS } from "./palette.ts";
 
 // ── tiny colour maths ──────────────────────────────────────────────────────
 function hexRgb(h: string): [number, number, number] {
@@ -83,20 +84,12 @@ function hashColor(
 // ── material palettes (metals, woods, leathers — shared across an item line) ─
 // First keyword found in the id+name wins, so a "Hearthite Sword" and a
 // "Hearthite Bar" share the same warm-black metal.
-const MATS: ReadonlyArray<readonly [string, string]> = [
-  // ore / metal tiers
-  ["knucklestone", "#8a8275"], ["embercite", "#3c3640"], ["ashiron", "#8b909a"],
-  ["ribstone", "#c2b48f"], ["spinite", "#9aa0ab"], ["bloodore", "#a5463a"], ["hearthite", "#2f2724"],
-  ["voidstone", "#4b4664"], ["gold", "#d8b24a"], ["silver", "#cfd2d8"],
-  // woods
-  ["ashwood", "#cdb98c"], ["briarwood", "#8a5a44"], ["coldpine", "#90a584"],
-  ["stonewood", "#9a8d76"], ["greyoak", "#a7a39a"], ["ruewood", "#7a6a82"],
-  ["ruevine", "#7a6a82"], ["deeproot", "#4a3d34"], ["ironbark", "#5e5a52"],
-  ["heartoak", "#c98a3a"], ["duskwood", "#6a5f72"],
-  // leather tiers (specific before generic)
-  ["master", "#4a3526"], ["hardened", "#6a4428"], ["cured", "#8a5a36"],
-  ["tanned", "#b07c4e"], ["raw_hide", "#caa07a"], ["leather", "#9a6a3e"],
-];
+// The shared material table (palette.ts) — the same twenty-eight materials the
+// worn figure now uses, so a Coldpine Staff is the same green in the pack as it
+// is in the hand. Icons only need the body tone.
+const MATS: ReadonlyArray<readonly [string, string]> = MATERIALS.map(
+  ([k, m]) => [k, m.base] as const,
+);
 
 // ── shape classification ────────────────────────────────────────────────────
 type Shape =

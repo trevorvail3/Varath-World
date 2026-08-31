@@ -14,6 +14,58 @@
   --ember: #d2742c;
   --iron: #8a8f99;
   --gold: #c9a24a;
+
+  /* The accents again as bare channels, so a tint of one can be written as
+     rgba(var(--gold-rgb), 0.16) instead of a fresh literal. Gold alone appeared
+     as twenty separate rgba() literals at twenty alphas, which is why the
+     high-contrast theme only half-worked: it re-pointed --gold and half the
+     interface never read it. Now every gold-tinted border, glow and shelf
+     follows the token. */
+  --gold-rgb: 201, 162, 74;
+  --ember-rgb: 210, 116, 44;
+  --edge-rgb: 74, 61, 44;
+  --ink-rgb: 216, 203, 176;
+
+  /* The button surface. These three were referenced eleven times across the
+     shop and bounty panels and defined nowhere, so the Sell button, the
+     Buy/Sell tabs, the sell-quantity rows and the bounty unlock button all
+     rendered as unfilled outlines with dead hovers. The values are the ones
+     the rest of the interface already uses for a pressable surface (see
+     .skill-cell), so defining them makes those controls match, not stand out. */
+  --btn: rgba(40, 32, 24, 0.7);
+  --btn-hi: rgba(var(--ember-rgb), 0.16);
+  --edge: var(--panel-edge);
+
+  /* The top-centre column. Everything that floats over the world at the top of
+     the screen queues down this ladder instead of landing on whatever is
+     already there: the training pill, then the guide banner, then the transient
+     notices. Four elements each picked their own hardcoded `top` — the first
+     two overlapped, and so did the last two. */
+  --top-1: 8px;   /* .activeskill  — the training pill */
+  --top-2: 44px;  /* .guide-banner — the coach's line */
+  --top-3: 92px;  /* .err-toast and .levelup — transient, and mutually rare */
+
+  /* The type scale. The stylesheet had grown twenty-nine distinct font sizes,
+     including half-pixel steps (8.5, 11.5, 12.5, 13.5) that no reader can tell
+     from their neighbours but that guarantee two panels never quite match.
+     These nine are the sizes the interface actually uses. */
+  --t-micro: 9px;   /* stamps, counters */
+  --t-tiny: 10px;   /* captions, hints */
+  --t-small: 11px;  /* dense rows, chips */
+  --t-body: 12px;   /* the default */
+  --t-body-lg: 13px;
+  --t-read: 14px;   /* prose the player reads: the log, dialogue */
+  --t-lead: 16px;
+  --t-title: 18px;
+  --t-display: 26px;
+
+  /* The radius scale — one shape language, from a chip to a modal. */
+  --r-xs: 3px;   /* stamps and dense cells */
+  --r-sm: 5px;   /* chips, slots */
+  --r-md: 6px;   /* buttons */
+  --r-lg: 8px;   /* panels, toasts */
+  --r-xl: 12px;  /* modals, cards */
+  --r-pill: 999px;
 }
 
 * {
@@ -78,7 +130,7 @@ body {
   color: var(--gold);
   text-transform: uppercase;
   margin-bottom: 6px;
-  border-bottom: 1px solid rgba(201, 162, 74, 0.25);
+  border-bottom: 1px solid rgba(var(--gold-rgb), 0.22);
   padding-bottom: 4px;
 }
 
@@ -216,7 +268,7 @@ body {
 }
 .skill-cell:hover {
   border-color: var(--ember);
-  background: rgba(210, 116, 44, 0.16);
+  background: rgba(var(--ember-rgb), 0.16);
 }
 
 .sc-icon {
@@ -258,7 +310,7 @@ body {
   font-size: 10px;
   color: #d0b078;
   background: rgba(20, 16, 11, 0.72);
-  border: 1px solid rgba(201, 162, 74, 0.35);
+  border: 1px solid rgba(var(--gold-rgb), 0.3);
   border-radius: 5px;
   padding: 1px 7px;
   text-align: center;
@@ -287,7 +339,7 @@ body {
   padding: 3px 2px;
   font-size: 9px;
   line-height: 1.1;
-  border: 1px solid rgba(210, 116, 44, 0.35);
+  border: 1px solid rgba(var(--ember-rgb), 0.3);
   border-radius: 7px;
   background: rgba(12, 14, 20, 0.62);
   color: rgba(243, 239, 230, 0.9);
@@ -390,7 +442,7 @@ body {
 /* "Today in Varath" — the quest tab's daily beats. */
 .today-block {
   background: rgba(20, 16, 11, 0.5);
-  border: 1px solid rgba(201, 162, 74, 0.2);
+  border: 1px solid rgba(var(--gold-rgb), 0.22);
   border-radius: 6px;
   padding: 5px 8px;
   margin-bottom: 8px;
@@ -616,18 +668,17 @@ body {
 }
 
 .dock-tab:hover {
-  background: rgba(210, 116, 44, 0.14);
+  background: rgba(var(--ember-rgb), 0.16);
 }
 
 .dock-tab.active {
-  background: rgba(210, 116, 44, 0.22);
+  background: rgba(var(--ember-rgb), 0.22);
   border-color: var(--ember);
 }
 
-/* Tabs are icon-only — no text labels beside the glyphs (kept as the button's
-   `title` for hover). The active tab is marked by its ember highlight, not a
-   name, so the dock stays uncluttered. */
-.dock-tab-label { display: none; }
+/* Tabs are icon-only — the open tab names itself in the panel heading beside
+   them, and the button carries an aria-label. (There used to be a hidden label
+   span here too; it was emitted on every tab and never displayed.) */
 
 .dock-body {
   padding: 7px 8px;
@@ -743,7 +794,7 @@ body {
   text-transform: uppercase;
   letter-spacing: 0.06em;
   opacity: 0.65;
-  border-bottom: 1px solid rgba(210, 116, 44, 0.25);
+  border-bottom: 1px solid rgba(var(--ember-rgb), 0.22);
   margin-bottom: 2px;
 }
 .es-k { color: rgba(243, 239, 230, 0.75); }
@@ -759,7 +810,7 @@ body {
 .es-extra { grid-template-columns: 1fr auto; }
 .es-extra .es-v { min-width: 74px; }
 .es-row:first-of-type.es-extra {
-  border-top: 1px solid rgba(210, 116, 44, 0.25);
+  border-top: 1px solid rgba(var(--ember-rgb), 0.22);
   margin-top: 3px;
   padding-top: 4px;
 }
@@ -850,10 +901,10 @@ body {
   padding: 3px 5px;
   border: 1px solid transparent;
 }
-.quest-item:hover { background: rgba(201, 162, 74, 0.08); }
+.quest-item:hover { background: rgba(var(--gold-rgb), 0.06); }
 .quest-item.tracked {
-  background: rgba(201, 162, 74, 0.12);
-  border-color: rgba(201, 162, 74, 0.4);
+  background: rgba(var(--gold-rgb), 0.1);
+  border-color: rgba(var(--gold-rgb), 0.4);
 }
 .quest-star { color: var(--gold); font-size: 12px; }
 .quest-item.tracked .quest-star { color: #f2cf6b; }
@@ -929,7 +980,7 @@ body {
   justify-content: space-between;
   align-items: center;
   font-family: "Cinzel", serif;
-  font-size: 12.5px;
+  font-size: 12px;
   color: var(--gold);
 }
 .char-cape-count { font-family: "EB Garamond", serif; font-size: 11px; color: var(--ink-dim); }
@@ -948,7 +999,7 @@ body {
 }
 .char-cape-note {
   font-family: "EB Garamond", serif;
-  font-size: 11.5px;
+  font-size: 12px;
   color: var(--ink-dim);
   line-height: 1.35;
 }
@@ -1025,7 +1076,7 @@ body {
 .log-min-btn {
   margin-left: auto;
   font-family: "Cinzel", serif; font-size: 11px; line-height: 1;
-  background: transparent; border: 1px solid rgba(201,162,74,0.25); border-radius: 4px;
+  background: transparent; border: 1px solid rgba(var(--gold-rgb), 0.22); border-radius: 4px;
   color: var(--ink-dim); width: 20px; height: 18px; cursor: pointer; padding: 0;
 }
 .log-min-btn:hover { color: var(--ember); border-color: var(--ember); }
@@ -1036,7 +1087,7 @@ body {
 .hud-log.collapsed .log-filter { margin-bottom: 0; }
 .log-filter-btn {
   font-family: "Cinzel", serif; font-size: 10px; letter-spacing: 0.04em;
-  background: transparent; border: 1px solid rgba(201,162,74,0.25); border-radius: 4px;
+  background: transparent; border: 1px solid rgba(var(--gold-rgb), 0.22); border-radius: 4px;
   color: var(--ink-dim); padding: 1px 8px; cursor: pointer;
 }
 .log-filter-btn.on { color: var(--gold); border-color: var(--gold); }
@@ -1050,11 +1101,11 @@ body {
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: thin;
-  scrollbar-color: rgba(201, 162, 74, 0.4) transparent;
+  scrollbar-color: rgba(var(--gold-rgb), 0.4) transparent;
 }
 .log-lines::-webkit-scrollbar { width: 6px; }
 .log-lines::-webkit-scrollbar-thumb {
-  background: rgba(201, 162, 74, 0.4);
+  background: rgba(var(--gold-rgb), 0.4);
   border-radius: 3px;
 }
 
@@ -1067,8 +1118,11 @@ body {
   border-radius: 3px;
 }
 
-/* Alternate a faint tint so consecutive messages are easy to tell apart. */
-.log-line:nth-child(even) {
+/* Alternate a faint tint so consecutive messages are easy to tell apart. The
+   stripe is a class stamped on when the line is created, not `nth-child(even)`:
+   trimming the oldest line shifts every position by one, which flipped the whole
+   log's shading each time the history filled up. */
+.log-line.alt {
   background: rgba(120, 100, 70, 0.10);
 }
 
@@ -1148,8 +1202,8 @@ body {
   transform: translate(-50%, -50%);
   background: radial-gradient(
     circle,
-    rgba(210, 116, 44, 0.16) 0%,
-    rgba(210, 116, 44, 0) 65%
+    rgba(var(--ember-rgb), 0.16) 0%,
+    rgba(var(--ember-rgb), 0.06) 65%
   );
   filter: blur(6px);
   animation: title-pulse 5.5s ease-in-out infinite;
@@ -1187,7 +1241,7 @@ body {
   text-indent: 0.14em;
   margin: 0;
   line-height: 1;
-  text-shadow: 0 0 26px rgba(210, 116, 44, 0.35), 0 2px 2px rgba(0, 0, 0, 0.6);
+  text-shadow: 0 0 26px rgba(var(--ember-rgb), 0.3), 0 2px 2px rgba(0, 0, 0, 0.6);
 }
 
 .title-sub {
@@ -1252,7 +1306,7 @@ body {
 .minimap-canvas {
   display: block;
   border-radius: 4px;
-  border: 1px solid rgba(74, 61, 44, 0.6);
+  border: 1px solid rgba(var(--edge-rgb), 0.55);
   cursor: pointer;
 }
 
@@ -1273,7 +1327,7 @@ body {
 }
 .minimap-worldbtn:hover {
   border-color: var(--ember);
-  background: rgba(210, 116, 44, 0.22);
+  background: rgba(var(--ember-rgb), 0.22);
 }
 
 /* --- Full world-map overlay --- */
@@ -1293,7 +1347,7 @@ body {
 .worldmap-modal {
   background: linear-gradient(180deg, #221c13, #1a1610);
   border: 1px solid var(--gold);
-  outline: 3px solid rgba(201, 162, 74, 0.18);
+  outline: 3px solid rgba(var(--gold-rgb), 0.16);
   outline-offset: 3px;
   border-radius: 10px;
   padding: 12px 14px;
@@ -1338,7 +1392,7 @@ body {
   width: 100%;
   height: 100%;
   border-radius: 5px;
-  border: 1px solid rgba(74, 61, 44, 0.6);
+  border: 1px solid rgba(var(--edge-rgb), 0.55);
   image-rendering: pixelated;
   cursor: pointer;
 }
@@ -1346,7 +1400,7 @@ body {
 .worldmap-zoom { display: flex; gap: 4px; margin-left: auto; margin-right: 10px; }
 .wm-zoom-btn {
   width: 24px; height: 22px; line-height: 1;
-  background: transparent; border: 1px solid rgba(201,162,74,0.35); border-radius: 4px;
+  background: transparent; border: 1px solid rgba(var(--gold-rgb), 0.3); border-radius: 4px;
   color: var(--gold); font-size: 15px; cursor: pointer; padding: 0;
 }
 .wm-zoom-btn:hover { color: var(--ember); border-color: var(--ember); }
@@ -1383,7 +1437,7 @@ body {
   position: absolute;
   transform: translate(-50%, -50%);
   font-family: "Cinzel", serif;
-  font-size: 11.5px;
+  font-size: 12px;
   font-weight: 600;
   letter-spacing: 0.14em;
   text-transform: uppercase;
@@ -1399,7 +1453,7 @@ body {
   transform: translate(-50%, -50%);
   font-family: "EB Garamond", serif;
   font-style: italic;
-  font-size: 8.5px;
+  font-size: 9px;
   letter-spacing: 0.02em;
   color: #d9c69a;
   text-shadow: 0 1px 2px #000, 0 0 4px #000;
@@ -1420,7 +1474,7 @@ body {
   align-items: center;
   gap: 4px;
   font-family: "EB Garamond", serif;
-  font-size: 11.5px;
+  font-size: 12px;
   color: var(--ink-dim);
   background: rgba(0, 0, 0, 0.25);
   border: 1px solid var(--panel-edge);
@@ -1497,6 +1551,16 @@ body {
   --panel-edge: #d8c084;
   --ink: #f4ecd6;
   --ink-dim: #cfc2a2;
+  /* Brighten the accents as channels too, so every gold-tinted border, glow and
+     shelf brightens with them — the tints used to be baked-in literals that
+     this theme could not reach. */
+  --gold: #ecc978;
+  --gold-rgb: 236, 201, 120;
+  --ember: #ff9a4e;
+  --ember-rgb: 255, 154, 78;
+  --edge-rgb: 216, 192, 132;
+  --btn: rgba(0, 0, 0, 0.6);
+  --btn-hi: rgba(var(--ember-rgb), 0.3);
 }
 .high-contrast .hud-panel,
 .high-contrast .dock-body,
@@ -1731,7 +1795,7 @@ body {
   color: var(--gold);
   text-transform: uppercase;
   padding: 6px 10px 7px;
-  border-bottom: 1px solid rgba(201, 162, 74, 0.25);
+  border-bottom: 1px solid rgba(var(--gold-rgb), 0.22);
   margin-bottom: 3px;
 }
 /* The gold value chip sits right after the item name; margin-right:auto pushes
@@ -1742,8 +1806,8 @@ body {
   font-size: 11px;
   letter-spacing: 0.04em;
   color: #f4d98b;
-  background: rgba(201, 162, 74, 0.16);
-  border: 1px solid rgba(201, 162, 74, 0.4);
+  background: rgba(var(--gold-rgb), 0.16);
+  border: 1px solid rgba(var(--gold-rgb), 0.4);
   border-radius: 9px;
   padding: 1px 7px;
   text-transform: none;
@@ -1781,7 +1845,7 @@ body {
 
 .ctx-item:hover,
 .ctx-item:active {
-  background: rgba(210, 116, 44, 0.16);
+  background: rgba(var(--ember-rgb), 0.16);
 }
 
 .ctx-action .ctx-verb {
@@ -1825,8 +1889,8 @@ body {
   transform: translate(-50%, -50%);
   background: radial-gradient(
     circle,
-    rgba(210, 116, 44, 0.12) 0%,
-    rgba(210, 116, 44, 0) 62%
+    rgba(var(--ember-rgb), 0.1) 0%,
+    rgba(var(--ember-rgb), 0.06) 62%
   );
   filter: blur(8px);
   animation: title-pulse 6s ease-in-out infinite;
@@ -1888,7 +1952,7 @@ body {
 /* --- Onboarding guide banner (top-centre, non-blocking) --- */
 .guide-banner {
   position: absolute;
-  top: 14px;
+  top: var(--top-2);
   left: 50%;
   transform: translateX(-50%);
   z-index: 25;
@@ -1947,7 +2011,7 @@ body {
 /* --- Denial toast (hud.error): unmissable "no" feedback, top-centre --- */
 .err-toast {
   position: absolute;
-  top: 58px;
+  top: var(--top-3);
   left: 50%;
   transform: translateX(-50%) translateY(-6px);
   z-index: 26;
@@ -2127,7 +2191,7 @@ body {
   color: var(--ink-dim);
 }
 .prompt-ok {
-  background: rgba(210, 116, 44, 0.18);
+  background: rgba(var(--ember-rgb), 0.16);
   border: 1px solid var(--ember);
   color: var(--gold);
 }
@@ -2161,7 +2225,7 @@ body {
   border: 1px solid var(--gold);
   border-radius: 14px;
   padding: 22px 22px 20px;
-  box-shadow: 0 12px 44px rgba(0, 0, 0, 0.6), inset 0 0 26px rgba(201, 162, 74, 0.08);
+  box-shadow: 0 12px 44px rgba(0, 0, 0, 0.6), inset 0 0 26px rgba(var(--gold-rgb), 0.06);
   transform: translateY(8px) scale(0.98);
   transition: transform 0.4s cubic-bezier(0.18, 1.3, 0.4, 1);
 }
@@ -2183,7 +2247,7 @@ body {
   color: #f0c187;
   text-align: center;
   margin: 4px 0 16px;
-  text-shadow: 0 0 18px rgba(210, 116, 44, 0.3);
+  text-shadow: 0 0 18px rgba(var(--ember-rgb), 0.3);
 }
 
 .primer-rows { display: flex; flex-direction: column; gap: 12px; }
@@ -2196,7 +2260,7 @@ body {
   align-items: center;
   justify-content: center;
   color: var(--gold);
-  background: radial-gradient(circle at 50% 40%, rgba(201, 162, 74, 0.18), rgba(20, 15, 10, 0.4));
+  background: radial-gradient(circle at 50% 40%, rgba(var(--gold-rgb), 0.16), rgba(20, 15, 10, 0.4));
   border: 1px solid var(--panel-edge);
   border-radius: 9px;
 }
@@ -2264,7 +2328,7 @@ body {
 .settings-help:active {
   color: #f0c187;
   border-color: var(--ember);
-  background: rgba(210, 116, 44, 0.16);
+  background: rgba(var(--ember-rgb), 0.16);
 }
 
 /* --- Bank chest window --- */
@@ -2335,7 +2399,7 @@ body {
   color: var(--ink-dim);
   text-transform: uppercase;
   margin: 12px 0 6px;
-  border-bottom: 1px solid rgba(74, 61, 44, 0.4);
+  border-bottom: 1px solid rgba(var(--edge-rgb), 0.4);
   padding-bottom: 3px;
 }
 
@@ -2378,7 +2442,7 @@ body {
   letter-spacing: 0;
   font-size: 12px;
   color: var(--ember);
-  background: rgba(210, 116, 44, 0.12);
+  background: rgba(var(--ember-rgb), 0.1);
   border: 1px solid var(--panel-edge);
   border-radius: 5px;
   padding: 2px 8px;
@@ -2412,7 +2476,7 @@ body {
 .inv-slot.drop-target {
   outline: 2px solid var(--gold);
   outline-offset: -2px;
-  background: rgba(201, 162, 74, 0.15);
+  background: rgba(var(--gold-rgb), 0.16);
 }
 
 /* Custom bank tabs: an organisational strip above the stored grid. "All" plus
@@ -2441,13 +2505,13 @@ body {
 .bank-tab.on {
   color: var(--gold);
   border-color: var(--gold);
-  background: rgba(201, 162, 74, 0.12);
+  background: rgba(var(--gold-rgb), 0.1);
 }
 .bank-tab-add { font-weight: 700; padding: 2px 7px; }
 .bank-tab.drop-here {
   color: var(--gold);
   border-color: var(--gold);
-  background: rgba(201, 162, 74, 0.28);
+  background: rgba(var(--gold-rgb), 0.3);
 }
 .inv-slot.dragging { opacity: 0.4; }
 
@@ -2492,9 +2556,15 @@ button.inv-slot {
 
   /* HP + Grace bars stay tucked under the minimap; JS sets the exact width. */
 
-  /* Keep the bottom-left log and bottom-right dock from crowding each other. */
+  /* Keep the bottom-left log and bottom-right dock from crowding each other.
+     They used to be sized independently and simply overlapped: at 390px wide
+     the log ran to x=182 and the dock started at x=151, so a strip of every log
+     line sat under the dock. The log is now sized against the dock's real
+     footprint (--dock-w), which is the only way the two can be guaranteed not
+     to meet at an arbitrary viewport width. */
+  :root { --dock-w: 229px; } /* .dock-tabs (41px) + .dock-body (188px) */
   .hud-log {
-    width: min(230px, 44vw);
+    width: calc(100vw - var(--dock-w) - 28px);
   }
   .log-lines {
     max-height: 124px;
@@ -2652,7 +2722,7 @@ button.inv-slot {
   color: var(--ink-dim);
   text-transform: uppercase;
   margin: 12px 0 6px;
-  border-bottom: 1px solid rgba(74, 61, 44, 0.4);
+  border-bottom: 1px solid rgba(var(--edge-rgb), 0.4);
   padding-bottom: 3px;
 }
 /* Buy tab: a card grid matching the Sell tab and the game's other item panels. */
@@ -2675,11 +2745,11 @@ button.inv-slot {
   text-align: center;
   transition: border-color 0.12s, background 0.12s;
 }
-.shop-card:hover { border-color: var(--ember); background: rgba(210, 116, 44, 0.1); }
+.shop-card:hover { border-color: var(--ember); background: rgba(var(--ember-rgb), 0.1); }
 .shop-card.disabled { opacity: 0.55; cursor: default; }
 .shop-card.disabled:hover { border-color: var(--panel-edge); background: rgba(28, 23, 16, 0.55); }
 /* Rep-locked wares read as "earn it" (gold), not "can't afford" (red). */
-.shop-card.rep-locked { opacity: 0.8; border-color: rgba(201, 162, 74, 0.55); }
+.shop-card.rep-locked { opacity: 0.8; border-color: rgba(var(--gold-rgb), 0.55); }
 .shop-card.rep-locked .shop-card-price,
 .shop-card.rep-locked .shop-card-stock.out { color: var(--gold); background: none; }
 .shop-card-icon {
@@ -2712,7 +2782,7 @@ button.inv-slot {
   font-family: "Cinzel", serif;
   font-size: 12px;
   color: var(--gold);
-  background: rgba(210, 116, 44, 0.14);
+  background: rgba(var(--ember-rgb), 0.16);
   border: 1px solid var(--panel-edge);
   border-radius: 5px;
   padding: 2px 9px;
@@ -2767,7 +2837,7 @@ button.inv-slot {
   color: var(--ink-dim);
   text-transform: uppercase;
   margin: 12px 0 6px;
-  border-bottom: 1px solid rgba(74, 61, 44, 0.4);
+  border-bottom: 1px solid rgba(var(--edge-rgb), 0.4);
   padding-bottom: 3px;
 }
 .bounty-guides { display: flex; gap: 6px; }
@@ -2784,9 +2854,9 @@ button.inv-slot {
   cursor: pointer;
   color: var(--ink);
 }
-.bounty-guide.active { border-color: var(--ember); background: rgba(210, 116, 44, 0.12); }
+.bounty-guide.active { border-color: var(--ember); background: rgba(var(--ember-rgb), 0.1); }
 .bounty-guide.locked { opacity: 0.45; cursor: default; }
-.bounty-guide-icon { font-size: 19px; }
+.bounty-guide-icon { font-size: 18px; }
 .bounty-guide-name { font-family: "Cinzel", serif; font-size: 12px; color: var(--gold); }
 .bounty-guide-sub { font-size: 9px; color: var(--ink-dim); text-align: center; }
 .bounty-contract {
@@ -2802,12 +2872,12 @@ button.inv-slot {
 .bounty-perk {
   font-size: 10px;
   color: #d0b078;
-  background: rgba(201, 162, 74, 0.1);
-  border: 1px solid rgba(201, 162, 74, 0.35);
+  background: rgba(var(--gold-rgb), 0.1);
+  border: 1px solid rgba(var(--gold-rgb), 0.3);
   border-radius: 5px;
   padding: 2px 8px;
 }
-.bounty-perk.hot { color: #f0b878; border-color: var(--gold); background: rgba(201, 162, 74, 0.2); }
+.bounty-perk.hot { color: #f0b878; border-color: var(--gold); background: rgba(var(--gold-rgb), 0.22); }
 .bounty-task-from { font-size: 10px; color: #8a8472; margin-bottom: 6px; }
 .bounty-task-where { font-size: 11px; color: #d09a6a; margin-bottom: 6px; }
 .bounty-task-where b { color: #f0b878; font-family: "Cinzel", serif; font-size: 11px; }
@@ -2827,7 +2897,7 @@ button.inv-slot {
   font-family: "Cinzel", serif;
   font-size: 12px;
   color: var(--gold);
-  background: rgba(210, 116, 44, 0.12);
+  background: rgba(var(--ember-rgb), 0.1);
   border: 1px solid var(--panel-edge);
   border-radius: 5px;
   padding: 5px 14px;
@@ -2843,7 +2913,7 @@ button.inv-slot {
   align-items: center;
   gap: 10px;
   padding: 4px 4px;
-  border-bottom: 1px solid rgba(74, 61, 44, 0.25);
+  border-bottom: 1px solid rgba(var(--edge-rgb), 0.22);
 }
 .bounty-shop-swatch { width: 26px; height: 26px; flex: 0 0 auto; }
 .bounty-shop-info { flex: 1; display: flex; flex-direction: column; gap: 1px; }
@@ -2853,7 +2923,7 @@ button.inv-slot {
   font-family: "Cinzel", serif;
   font-size: 12px;
   color: var(--ember);
-  background: rgba(210, 116, 44, 0.12);
+  background: rgba(var(--ember-rgb), 0.1);
   border: 1px solid var(--panel-edge);
   border-radius: 5px;
   padding: 4px 10px;
@@ -2884,7 +2954,7 @@ button.inv-slot {
   text-align: left;
   padding: 7px 8px;
   font-family: "Cinzel", serif;
-  font-size: 12.5px;
+  font-size: 12px;
   color: var(--gold);
 }
 .diary-head:hover { color: #f0c187; }
@@ -3001,7 +3071,7 @@ button.inv-slot {
   font-family: "EB Garamond", serif; font-size: 14px; color: var(--ink);
 }
 .hiscores-row:nth-child(odd) { background: rgba(0, 0, 0, 0.16); }
-.hiscores-row.you { background: rgba(210, 116, 44, 0.2); border: 1px solid #6a5a3a; }
+.hiscores-row.you { background: rgba(var(--ember-rgb), 0.22); border: 1px solid #6a5a3a; }
 .hiscores-rank { width: 22px; text-align: right; color: var(--gold); font-family: "Cinzel", serif; font-size: 12px; }
 .hiscores-name { flex: 1; }
 .hiscores-val { font-family: "Cinzel", serif; color: var(--ember); font-variant-numeric: tabular-nums; }
@@ -3106,14 +3176,14 @@ button.inv-slot {
 .log-chat {
   display: flex; align-items: center; gap: 6px;
   margin-top: 6px; padding-top: 6px;
-  border-top: 1px solid rgba(201, 162, 74, 0.22);
+  border-top: 1px solid rgba(var(--gold-rgb), 0.22);
 }
 .log-chat-ic { flex: 0 0 auto; width: 14px; height: 14px; opacity: 0.55; display: inline-flex; }
 .log-chat-ic svg { width: 14px; height: 14px; }
 .log-chat-input {
   flex: 1 1 auto; min-width: 0;
   font-family: "EB Garamond", serif; font-size: 13px; color: var(--ink);
-  background: rgba(0, 0, 0, 0.32); border: 1px solid rgba(201, 162, 74, 0.3);
+  background: rgba(0, 0, 0, 0.32); border: 1px solid rgba(var(--gold-rgb), 0.3);
   border-radius: 6px; padding: 4px 8px;
 }
 .log-chat-input:focus { outline: none; border-color: var(--gold); }
@@ -3241,7 +3311,7 @@ button.inv-slot {
 .duel-btn.dim { background: transparent; color: var(--ink-dim); border-color: var(--panel-edge); }
 .duel-btn.dim:hover { color: var(--ember); background: transparent; }
 .duel-btn.on { background: #5a8a4a; border-color: #8fce7f; color: #0e1408; }
-.duel-btn.armed { background: #c9a24a; border-color: #f2cf6b; color: #1a140f; box-shadow: 0 0 8px rgba(201,162,74,0.7); }
+.duel-btn.armed { background: #c9a24a; border-color: #f2cf6b; color: #1a140f; box-shadow: 0 0 8px rgba(var(--gold-rgb), 0.7); }
 .duel-btn.challenge { padding: 5px 12px; font-size: 12px; }
 .duel-arena {
   width: 100%; border-radius: 8px; border: 1px solid var(--panel-edge);
@@ -3336,7 +3406,7 @@ button.inv-slot {
   border: 1px solid #6a5636; box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6);
 }
 .bugreport-title { font-family: "Cinzel", serif; font-size: 17px; color: #e8d5a0; margin-bottom: 6px; }
-.bugreport-sub { font-family: "EB Garamond", serif; font-size: 12.5px; color: #b3a382; margin-bottom: 10px; }
+.bugreport-sub { font-family: "EB Garamond", serif; font-size: 12px; color: #b3a382; margin-bottom: 10px; }
 .bugreport-text {
   width: 100%; box-sizing: border-box; resize: vertical;
   background: #120e08; color: #e6dcc2; border: 1px solid #5a4930; border-radius: 6px;
@@ -3350,7 +3420,7 @@ button.inv-slot {
 .bugreport-send { color: #f2e2b8; background: linear-gradient(180deg, #6b4a2c, #4a2f1a); border: 1px solid #8a6a3a; }
 .bugreport-send:disabled { opacity: 0.5; cursor: default; }
 .bugreport-cancel { color: #b3a382; background: none; border: 1px solid #5a4930; }
-.bugreport-msg { font-family: "EB Garamond", serif; font-size: 12.5px; color: #cbb890; margin-top: 8px; min-height: 16px; }
+.bugreport-msg { font-family: "EB Garamond", serif; font-size: 12px; color: #cbb890; margin-top: 8px; min-height: 16px; }
 
 /* --- Founder cosmetics --- */
 .hiscores-row.founder .hiscores-name { color: #f2cf6b; text-shadow: 0 0 6px rgba(242, 207, 107, 0.35); }
@@ -3398,7 +3468,10 @@ button.inv-slot {
 /* --- Grand Exchange --- */
 .world-ge { margin-top: 6px; }
 .ge-backdrop {
-  position: fixed; inset: 0; z-index: 40;
+  /* 60 — the band every other modal backdrop uses (bank, shop, players). At 40
+     it sat *under* the active-skill pill (55), which floated over the open
+     Exchange. */
+  position: fixed; inset: 0; z-index: 60;
   display: flex; align-items: center; justify-content: center;
   background: rgba(0, 0, 0, 0.55);
   pointer-events: auto; /* it lives under #hud (pointer-events:none) — re-enable */
@@ -3508,7 +3581,7 @@ button.inv-slot {
   color: var(--ink);
   cursor: pointer;
 }
-.skillpick-cell:hover { border-color: var(--ember); background: rgba(210, 116, 44, 0.16); }
+.skillpick-cell:hover { border-color: var(--ember); background: rgba(var(--ember-rgb), 0.16); }
 .skillpick-ic { font-size: 18px; line-height: 1; }
 .skillpick-name { font-family: "EB Garamond", serif; font-size: 10px; color: var(--ink-dim); text-align: center; }
 
@@ -3642,7 +3715,7 @@ button.inv-slot {
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--ink-dim);
-  border-bottom: 1px solid rgba(74, 61, 44, 0.4);
+  border-bottom: 1px solid rgba(var(--edge-rgb), 0.4);
   padding-bottom: 3px;
 }
 .sd-actgroup {
@@ -3703,7 +3776,7 @@ button.inv-slot {
 .comp-cell.locked { opacity: 0.5; }
 .comp-cell.active {
   border-color: var(--gold);
-  box-shadow: 0 0 8px rgba(201, 162, 74, 0.5);
+  box-shadow: 0 0 8px rgba(var(--gold-rgb), 0.55);
 }
 .comp-star {
   position: absolute;
@@ -3726,7 +3799,7 @@ button.inv-slot {
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--ink-dim);
-  border-bottom: 1px solid rgba(74, 61, 44, 0.4);
+  border-bottom: 1px solid rgba(var(--edge-rgb), 0.4);
   padding-bottom: 2px;
   margin: 9px 0 4px;
 }
@@ -3747,14 +3820,14 @@ button.inv-slot {
 
 /* --- Boss Log (Records tab) --- */
 /* Boss log — collapsible per-boss entries (header + expandable Info detail). */
-.boss-entry { border-top: 1px solid rgba(201, 162, 74, 0.12); opacity: 0.72; }
+.boss-entry { border-top: 1px solid rgba(var(--gold-rgb), 0.1); opacity: 0.72; }
 .boss-entry:first-child { border-top: none; }
 .boss-entry.slain { opacity: 1; }
 .boss-head {
   display: flex; align-items: center; gap: 8px; width: 100%;
   padding: 7px 2px; background: none; border: none; cursor: pointer; text-align: left;
 }
-.boss-head:hover { background: rgba(201, 162, 74, 0.06); }
+.boss-head:hover { background: rgba(var(--gold-rgb), 0.06); }
 .boss-ic { color: var(--ink-dim); display: inline-flex; flex: 0 0 auto; width: 20px; height: 20px; }
 .boss-ic .g-ico { width: 20px; height: 20px; }
 .boss-entry.slain .boss-ic { color: var(--gold); }
@@ -3809,7 +3882,7 @@ button.inv-slot {
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--ink-dim);
-  border-bottom: 1px solid rgba(74, 61, 44, 0.4);
+  border-bottom: 1px solid rgba(var(--edge-rgb), 0.4);
   padding-bottom: 2px;
   margin: 9px 0 4px;
 }
@@ -3871,7 +3944,7 @@ button.inv-slot {
 .rec-head:hover, .rec-subhead:hover { color: #f0c187; }
 
 /* Each category within Achievements / Archive is itself collapsible. */
-.rec-sub { border-top: 1px solid rgba(74, 61, 44, 0.3); }
+.rec-sub { border-top: 1px solid rgba(var(--edge-rgb), 0.3); }
 .rec-sub:first-child { border-top: 0; }
 .rec-subhead { padding: 6px 2px; font-size: 12px; color: var(--ink); }
 .rec-subname { flex: 1; color: var(--ink); }
@@ -3886,7 +3959,7 @@ button.inv-slot {
 .coll-cell .item-svg { width: 24px; height: 24px; }
 .coll-cell.locked { opacity: 0.9; }
 .coll-cell.locked .item-svg { filter: grayscale(1) brightness(0.35); opacity: 0.7; }
-.coll-cell.got { border-color: rgba(201, 162, 74, 0.4); }
+.coll-cell.got { border-color: rgba(var(--gold-rgb), 0.4); }
 /* Collection log: the plain-text "still missing" line under each source grid —
    hover tooltips do not exist on a phone, so the chase has to be readable. */
 .coll-missing { padding: 0 2px 4px; font-size: 10px; line-height: 1.35; color: var(--ink-dim, #9a8b74); }
@@ -3898,17 +3971,17 @@ button.inv-slot {
 .creator-mode {
   flex: 1 1 auto; min-width: 68px; padding: 5px 6px; font: inherit; font-size: 11px;
   color: var(--ink); background: rgba(30, 25, 19, 0.6);
-  border: 1px solid rgba(74, 61, 44, 0.7); border-radius: 4px; cursor: pointer;
+  border: 1px solid rgba(var(--edge-rgb), 0.7); border-radius: 4px; cursor: pointer;
 }
-.creator-mode:hover { border-color: rgba(201, 162, 74, 0.6); }
-.creator-mode.on { color: #f0c187; border-color: #c9a24a; background: rgba(201, 162, 74, 0.16); }
+.creator-mode:hover { border-color: rgba(var(--gold-rgb), 0.55); }
+.creator-mode.on { color: #f0c187; border-color: #c9a24a; background: rgba(var(--gold-rgb), 0.16); }
 .creator-mode-note { font-size: 10px; line-height: 1.4; color: #9a8b74; min-height: 28px; padding: 0 2px 2px; }
 
 .acct-badge {
   display: inline-flex; align-items: center; gap: 5px;
   padding: 4px 9px; margin: 2px 0 5px; border-radius: 4px;
   font-size: 12px; font-weight: 600; letter-spacing: 0.02em;
-  border: 1px solid rgba(74, 61, 44, 0.8); background: rgba(30, 25, 19, 0.6); color: var(--ink);
+  border: 1px solid rgba(var(--edge-rgb), 0.85); background: rgba(30, 25, 19, 0.6); color: var(--ink);
 }
 .acct-badge.mode-ironman { color: #cfd6dd; border-color: #7e8894; background: rgba(126, 136, 148, 0.14); }
 .acct-badge.mode-hardcore { color: #e8907a; border-color: #b4553c; background: rgba(180, 85, 60, 0.16); }
@@ -3921,10 +3994,10 @@ button.inv-slot {
 .acct-relax {
   display: block; width: 100%; margin: 8px 0 2px; padding: 6px 8px;
   font: inherit; font-size: 11px; color: var(--ink); cursor: pointer;
-  background: rgba(30, 25, 19, 0.6); border: 1px solid rgba(74, 61, 44, 0.8); border-radius: 4px;
+  background: rgba(30, 25, 19, 0.6); border: 1px solid rgba(var(--edge-rgb), 0.85); border-radius: 4px;
 }
 .acct-relax:hover { color: #e8907a; border-color: #b4553c; }
-.rec-subbody .rec-sub { border-top-color: rgba(74, 61, 44, 0.22); }
+.rec-subbody .rec-sub { border-top-color: rgba(var(--edge-rgb), 0.22); }
 .rec-subbody .rec-subhead { font-size: 11px; padding: 4px 2px; }
 
 /* === Login + Character Creator (startup overlays) ======================== */
@@ -3982,7 +4055,7 @@ button.inv-slot {
   cursor: pointer;
   color: var(--ink);
 }
-.login-account:hover { border-color: var(--ember); background: rgba(210, 116, 44, 0.1); }
+.login-account:hover { border-color: var(--ember); background: rgba(var(--ember-rgb), 0.1); }
 .login-account-name { font-family: "Cinzel", serif; font-size: 15px; color: var(--ink); }
 .login-account-go { color: var(--ember); }
 .login-empty { color: var(--ink-dim); font-style: italic; margin: 8px 0 20px; }
@@ -3991,14 +4064,14 @@ button.inv-slot {
   font-size: 13px;
   letter-spacing: 0.05em;
   color: var(--gold);
-  background: rgba(210, 116, 44, 0.14);
+  background: rgba(var(--ember-rgb), 0.16);
   border: 1px solid var(--gold);
   border-radius: 8px;
   padding: 11px 18px;
   cursor: pointer;
 }
 .login-new { width: 100%; }
-.login-new:hover, .creator-go:hover { background: rgba(210, 116, 44, 0.25); }
+.login-new:hover, .creator-go:hover { background: rgba(var(--ember-rgb), 0.22); }
 
 .creator-main { display: flex; gap: 18px; text-align: left; margin-bottom: 18px; }
 .creator-preview {
@@ -4046,13 +4119,13 @@ button.inv-slot {
   font-family: "EB Garamond", serif;
   font-size: 13px;
   color: var(--gold);
-  background: rgba(210, 116, 44, 0.12);
+  background: rgba(var(--ember-rgb), 0.1);
   border: 1px solid var(--panel-edge);
   border-radius: 6px;
   padding: 6px 10px;
   cursor: pointer;
 }
-.creator-random:hover { border-color: var(--ember); background: rgba(210, 116, 44, 0.24); }
+.creator-random:hover { border-color: var(--ember); background: rgba(var(--ember-rgb), 0.22); }
 
 /* --- Per-part rows: a style cycler + its colour swatches --- */
 .creator-rows { display: flex; flex-direction: column; gap: 4px; }
@@ -4061,7 +4134,7 @@ button.inv-slot {
   flex-direction: column;
   gap: 5px;
   padding: 6px 0 7px;
-  border-bottom: 1px solid rgba(74, 61, 44, 0.3);
+  border-bottom: 1px solid rgba(var(--edge-rgb), 0.3);
 }
 .creator-part:last-child { border-bottom: none; }
 .creator-part-head {
@@ -4076,13 +4149,13 @@ button.inv-slot {
   font-size: 12px;
   line-height: 1;
   color: var(--gold);
-  background: rgba(210, 116, 44, 0.12);
+  background: rgba(var(--ember-rgb), 0.1);
   border: 1px solid var(--panel-edge);
   border-radius: 5px;
   padding: 4px 7px;
   cursor: pointer;
 }
-.creator-cyc-btn:hover { border-color: var(--ember); background: rgba(210, 116, 44, 0.24); }
+.creator-cyc-btn:hover { border-color: var(--ember); background: rgba(var(--ember-rgb), 0.22); }
 .creator-cyc-name {
   min-width: 88px;
   text-align: center;
@@ -4104,7 +4177,7 @@ button.inv-slot {
   position: absolute;
   /* Top-centre — where your eyes land, and small enough to sit well clear of the
      top-right minimap. A compact pill that names what you're training. */
-  top: 8px;
+  top: var(--top-1);
   left: 50%;
   z-index: 55;
   pointer-events: none;
@@ -4127,7 +4200,7 @@ button.inv-slot {
   font-size: 11px;
   font-weight: 600;
   color: var(--gold);
-  text-shadow: 0 0 8px rgba(201, 162, 74, 0.6);
+  text-shadow: 0 0 8px rgba(var(--gold-rgb), 0.55);
   opacity: 0;
   transform: translateY(4px);
   transition: opacity 0.15s ease, transform 0.4s ease;
@@ -4141,7 +4214,7 @@ button.inv-slot {
   font-size: 16px;
   line-height: 1;
   color: var(--gold);
-  filter: drop-shadow(0 0 6px rgba(201, 162, 74, 0.4));
+  filter: drop-shadow(0 0 6px rgba(var(--gold-rgb), 0.4));
 }
 .activeskill-icon .g-ico { width: 18px; height: 18px; }
 .activeskill-body { min-width: 104px; }
@@ -4191,7 +4264,7 @@ button.inv-slot {
    now do. Driven entirely by .show / .hidden from levelUp.ts. */
 .levelup {
   position: absolute;
-  top: 64px;
+  top: var(--top-3);
   left: 50%;
   z-index: 60;
   pointer-events: auto;
@@ -4201,7 +4274,7 @@ button.inv-slot {
   background: linear-gradient(180deg, rgba(38, 30, 18, 0.97), rgba(22, 17, 11, 0.97));
   border: 1px solid var(--gold);
   border-radius: 12px;
-  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.55), inset 0 0 22px rgba(201, 162, 74, 0.12);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.55), inset 0 0 22px rgba(var(--gold-rgb), 0.1);
   /* resting (hidden) state — lifted, faded, slightly small */
   opacity: 0;
   transform: translate(-50%, -14px) scale(0.92);
@@ -4219,7 +4292,7 @@ button.inv-slot {
   text-transform: uppercase;
   color: var(--gold);
   margin-bottom: 7px;
-  text-shadow: 0 0 10px rgba(201, 162, 74, 0.5);
+  text-shadow: 0 0 10px rgba(var(--gold-rgb), 0.55);
 }
 .levelup-row {
   display: flex;
@@ -4230,7 +4303,7 @@ button.inv-slot {
 .levelup-icon {
   font-size: 26px;
   line-height: 1;
-  filter: drop-shadow(0 0 7px rgba(210, 116, 44, 0.5));
+  filter: drop-shadow(0 0 7px rgba(var(--ember-rgb), 0.55));
 }
 .levelup-skill {
   font-family: "Cinzel", serif;
@@ -4304,16 +4377,16 @@ button.inv-slot {
   padding: 16px 24px 17px;
   background: linear-gradient(180deg, rgba(58, 26, 18, 0.98), rgba(26, 14, 10, 0.98));
   border-color: var(--ember);
-  box-shadow: 0 10px 34px rgba(0, 0, 0, 0.62), inset 0 0 30px rgba(210, 116, 44, 0.22);
+  box-shadow: 0 10px 34px rgba(0, 0, 0, 0.62), inset 0 0 30px rgba(var(--ember-rgb), 0.22);
   animation: boss-glow 1.5s ease-in-out infinite;
 }
-.levelup-boss .levelup-eyebrow { color: #f0a860; letter-spacing: 0.26em; font-size: 11px; text-shadow: 0 0 12px rgba(210, 116, 44, 0.7); }
+.levelup-boss .levelup-eyebrow { color: #f0a860; letter-spacing: 0.26em; font-size: 11px; text-shadow: 0 0 12px rgba(var(--ember-rgb), 0.7); }
 .levelup-boss .levelup-icon { font-size: 32px; filter: drop-shadow(0 0 10px rgba(240, 168, 96, 0.8)); }
 .levelup-boss .levelup-skill { font-size: 18px; color: #f6dcc2; }
 .levelup-boss .levelup-level { color: #e0a04a; }
 @keyframes boss-glow {
-  0%, 100% { box-shadow: 0 10px 34px rgba(0, 0, 0, 0.62), inset 0 0 30px rgba(210, 116, 44, 0.18); }
-  50% { box-shadow: 0 10px 40px rgba(0, 0, 0, 0.62), inset 0 0 40px rgba(210, 116, 44, 0.36); }
+  0%, 100% { box-shadow: 0 10px 34px rgba(0, 0, 0, 0.62), inset 0 0 30px rgba(var(--ember-rgb), 0.16); }
+  50% { box-shadow: 0 10px 40px rgba(0, 0, 0, 0.62), inset 0 0 40px rgba(var(--ember-rgb), 0.4); }
 }
 
 /* ── Procedural UI glyphs (replace emoji across the chrome) ───────────────────
@@ -4482,6 +4555,20 @@ button.inv-slot {
   .worldmap-canvas { max-height: 62vh; width: auto; }
 }
 
+/* A portrait phone has height to spare and width it cannot spare, so the log
+   stops competing with the dock for the same row and sits above it at full
+   width. Squeezed beside a 229px dock on a 390px screen the log had 133px to
+   read in; stacked, it has the whole width. Gated on real height so a landscape
+   phone (short, wide) keeps the side-by-side layout, where it fits. */
+@media (max-width: 520px) and (min-height: 620px) {
+  .hud-log {
+    right: 10px;
+    width: auto;
+    bottom: calc(20px + var(--dock-h));
+  }
+  :root { --dock-h: 336px; } /* .dock-body height in this layer */
+}
+
 /* A genuinely tiny window (very small phones in landscape): trim further so the
    dock and minimap still both fit without overlapping. */
 @media (max-height: 430px) {
@@ -4641,11 +4728,11 @@ button.inv-slot {
 .deco-craft {
   display: flex; flex-direction: column; align-items: flex-start; gap: 2px;
   padding: 7px 12px; border-radius: 6px; cursor: pointer; min-width: 128px; text-align: left;
-  font-family: "EB Garamond", serif; font-size: 13.5px; color: #cdbf9a;
+  font-family: "EB Garamond", serif; font-size: 14px; color: #cdbf9a;
   background: #221a12; border: 1px solid #3a2e1e;
 }
 .deco-craft-cost { font-size: 11px; color: #8b7a5c; }
-.deco-craft-name { font-size: 13.5px; }
+.deco-craft-name { font-size: 14px; }
 .deco-craft.ready { border-color: #6f9a54; color: #e6dcc2; }
 .deco-craft.ready .deco-craft-cost { color: #9dbe7d; }
 .deco-craft.locked { opacity: 0.5; cursor: default; }
@@ -4655,7 +4742,7 @@ button.inv-slot {
 .deco-tabs { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 12px; }
 .deco-tab {
   padding: 5px 11px; border-radius: 14px; cursor: pointer;
-  font-family: "EB Garamond", serif; font-size: 12.5px; color: #b3a382;
+  font-family: "EB Garamond", serif; font-size: 12px; color: #b3a382;
   background: #241b12; border: 1px solid #3a2e1e;
 }
 .deco-tab:hover { border-color: #7a5c38; color: #e6dcc2; }
@@ -4668,7 +4755,7 @@ button.inv-slot {
 .deco-surface {
   display: flex; align-items: center; gap: 4px;
   padding: 7px 12px; border-radius: 6px; cursor: pointer; min-width: 132px;
-  font-family: "EB Garamond", serif; font-size: 13.5px; color: #cdbf9a;
+  font-family: "EB Garamond", serif; font-size: 14px; color: #cdbf9a;
   background: #221a12; border: 1px solid #3a2e1e;
 }
 .deco-surface:not(.locked):hover { border-color: #c8a45a; }

@@ -34,6 +34,7 @@ import type { Ghost } from "./presence.ts";
 import { type GearLook, resolveGear } from "./gearLook.ts";
 import { itemIconSVG } from "./itemIcon.ts";
 import { findPath } from "./pathfinding.ts";
+import { TERRAIN, darken } from "./palette.ts";
 
 // Ground loot renders as the actual item's icon: rasterise each item's SVG badge
 // to an <img> once (async), cache by id, and draw it on the tile. Until an image
@@ -153,31 +154,13 @@ function hitPop(id: string, now: number): { s: number; ox: number; oy: number } 
   return { s, ox: fx.dx * kick, oy: fx.dy * kick };
 }
 
-const TILE_COLORS: Record<TileType, [string, string]> = {
-  // [base, accent] — accent is used for subtle per-tile speckle.
-  grass: ["#3a4a35", "#45563f"],
-  dirt: ["#52412e", "#5e4b36"],
-  path: ["#6a5b45", "#77654c"],
-  stone: ["#41424b", "#4b4d57"],
-  water: ["#22496b", "#356a94"],
-  // Greyoak Wood's floor — deeper, cooler green than hill grass.
-  moss: ["#2c3a2a", "#354733"],
-  // The Spine: dark rock peaks and pale high snow.
-  mountain: ["#3a3a42", "#4a4a54"],
-  snow: ["#aeb8c6", "#c2ccd8"],
-  // Heartmoor: murky moor; Ashfen: warm ash; Marrow: dark cave; Eyeless Sea: deep.
-  bog: ["#33402f", "#3d4a37"],
-  ash: ["#4a3b34", "#574740"],
-  cave: ["#1c1a22", "#26232e"],
-  cave_wall: ["#0e0d12", "#15131a"],
-  deep: ["#132e4d", "#1d4066"],
-  // Ironvale's dressed-stone walls and buildings — warm masonry, lit.
-  wall: ["#6b6157", "#7c7165"],
-  // Player-home interiors — a warm timber plank floor.
-  plank: ["#6a4e30", "#79593a"],
-  // Strand sand — the estuary beach and pond shores, warm against the water.
-  sand: ["#b3996a", "#c4ab79"],
-};
+// [base, accent] — accent is the subtle per-tile speckle. Both come from the
+// shared terrain table (palette.ts), which the minimap reads too, so the world
+// and the map can no longer disagree about what a tile looks like.
+const TILE_COLORS: Record<TileType, [string, string]> = Object.fromEntries(
+  (Object.entries(TERRAIN) as [TileType, { base: string; accent: string }][])
+    .map(([k, v]) => [k, [v.base, v.accent]]),
+) as Record<TileType, [string, string]>;
 
 /** A cheap, stable pseudo-noise so tiles get a fixed bit of texture. */
 function hash(x: number, y: number): number {
@@ -279,7 +262,10 @@ function tileRGB(t: TileType): [number, number, number] {
 
 /** Ground types that blend into one another (organic terrain). Masonry, water
  *  and walls keep crisp edges — their borders are drawn deliberately. */
-const BLEND_GROUND = new Set<TileType>(["grass", "dirt", "moss", "ash", "snow", "bog", "path", "cave", "stone", "sand"]);
+// `cave_wall` belongs here with `cave`: it was the one organic ground type left
+// out, so every dungeon wall cut off square on the tile grid with no silhouette
+// while the floor beside it blended.
+const BLEND_GROUND = new Set<TileType>(["grass", "dirt", "moss", "ash", "snow", "bog", "path", "cave", "cave_wall", "stone", "sand"]);
 /** Open water blends within itself (shallows → deep) for smooth depth. */
 const BLEND_WATER = new Set<TileType>(["water", "deep"]);
 
@@ -855,13 +841,23 @@ function paintWaterBatch(
 
   // Twin crests, shimmer quantised into three alpha bands so each band strokes
   // once. (The shimmer is animated noise — the stepping is invisible.)
-  const bands: Path2D[] = [new Path2D(), new Path2D(), new Path2D()];
-  for (const [x, y] of tiles) {
+  // Three alpha bands PER TILE TYPE. The bands used to be shared and stroked in
+  // one hardcoded mid-blue, on the reasoning that water and deep are close
+  // enough — but deep water is a good deal darker, so the open sea's crests were
+  // painted in the shallows' colour, and deep water inside an instance (which
+  // goes through paintTileLive and uses its own accent) did not match the same
+  // water outside it. Six strokes instead of three; each tile type keeps its own.
+  const bands: Record<"water" | "deep", Path2D[]> = {
+    water: [new Path2D(), new Path2D(), new Path2D()],
+    deep: [new Path2D(), new Path2D(), new Path2D()],
+  };
+  for (const [x, y, tile] of tiles) {
     const px = x * TILE - cam.x, py = y * TILE - cam.y;
     const hv = hash(x, y);
+    const set = bands[tile === "deep" ? "deep" : "water"];
     for (let c = 0; c < 2; c++) {
       const sh = 0.5 + 0.5 * Math.sin(t * 2.4 + x * 1.3 + y * 0.7 + c * 2.6);
-      const band = bands[Math.min(2, Math.floor(sh * 3))]!;
+      const band = set[Math.min(2, Math.floor(sh * 3))]!;
       for (let i = 0; i <= 4; i++) {
         const wx = px + (i / 4) * TILE;
         const wy = py + TILE * (0.25 + 0.38 * c + 0.1 * hv) + Math.sin(t * 2.2 + (x + i / 4) * 2.1 + y * 1.3 + c * 3) * 2.8;
@@ -871,11 +867,12 @@ function paintWaterBatch(
   }
   g.lineWidth = 1.6;
   const CREST_ALPHA = [0.31, 0.43, 0.54]; // centres of the 0.25 + 0.35·sh range
-  for (let b = 0; b < 3; b++) {
-    // water/deep accents are close; the mid tone reads right over both
-    g.strokeStyle = "#356a94";
-    g.globalAlpha = CREST_ALPHA[b]!;
-    g.stroke(bands[b]!);
+  for (const key of ["water", "deep"] as const) {
+    g.strokeStyle = TILE_COLORS[key][1]; // the same accent the per-tile painter uses
+    for (let b = 0; b < 3; b++) {
+      g.globalAlpha = CREST_ALPHA[b]!;
+      g.stroke(bands[key][b]!);
+    }
   }
   g.globalAlpha = 1;
 
@@ -1567,6 +1564,10 @@ export function drawWorld(
   // over the zoom, so tile culling and the night veil cover exactly the view.
   const w = viewW;
   const h = viewH;
+  // `biomeAt` reads the ground to tell a beach from a moor from open hills, so
+  // it needs the live map. It is a standalone export (the audio engine calls it
+  // too), so the reference is parked here rather than threaded through.
+  biomeMap = state.map;
 
   // When the player is inside a sealed instance (a home or a boss arena), the
   // view is masked to that one region — everything outside it is void, so you
@@ -1586,6 +1587,7 @@ export function drawWorld(
 
   const { map } = state;
   const sv = sunCast(); // sun position → directional shadows + night factor
+  frameSun = sv;            // every shadow this frame leans the same way
   const minX = Math.max(0, Math.floor(cam.x / TILE));
   const minY = Math.max(0, Math.floor(cam.y / TILE));
   const maxX = Math.min(map.width - 1, Math.ceil((cam.x + w) / TILE));
@@ -1874,7 +1876,7 @@ export function drawWorld(
         const b = 1 + 0.016 * Math.sin(now / 620 + ((def.x * 7 + def.y * 13) % 6.28));
         g.save(); g.translate(bcx, bfy); g.scale(1, b); g.translate(-bcx, -bfy);
       }
-      drawObject(g, def, obj.available, px, py, now, !!obj.wanderTarget, monsterAttack(def, obj, state, content, now), flip, superior, facing);
+      drawObject(g, def, obj.available, px, py, now, !!obj.wanderTarget, monsterAttack(def, obj, state, content, now), flip, superior, facing, obj.respawnAt);
       if (breathing) g.restore();
       if (hp) g.restore();
     }
@@ -2212,7 +2214,13 @@ export function drawWorld(
   // Weather sits on top of the day/night veil so snow and embers read at night;
   // the vignette is the very last layer. Fireflies and embers glow brighter
   // after dark (driven by the sun's night factor).
-  if (outdoor) drawWeather(g, w, h, now, biome, sv.night);
+  // Weather is the expensive half of the atmosphere (particle fields, mist
+  // sprites), so performance mode keeps the grade — one fillRect — and drops
+  // this. The far cheaper ambient life was already gated; this was not.
+  if (outdoor && !perfMode) {
+    drawCloudShadows(g, w, h, now, cam, 1 - sv.night);
+    drawWeather(g, w, h, now, biome, sv.night, cam);
+  }
   if (outdoor && !perfMode) drawAmbientLife(g, w, h, now, biome, sv.night, cam);
   // Draw-distance falloff: fade the last ring of the circle to the void colour so
   // the culled edge reads as a soft horizon, not a hard pixel circle. Centred on
@@ -2463,6 +2471,54 @@ function drawDaylight(
     g.fillStyle = `rgba(214,120,50,${twilight.toFixed(3)})`;
     g.fillRect(0, 0, w, h);
   }
+
+  // --- The light has a direction. ---------------------------------------------
+  // The world is seen from directly above, so there is no horizon to paint and
+  // no sun to hang in it: what the sky can actually do here is fall across the
+  // ground from one side. `sunCast` already computes a bearing that only the
+  // shadows used; this puts the same bearing into the light itself, so at dawn
+  // the warmth comes from the east and by dusk it has crossed to the west, and
+  // the far side of the view sits in the cooler air. Flat at noon, when the sun
+  // is overhead and there is no side for it to come from.
+  const side = phase < 0.5 ? -1 : 1;      // mornings light from the east
+  const slant = Math.max(0, 1 - Math.abs(sun) * 1.6); // strongest at the turns
+  if (slant > 0.02) {
+    const warm = Math.max(0, sun) > 0 || twilight > 0;
+    const grd = g.createLinearGradient(side < 0 ? 0 : w, 0, side < 0 ? w : 0, h * 0.35);
+    grd.addColorStop(0, `rgba(${warm ? "255,196,124" : "150,170,220"},${(0.10 * slant).toFixed(3)})`);
+    grd.addColorStop(0.55, "rgba(0,0,0,0)");
+    grd.addColorStop(1, `rgba(24,28,50,${(0.07 * slant * darkFactor()).toFixed(3)})`);
+    g.fillStyle = grd;
+    g.fillRect(0, 0, w, h);
+  }
+}
+
+/**
+ * Cloud shadow drifting over open ground.
+ *
+ * The other half of "there is a sky": you cannot see it from up here, but you
+ * can see it pass. Big, soft, slow and very faint — five cached sprites moving
+ * at walking pace, anchored to the world so they sweep across the country
+ * rather than sitting on the screen. Daylight only (a cloud casts nothing at
+ * midnight) and skipped in performance mode.
+ */
+function drawCloudShadows(
+  g: CanvasRenderingContext2D, w: number, h: number, now: number, cam: Camera, day: number,
+): void {
+  if (day < 0.15) return;
+  const sprite = discSprite("cloud-shadow", 128, [
+    [0, "rgba(20,26,34,1)"], [0.45, "rgba(20,26,34,0.7)"], [1, "rgba(20,26,34,0)"],
+  ]);
+  const span = w + 900, spanY = h + 900;
+  const wrap = (v: number, s: number): number => ((v % s) + s) % s;
+  g.globalAlpha = 0.055 * day;
+  for (let i = 0; i < 5; i++) {
+    const r = 190 + frac(i * 4.7) * 170;
+    const x = wrap(frac(i * 2.9) * span + now * (10 + frac(i * 1.3) * 8) / 1000 - cam.x, span) - 450;
+    const y = wrap(frac(i * 6.7) * spanY + now * 3 / 1000 - cam.y, spanY) - 450;
+    g.drawImage(sprite, x - r, y - r * 0.62, r * 2, r * 1.24);
+  }
+  g.globalAlpha = 1;
 }
 
 // ---------------------------------------------------------------------------
@@ -2471,47 +2527,142 @@ function drawDaylight(
 // region its own mood.
 // ---------------------------------------------------------------------------
 
-type Biome = "spine" | "marrow" | "redrun" | "ashfen" | "heartmoor" | "greyoak" | "city" | "hills";
+/**
+ * The world's moods.
+ *
+ * There used to be eight of these, six of which were the small wilderness
+ * regions: measured against the live 400x400 map, `hills` — which had no
+ * grading and no weather at all — was 97.4% of the overworld, and `city` a
+ * further 0.7%. The Greater World expansion grew the map roughly sixfold and
+ * left the regions their old size, so every atmospheric system in the game
+ * applied to under two percent of it. The open country now reads as somewhere:
+ * farmland near Ironvale, hills beyond it, the deep wild past that, and the
+ * coast, the moor and the high ground wherever the ground itself says so.
+ */
+export type Biome =
+  | "spine" | "marrow" | "redrun" | "ashfen" | "heartmoor" | "greyoak"
+  | "city" | "farmland" | "hills" | "wild" | "coast" | "moor" | "highland";
 
-/** Which region the player is standing in (drives grading + which weather runs).
+/** The centre of Ironvale — the origin the open country is graded around. */
+const CITY_MID = { x: (CITY.x0 + CITY.x1) / 2, y: (CITY.y0 + CITY.y1) / 2 };
+/** How far out the settled country reaches, and where the deep wild starts. */
+const FARMLAND_R = 52;
+const WILD_R = 150;
+
+/** The live map, kept so `biomeAt` can read what is underfoot. Set each frame
+ *  by drawWorld; before the first frame every lookup falls back to position. */
+let biomeMap: WorldMap | null = null;
+
+/** Which mood the player is standing in (drives grading + which weather runs).
  *  Exported for the audio engine, which keys its ambient scene off the same map. */
 export function biomeAt(x: number, y: number): Biome {
   for (const r of REGIONS) {
     if (x >= r.nx && x < r.nx + r.w && y >= r.ny && y < r.ny + r.h) return r.key as Biome;
   }
   if (x >= CITY.x0 && x <= CITY.x1 && y >= CITY.y0 && y <= CITY.y1) return "city";
-  return "hills";
+
+  // What is underfoot decides first — a beach is a beach wherever it lies, and
+  // the moor and the high ground are what the ground is, not where it is.
+  const m = biomeMap;
+  if (m) {
+    const t = tileAt(m, x, y);
+    if (t === "sand" || t === "water" || t === "deep") return "coast";
+    if (t === "bog") return "moor";
+    if (t === "snow" || t === "mountain") return "highland";
+    // The sea reads on the air well before the sand is underfoot.
+    for (let dy = -3; dy <= 3; dy++) {
+      for (let dx = -3; dx <= 3; dx++) {
+        const u = tileAt(m, x + dx, y + dy);
+        if (u === "water" || u === "deep" || u === "sand") return "coast";
+      }
+    }
+  }
+
+  // Otherwise, how far you have walked from Ironvale: worked country, open
+  // hills, then the wild.
+  const d = Math.hypot(x - CITY_MID.x, y - CITY_MID.y);
+  return d < FARMLAND_R ? "farmland" : d < WILD_R ? "hills" : "wild";
 }
 
 /** Cheap stable hash → [0,1), for stateless particle fields. */
 function frac(n: number): number { const v = Math.sin(n) * 43758.5453; return v - Math.floor(v); }
 
-/** A translucent wash that tints a whole region toward its character. */
+/**
+ * The wash that tints a view toward its character.
+ *
+ * Every mood has one now, including the open country and the city, which had
+ * none. The alphas stay in the same restrained 0.06–0.12 band the six regions
+ * already used (the Marrow's cave gloom is the one deliberate exception) — this
+ * is a wash, not a filter.
+ *
+ * A dark wash is thinned by the brightness setting and a light one is not: the
+ * whole point of turning the brightness up is that the gloom stops hiding
+ * things, and that would not work if it also erased the Spine's cold blue.
+ */
+const BIOME_TINT: Record<Biome, readonly [number, number, number, number]> = {
+  spine: [150, 180, 225, 0.10],      // cold blue light off the snow
+  marrow: [24, 18, 40, 0.26],        // deep cave gloom
+  redrun: [60, 110, 135, 0.07],      // cool river air
+  ashfen: [214, 120, 50, 0.09],      // warm geothermal haze
+  heartmoor: [44, 72, 56, 0.12],     // murky moor green
+  greyoak: [30, 58, 36, 0.12],       // deep forest shade
+  city: [176, 158, 124, 0.06],       // dust and hearth-smoke over dressed stone
+  farmland: [200, 178, 104, 0.08],   // hay-gold light over worked ground
+  hills: [140, 158, 118, 0.06],      // open green country, barely touched
+  wild: [38, 44, 54, 0.13],          // the country cools and darkens out here
+  coast: [150, 188, 202, 0.09],      // salt haze off the water
+  moor: [96, 104, 92, 0.11],         // flat grey-green under a low sky
+  highland: [178, 198, 226, 0.09],   // thin cold air on the tops
+};
+
+/** Perceived lightness of a tint, 0..1 — decides whether brightness thins it. */
+function tintLum(t: readonly [number, number, number, number]): number {
+  return (0.2126 * t[0] + 0.7152 * t[1] + 0.0722 * t[2]) / 255;
+}
+
 function drawBiomeGrade(g: CanvasRenderingContext2D, w: number, h: number, b: Biome): void {
-  const tint: Partial<Record<Biome, string>> = {
-    spine: "rgba(150,180,225,0.10)",     // cold blue light off the snow
-    marrow: "rgba(24,18,40,0.26)",        // deep cave gloom
-    redrun: "rgba(60,110,135,0.07)",      // cool river air
-    ashfen: "rgba(214,120,50,0.09)",      // warm geothermal haze
-    heartmoor: "rgba(44,72,56,0.12)",     // murky moor green
-    greyoak: "rgba(30,58,36,0.12)",       // deep forest shade
-  };
-  const t = tint[b];
-  if (!t) return;
-  g.fillStyle = t;
+  const t = BIOME_TINT[b];
+  const a = tintLum(t) < 0.42 ? t[3] * darkFactor() : t[3];
+  if (a < 0.004) return;
+  g.fillStyle = `rgba(${t[0]},${t[1]},${t[2]},${a.toFixed(3)})`;
   g.fillRect(0, 0, w, h);
 }
 
+/**
+ * Where showers pass. Every green, open mood gets the same passing weather —
+ * the country outside the six regions used to have none at all. Each carries
+ * its own seed so a shower over the farmland is not the same shower as one over
+ * Greyoak; the window index is shared, so a storm is a storm everywhere.
+ */
+const RAIN_SEED: Partial<Record<Biome, number>> = {
+  city: 0.13, hills: 0.41, greyoak: 0.67, redrun: 0.89,
+  farmland: 0.23, wild: 0.53, moor: 0.71, coast: 0.31,
+};
+const RAINS_ON = new Set<Biome>(Object.keys(RAIN_SEED) as Biome[]);
+
 /** Per-biome ambient weather/particles, animated by wall-clock `now`. `night`
  *  (0 by day … 1 at midnight) makes glowing motes read brighter after dark. */
-function drawWeather(g: CanvasRenderingContext2D, w: number, h: number, now: number, b: Biome, night = 0): void {
+function drawWeather(
+  g: CanvasRenderingContext2D, w: number, h: number, now: number, b: Biome,
+  night: number, cam: Camera,
+): void {
+  // Anything that touches the ground is anchored to the WORLD, not the screen:
+  // a rain splash, a mist bank or a drift of pollen used to slide sideways as
+  // the camera moved, which reads as the world sliding underneath you. The
+  // butterflies and the water life were already world-anchored deliberately;
+  // this brings the weather in line with them. Rain and snow in the *air* stay
+  // screen-anchored, because falling water genuinely is everywhere.
+  const wrap = (v: number, span: number): number => ((v % span) + span) % span;
+  const gx = (wx: number, span: number): number => wrap(wx - cam.x, span);
+  const gy = (wy: number, span: number): number => wrap(wy - cam.y, span);
+  const dark = darkFactor();
   // Passing showers over the green country: deterministic 5-minute weather
   // windows (hash of the wall-clock window index), so rain arrives, soaks the
   // hills for a few minutes, and moves on — with the rare white crack of
   // lightning at the height of a storm.
-  if (b === "city" || b === "hills" || b === "greyoak" || b === "redrun") {
+  if (RAINS_ON.has(b)) {
     const win = Math.floor(Date.now() / 300_000);
-    const wet = frac(win * 17.31 + (b === "city" ? 0.13 : b === "hills" ? 0.41 : b === "greyoak" ? 0.67 : 0.89));
+    const wet = frac(win * 17.31 + RAIN_SEED[b]!);
     if (wet > 0.62) {
       const heavy = wet > 0.85;
       const drops = heavy ? 110 : 60;
@@ -2526,11 +2677,12 @@ function drawWeather(g: CanvasRenderingContext2D, w: number, h: number, now: num
         g.lineTo(x - 2.4, y + 7.5);
       }
       g.stroke();
-      // splash ticks on the ground
+      // Splash ticks land ON the ground, so they hold their world position.
       g.fillStyle = "rgba(190,215,235,0.22)";
+      const sw = w + 120, sh = h + 120;
       for (let i = 0; i < (heavy ? 26 : 12); i++) {
-        const x = (frac(i * 5.3) * w + now * 11 / 1000) % w;
-        const y = (frac(i * 9.1) * h + now * 17 / 1000) % h;
+        const x = gx(frac(i * 5.3) * sw + now * 11 / 1000, sw) - 60;
+        const y = gy(frac(i * 9.1) * sh + now * 17 / 1000, sh) - 60;
         const ph = (now / 260 + i) % 1;
         g.beginPath(); g.ellipse(x, y, 2 + ph * 3, 0.8 + ph, 0, 0, Math.PI * 2); g.fill();
       }
@@ -2560,7 +2712,7 @@ function drawWeather(g: CanvasRenderingContext2D, w: number, h: number, now: num
       for (let i = 0; i < 46; i++) {
         const sp = 20 + frac(i * 2.3) * 30;
         const sway = Math.sin(now / 700 + i * 2) * 10;
-        const x = (frac(i * 9.7) * w + sway + w) % w;
+        const x = gx(frac(i * 9.7) * (w + 120) + sway, w + 120) - 60;
         const y = h - ((now * sp / 1000 + frac(i * 4.2) * h) % (h + 16)) + 8;
         const tw = 0.4 + 0.6 * (0.5 + 0.5 * Math.sin(now / 200 + i));
         g.fillStyle = frac(i * 6.1) > 0.5 ? `rgba(255,150,60,${(0.5 * tw).toFixed(2)})` : `rgba(255,90,40,${(0.45 * tw).toFixed(2)})`;
@@ -2572,10 +2724,11 @@ function drawWeather(g: CanvasRenderingContext2D, w: number, h: number, now: num
       g.globalCompositeOperation = "lighter";
       const bank = discSprite("mist-bank", 64, [[0, "rgba(170,190,180,1)"], [1, "rgba(170,190,180,0)"]]);
       g.globalAlpha = 0.05;
+      const bw = w + 300, bh = h + 300;
       for (let i = 0; i < 9; i++) {
         const r = 60 + frac(i * 2.9) * 80;
-        const x = ((frac(i * 5.3) * (w + 300) + now * (6 + frac(i) * 6) / 1000)) % (w + 300) - 150;
-        const y = frac(i * 8.1) * h;
+        const x = gx(frac(i * 5.3) * bw + now * (6 + frac(i) * 6) / 1000, bw) - 150;
+        const y = gy(frac(i * 8.1) * bh, bh) - 150;
         g.drawImage(bank, x - r, y - r, r * 2, r * 2);
       }
       g.globalAlpha = 1;
@@ -2585,9 +2738,10 @@ function drawWeather(g: CanvasRenderingContext2D, w: number, h: number, now: num
     case "greyoak": { // floating motes by day, glowing fireflies after dark
       const glow = 0.4 + 0.6 * night; // brighter, warmer once the sun is down
       g.globalCompositeOperation = night > 0.3 ? "lighter" : "source-over";
+      const mw = w + 120, mh = h + 120;
       for (let i = 0; i < 34; i++) {
-        const x = (frac(i * 11.3) * w + Math.sin(now / 1800 + i) * 18 + w) % w;
-        const y = (frac(i * 6.7) * h + Math.cos(now / 2100 + i * 1.5) * 14 + h) % h;
+        const x = gx(frac(i * 11.3) * mw + Math.sin(now / 1800 + i) * 18, mw) - 60;
+        const y = gy(frac(i * 6.7) * mh + Math.cos(now / 2100 + i * 1.5) * 14, mh) - 60;
         const tw = 0.5 + 0.5 * Math.sin(now / 500 + i * 3);
         const a = (0.10 + 0.32 * tw) * glow;
         // A warm firefly core with a soft halo at night.
@@ -2606,7 +2760,7 @@ function drawWeather(g: CanvasRenderingContext2D, w: number, h: number, now: num
     case "marrow": { // faint cyan glow motes drifting up in the dark
       for (let i = 0; i < 22; i++) {
         const sp = 6 + frac(i * 3.1) * 10;
-        const x = (frac(i * 10.1) * w + Math.sin(now / 1600 + i) * 8 + w) % w;
+        const x = gx(frac(i * 10.1) * (w + 120) + Math.sin(now / 1600 + i) * 8, w + 120) - 60;
         const y = h - ((now * sp / 1000 + frac(i * 5.9) * h) % (h + 12));
         const tw = 0.5 + 0.5 * Math.sin(now / 600 + i * 2);
         g.fillStyle = `rgba(120,200,210,${(0.12 + 0.30 * tw).toFixed(2)})`;
@@ -2616,18 +2770,141 @@ function drawWeather(g: CanvasRenderingContext2D, w: number, h: number, now: num
     }
     case "redrun": { // sparse spray sparkle off the river
       g.fillStyle = "rgba(210,235,245,0.5)";
+      const rw = w + 120, rh = h + 120;
       for (let i = 0; i < 16; i++) {
-        const x = (frac(i * 13.7) * w + Math.sin(now / 1300 + i) * 10 + w) % w;
-        const y = (frac(i * 9.3) * h + Math.cos(now / 1500 + i) * 8 + h) % h;
+        const x = gx(frac(i * 13.7) * rw + Math.sin(now / 1300 + i) * 10, rw) - 60;
+        const y = gy(frac(i * 9.3) * rh + Math.cos(now / 1500 + i) * 8, rh) - 60;
         g.globalAlpha = 0.2 + 0.5 * (0.5 + 0.5 * Math.sin(now / 350 + i * 4));
         g.beginPath(); g.arc(x, y, 1, 0, Math.PI * 2); g.fill();
       }
       g.globalAlpha = 1;
       break;
     }
-    default: break; // city / hills: clear air
+    case "farmland":
+    case "hills": {
+      // Seed-down and pollen drifting on the wind over worked and open country,
+      // and a low ground-mist at either end of the day. This is the mood that
+      // covers nearly the whole map, so it is deliberately the quietest one:
+      // twenty-two motes and, at dawn and dusk, four soft banks.
+      const day = 1 - night;
+      if (day > 0.25) {
+        const pw = w + 140, ph = h + 140;
+        for (let i = 0; i < 22; i++) {
+          const x = gx(frac(i * 8.3) * pw + now * (7 + frac(i * 2.1) * 9) / 1000, pw) - 70;
+          const y = gy(frac(i * 4.9) * ph + Math.sin(now / 2400 + i * 1.7) * 12, ph) - 70;
+          const tw = 0.5 + 0.5 * Math.sin(now / 900 + i * 2.3);
+          g.fillStyle = `rgba(232,224,178,${(0.10 + 0.20 * tw) * day * dark})`;
+          g.beginPath(); g.arc(x, y, 1 + frac(i * 6.7) * 1.1, 0, Math.PI * 2); g.fill();
+        }
+      }
+      // Ground mist: strongest at the turns of the day, gone by noon and by
+      // midnight, so it marks the hour rather than sitting there all the time.
+      const turn = Math.max(0, 1 - Math.abs(night - 0.5) * 4);
+      if (turn > 0.02) {
+        const bank = discSprite("mist-bank", 64, [[0, "rgba(198,205,196,1)"], [1, "rgba(198,205,196,0)"]]);
+        g.globalAlpha = 0.05 * turn * dark;
+        const bw = w + 320, bh = h + 320;
+        for (let i = 0; i < 4; i++) {
+          const r = 90 + frac(i * 3.7) * 70;
+          const x = gx(frac(i * 6.1) * bw + now * (5 + frac(i) * 4) / 1000, bw) - 160;
+          const y = gy(frac(i * 9.7) * bh, bh) - 160;
+          g.drawImage(bank, x - r, y - r, r * 2, r * 2);
+        }
+        g.globalAlpha = 1;
+      }
+      break;
+    }
+    case "wild": {
+      // The deep country: colder air, a thin drift of it, and crows rather than
+      // songbirds. Sparser and greyer than the hills, so walking out here feels
+      // like walking away from something.
+      const bank = discSprite("wild-haze", 72, [[0, "rgba(150,158,170,1)"], [1, "rgba(150,158,170,0)"]]);
+      g.globalAlpha = 0.02 * dark;
+      const bw = w + 320, bh = h + 320;
+      for (let i = 0; i < 3; i++) {
+        const r = 80 + frac(i * 4.3) * 90;
+        const x = gx(frac(i * 7.9) * bw + now * (4 + frac(i) * 5) / 1000, bw) - 160;
+        const y = gy(frac(i * 2.3) * bh, bh) - 160;
+        g.drawImage(bank, x - r, y - r, r * 2, r * 2);
+      }
+      g.globalAlpha = 1;
+      break;
+    }
+    case "coast": {
+      // Salt haze low over the water, and spray sparkle catching the light.
+      const bank = discSprite("salt-haze", 72, [[0, "rgba(196,214,220,1)"], [1, "rgba(196,214,220,0)"]]);
+      g.globalAlpha = 0.026 * dark;
+      const bw = w + 340, bh = h + 340;
+      for (let i = 0; i < 5; i++) {
+        const r = 100 + frac(i * 5.1) * 80;
+        const x = gx(frac(i * 3.3) * bw + now * (9 + frac(i) * 7) / 1000, bw) - 170;
+        const y = gy(frac(i * 7.3) * bh, bh) - 170;
+        g.drawImage(bank, x - r, y - r, r * 2, r * 2);
+      }
+      g.globalAlpha = 1;
+      const sw = w + 120, sh = h + 120;
+      g.fillStyle = "rgba(214,238,246,0.5)";
+      for (let i = 0; i < 18; i++) {
+        const x = gx(frac(i * 11.9) * sw + Math.sin(now / 1200 + i) * 12, sw) - 60;
+        const y = gy(frac(i * 5.7) * sh + Math.cos(now / 1450 + i) * 9, sh) - 60;
+        g.globalAlpha = (0.18 + 0.46 * (0.5 + 0.5 * Math.sin(now / 320 + i * 4))) * (1 - night * 0.5);
+        g.beginPath(); g.arc(x, y, 1, 0, Math.PI * 2); g.fill();
+      }
+      g.globalAlpha = 1;
+      break;
+    }
+    case "moor": {
+      // Wet flat ground under a low sky: mist banks, heavier and slower than
+      // the hills', and nothing else moving.
+      const bank = discSprite("moor-bank", 64, [[0, "rgba(164,176,164,1)"], [1, "rgba(164,176,164,0)"]]);
+      g.globalAlpha = 0.035 * dark;
+      const bw = w + 300, bh = h + 300;
+      for (let i = 0; i < 8; i++) {
+        const r = 70 + frac(i * 2.7) * 80;
+        const x = gx(frac(i * 4.7) * bw + now * (4 + frac(i) * 4) / 1000, bw) - 150;
+        const y = gy(frac(i * 8.9) * bh, bh) - 150;
+        g.drawImage(bank, x - r, y - r, r * 2, r * 2);
+      }
+      g.globalAlpha = 1;
+      break;
+    }
+    case "highland": {
+      // Thin cold air on the tops: grit and old snow lifted off the ground by
+      // the wind, blowing sideways rather than falling.
+      g.fillStyle = "rgba(236,244,252,0.8)";
+      const hw = w + 80;
+      for (let i = 0; i < 44; i++) {
+        const sp = 40 + frac(i * 2.9) * 70;
+        const x = (frac(i * 10.7) * hw + now * sp / 1000) % hw - 40;
+        const y = gy(frac(i * 6.3) * (h + 100) + Math.sin(now / 700 + i) * 9, h + 100) - 50;
+        g.globalAlpha = (0.16 + 0.34 * frac(i * 4.1)) * dark;
+        g.fillRect(x, y, 2.4 + frac(i * 7.7) * 2, 0.9);
+      }
+      g.globalAlpha = 1;
+      break;
+    }
+    case "city": {
+      // Hearth-smoke and street dust hanging in the lanes — the city had no
+      // weather of its own at all, only the shared rain.
+      const cw = w + 140, ch = h + 140;
+      for (let i = 0; i < 16; i++) {
+        const x = gx(frac(i * 9.1) * cw + now * (6 + frac(i * 3.1) * 6) / 1000, cw) - 70;
+        const y = gy(frac(i * 3.7) * ch - now * 5 / 1000, ch) - 70;
+        const tw = 0.5 + 0.5 * Math.sin(now / 1100 + i * 1.9);
+        g.fillStyle = `rgba(206,196,178,${(0.05 + 0.09 * tw) * dark})`;
+        g.beginPath(); g.arc(x, y, 2 + frac(i * 5.3) * 2.4, 0, Math.PI * 2); g.fill();
+      }
+      break;
+    }
   }
 }
+
+/** Where butterflies are found: worked and open green country, in daylight.
+ *  Splitting `hills` into farmland/hills/wild would otherwise have quietly
+ *  taken them off most of the map they used to cover. */
+const BUTTERFLY_COUNTRY = new Set<Biome>([
+  "farmland", "hills", "greyoak", "heartmoor", "city", "moor",
+]);
 
 /** Butterfly wing colours — a flutter of life over the meadows by day. */
 const BUTTERFLY = ["#e8d24a", "#e07a3a", "#d9637a", "#cf6fc0", "#6f9ad6"];
@@ -2667,7 +2944,7 @@ function drawAmbientLife(g: CanvasRenderingContext2D, w: number, h: number, now:
   //     (per coarse cell), not the screen, so they stay put as you walk past
   //     instead of sliding with the camera. Each wanders within its own cell. ---
   const day = 1 - night;
-  if (day > 0.2 && (b === "hills" || b === "greyoak" || b === "heartmoor" || b === "city")) {
+  if (day > 0.2 && BUTTERFLY_COUNTRY.has(b)) {
     const t = now / 1000;
     // Sample cells on a FIXED world grid (snapped to multiples of 3, with a
     // margin), NOT relative to the view edge — otherwise the set of sampled
@@ -2943,6 +3220,9 @@ function drawObject(
   flip = false,
   superior = false,
   facing: Facing = "down",
+  /** When a felled monster / spent resource returns, so the marker can show it
+   *  gathering itself back together rather than sitting there inert. */
+  respawnAt = 0,
 ): void {
   const cx = px + TILE / 2;
   const cy = py + TILE / 2;
@@ -2989,7 +3269,7 @@ function drawObject(
         const foot = cy + 14;
         g.translate(cx, foot); g.scale(1.45, 1.45); g.translate(-cx, -foot);
       }
-      drawMonster(g, def.monster, available, cx, cy, now, moving, attack);
+      drawMonster(g, def.monster, available, cx, cy, now, moving, attack, respawnAt);
       g.restore();
       break;
     }
@@ -6121,11 +6401,22 @@ function drawLightBloom(g: CanvasRenderingContext2D, lights: Array<[number, numb
 
 function shadow(g: CanvasRenderingContext2D, cx: number, cy: number, rx: number, ry: number): void {
   // A soft, feathered contact shadow (radial falloff) so things sit in the
-  // world instead of floating on a hard grey disc.
+  // world instead of floating on a hard grey disc — leaned along the sun's
+  // bearing, so it lengthens and swings with the hour like the creatures' and
+  // the player's already did. Before this only the living cast a directional
+  // shadow: at dawn a wolf threw eleven pixels of shadow and the tree it stood
+  // under threw none, which read as a bug in the light rather than in the tree.
+  const sv = frameSun;
   const sprite = discSprite("contact-shadow", 24,
     [[0, "rgba(0,0,0,0.34)"], [0.7, "rgba(0,0,0,0.22)"], [1, "rgba(0,0,0,0)"]]);
-  g.drawImage(sprite, cx - rx, cy - ry, rx * 2, ry * 2);
+  const lean = sv ? sv.ox * 0.5 : 0;
+  const len = sv ? sv.len : 1;
+  g.drawImage(sprite, cx + lean - rx * len, cy - ry, rx * 2 * len, ry * 2);
 }
+
+/** The sun's cast for this frame, so every shadow in it agrees and the bearing
+ *  is computed once rather than per shadow. Set at the top of drawWorld. */
+let frameSun: SunCast | null = null;
 
 // --- Trees: a shared stump when felled; species-specific canopy when standing ---
 function drawTree(
@@ -6500,8 +6791,9 @@ function drawMonster(
   now: number,
   moving = false,
   attack?: MonsterAttack,
+  respawnAt = 0,
 ): void {
-  if (!available) return drawRespawning(g, cx, cy);
+  if (!available) return drawRespawning(g, cx, cy, now, respawnAt);
   // Animals (no weapon action) lunge toward the player on the strike; humanoids
   // swing a weapon instead, so they don't lunge.
   const lunge = attack && !attack.action ? attack : null;
@@ -6766,9 +7058,48 @@ function drawMonsterBody(
     case "sewer_ooze":
     case "sewer_sludge":
       return drawOoze(g, cx, cy, now);
+    // --- Foes with a stat block but no spawn yet. They had no case, so the
+    //     moment one was placed it would have walked into the world as a rat.
+    case "moor_rat":
+      return drawRat(g, cx, cy, now); // a rat, and meant to be one
+    case "aelveth_white_wolf": // the north-wood's pale wolf
+      return drawWolf(g, cx, cy, now, ["#c8ccd4", "#a8adb8", "#dde1e8", "#f2f5fa", "#d4d8e0"]);
+    case "berric_fighter":
+      return H("#5c4a34", "#7d6544"); // a pit-fighter's worn leathers
+    case "cult_devotee":
+      return H("#3a2634", "#5a3a4a"); // the Heartmoor cult's hooded rank and file
+    case "ashforge_enforcer":
+      return H("#3e3833", "#a84a30"); // Ashforge cinder-plate, ember-hot trim
+    case "lodge_warden_npc":
+      return H("#5a4f42", "#856a48"); // Lodgehold's oiled hide and warm oak
+    case "gaunt_below":
+      return drawHunger(g, cx, cy, now); // the lesser hunger — Vorlag's shape, thinner
+
     default:
-      return drawRat(g, cx, cy, now);
+      // Deliberately, obviously wrong. This used to be `drawRat`, which meant a
+      // foe with no drawing quietly shipped as a rat and nobody could see the
+      // difference — seven of them had, at the time this was written. A missing
+      // body should look missing.
+      return drawUnknownBody(g, cx, cy, now);
   }
+}
+
+/** The "this monster has no art" marker: a magenta-and-black checker, the
+ *  oldest missing-texture signal there is. It is meant to be caught in a
+ *  screenshot, not shipped. */
+function drawUnknownBody(g: CanvasRenderingContext2D, cx: number, cy: number, now: number): void {
+  shadow(g, cx, cy + 10, 11, 4);
+  const bob = Math.sin(now / 300) * 1.5;
+  const S = 5, y0 = cy - 12 + bob;
+  for (let r = 0; r < 4; r++) {
+    for (let c = 0; c < 4; c++) {
+      g.fillStyle = (r + c) % 2 ? "#ff00ff" : "#181018";
+      g.fillRect(cx - 10 + c * S, y0 + r * S, S, S);
+    }
+  }
+  g.strokeStyle = "#ff00ff";
+  g.lineWidth = 1;
+  g.strokeRect(cx - 10.5, y0 - 0.5, S * 4 + 1, S * 4 + 1);
 }
 
 /** A wisp: a hovering mote of light with a guttering halo — the Sunken Court's
@@ -7282,33 +7613,42 @@ function drawOoze(g: CanvasRenderingContext2D, cx: number, cy: number, now: numb
 }
 
 // --- Hill Wolf: larger, lean and grey ---
-function drawWolf(g: CanvasRenderingContext2D, cx: number, cy: number, now: number): void {
+/** `pelt` shifts the whole animal's coat — the five tones below are one ramp,
+ *  so a white wolf is the same wolf in a different coat rather than a new
+ *  function. Defaults to the grey hill wolf. */
+function drawWolf(
+  g: CanvasRenderingContext2D, cx: number, cy: number, now: number,
+  pelt: readonly [string, string, string, string, string] =
+    ["#5f6168", "#4c4e54", "#6f7178", "#80828a", "#6a6c73"],
+): void {
+  const [tail, legs, body, backlit, head] = pelt;
+  const snout = darken(head, 0.08);
   const bob = Math.sin(now / 240) * 0.7;
   shadow(g, cx, cy + 9, 12, 4);
-  g.strokeStyle = "#5f6168"; // tail
+  g.strokeStyle = tail; // tail
   g.lineWidth = 3;
   g.beginPath();
   g.moveTo(cx + 11, cy + 1 + bob);
   g.quadraticCurveTo(cx + 18, cy - 3 + bob, cx + 15, cy - 8 + bob);
   g.stroke();
-  g.fillStyle = "#4c4e54"; // legs
+  g.fillStyle = legs; // legs
   g.fillRect(cx - 6, cy + 4 + bob, 2.5, 6);
   g.fillRect(cx + 4, cy + 4 + bob, 2.5, 6);
-  g.fillStyle = "#6f7178"; // body
+  g.fillStyle = body; // body
   g.beginPath();
   g.ellipse(cx, cy + bob, 12, 7, 0, 0, Math.PI * 2);
   g.fill();
-  g.fillStyle = "#80828a"; // back highlight
+  g.fillStyle = backlit; // back highlight
   g.beginPath();
   g.ellipse(cx, cy - 2 + bob, 10, 3.5, 0, 0, Math.PI * 2);
   g.fill();
-  g.fillStyle = "#6a6c73"; // head
+  g.fillStyle = head; // head
   circle(g, cx - 11, cy - 2 + bob, 5.5);
-  g.fillStyle = "#5c5e64"; // snout
+  g.fillStyle = snout; // snout
   g.beginPath();
   g.ellipse(cx - 16, cy + bob, 3.5, 2.2, 0, 0, Math.PI * 2);
   g.fill();
-  g.fillStyle = "#5c5e64"; // ears
+  g.fillStyle = snout; // ears
   g.beginPath();
   g.moveTo(cx - 13, cy - 7 + bob);
   g.lineTo(cx - 11, cy - 12 + bob);
@@ -7700,11 +8040,46 @@ function drawRelic(
 }
 
 // --- A faint mark where a monster will respawn ---
-function drawRespawning(g: CanvasRenderingContext2D, cx: number, cy: number): void {
-  g.fillStyle = "rgba(120,110,100,0.22)";
-  g.beginPath();
-  g.ellipse(cx, cy, 9, 5, 0, 0, Math.PI * 2);
-  g.fill();
+/**
+ * What is left where something was killed.
+ *
+ * This was one flat translucent ellipse, so a felled monster left a grey smudge
+ * and nothing else: no death, no remains, no sign it was coming back. It is now
+ * a dark scuff in the ground with ash lifting off it, and it gathers itself as
+ * the respawn approaches — the scuff tightens, the motes turn from drifting-up
+ * to drawing-in, and a faint warmth comes into it in the last second or so. A
+ * player watching a spawn can now see when it is nearly due.
+ */
+function drawRespawning(
+  g: CanvasRenderingContext2D, cx: number, cy: number, now: number, respawnAt: number,
+): void {
+  // How close the return is, 0 (just died / unknown) → 1 (about to rise). The
+  // window is the last four seconds, which is all a waiting player watches.
+  const left = respawnAt > 0 ? Math.max(0, respawnAt - now) : 4000;
+  const due = Math.max(0, Math.min(1, 1 - left / 4000));
+
+  // The scuff: scorched, disturbed ground, tightening as the return nears.
+  const rx = 9 - due * 2.5, ry = 5 - due * 1.4;
+  g.fillStyle = `rgba(28,24,20,${(0.22 + 0.10 * due).toFixed(2)})`;
+  g.beginPath(); g.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2); g.fill();
+  g.fillStyle = `rgba(120,110,100,${(0.16 + 0.08 * due).toFixed(2)})`;
+  g.beginPath(); g.ellipse(cx, cy - 0.6, rx * 0.72, ry * 0.66, 0, 0, Math.PI * 2); g.fill();
+
+  // Ash: drifting up while the thing is gone, drawn back down as it re-forms.
+  const seed = (cx * 0.37 + cy * 0.71);
+  for (let i = 0; i < 6; i++) {
+    const ph = ((now / 1500 + frac(seed + i * 3.1)) % 1);
+    const rise = (1 - due) * ph + due * (1 - ph);   // up, then inward
+    const a = (0.10 + 0.22 * due) * Math.sin(ph * Math.PI);
+    if (a <= 0.005) continue;
+    const spread = (1 - rise) * 7 + 1;
+    const x = cx + Math.cos(i * 2.4 + seed) * spread;
+    const y = cy - rise * 9;
+    g.fillStyle = due > 0.7
+      ? `rgba(226,178,120,${a.toFixed(3)})`   // it warms just before it rises
+      : `rgba(150,142,130,${a.toFixed(3)})`;
+    g.beginPath(); g.arc(x, y, 0.9 + 0.5 * (1 - rise), 0, Math.PI * 2); g.fill();
+  }
 }
 
 function drawPlayer(
@@ -8061,12 +8436,24 @@ function label(
   y: number,
   color: string,
 ): void {
-  g.font = "11px 'EB Garamond', serif";
+  // A one-pixel drop shadow is not enough over a lit city street or pale snow —
+  // names ran into the ground and into each other. A dark plate sized to the
+  // text carries it over any background, and the name sits on it.
+  g.font = LABEL_FONT;
   g.textAlign = "center";
   g.textBaseline = "bottom";
-  g.fillStyle = "rgba(0,0,0,0.6)";
-  g.fillText(text, x + 1, y + 1);
+  const wpx = g.measureText(text).width;
+  g.fillStyle = "rgba(14,11,8,0.45)";
+  g.beginPath();
+  g.roundRect(x - wpx / 2 - 3.5, y - 11, wpx + 7, 13, 3);
+  g.fill();
+  g.fillStyle = "rgba(0,0,0,0.55)";
+  g.fillText(text, x + 0.6, y + 0.6);
   g.fillStyle = color;
   g.fillText(text, x, y);
   g.textAlign = "left";
 }
+
+/** Set once — `g.font` is one of the more expensive canvas properties, and the
+ *  label was re-assigning the same string on every name, every frame. */
+const LABEL_FONT = "11px 'EB Garamond', serif";

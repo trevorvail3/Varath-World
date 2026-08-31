@@ -1419,7 +1419,7 @@ function dropSlot(
   // Quest relics don't hit the ground — dropped tablets and keys despawning is
   // a softlock, not an inventory choice. Bank them if the pack needs the space.
   if (content.items[data.item]?.cat === "Quest") {
-    events.push({ type: "LOG", message: `The ${content.items[data.item].name} feels too important to leave in the dirt. (Bank it if it's in the way.)` });
+    events.push({ type: "LOG", message: `${theName(content.items[data.item].name)} feels too important to leave in the dirt. (Bank it if it's in the way.)` });
     return;
   }
   const x = Math.round(player.pos.x);
@@ -2006,7 +2006,7 @@ function buyFromShop(
   const capeSkill = def.cat === "Capes" ? def.meta?.skill : undefined;
   if (capeSkill && capeSkill !== "max" && capeSkill !== "ironvale") {
     if (skillLvl(player, capeSkill as SkillId) < 100) {
-      events.push({ type: "LOG", message: `You need ${content.skills[capeSkill as SkillId].name} level 100 to claim the ${def.name}.`, tone: "err" });
+      events.push({ type: "LOG", message: `You need ${content.skills[capeSkill as SkillId].name} level 100 to claim ${aName(def.name)}.`, tone: "err" });
       return;
     }
   }
@@ -2103,7 +2103,7 @@ function sellToMarket(
   const def = content.items[item];
   const value = marketValue(content, item);
   if (value <= 0) {
-    events.push({ type: "LOG", message: `No one will buy the ${def?.name ?? "item"}.`, tone: "err" });
+    events.push({ type: "LOG", message: `No one will buy ${aName(def?.name ?? "item")}.`, tone: "err" });
     return;
   }
   const toSell = Math.min(Math.max(0, Math.floor(qty)), countItem(player, item));
@@ -2112,7 +2112,7 @@ function sellToMarket(
   // bundle's per-unit buy price), so selling can never out-earn buying.
   const total = Math.floor(value * toSell);
   if (total <= 0) {
-    events.push({ type: "LOG", message: `No one will pay for the ${def.name}.`, tone: "err" });
+    events.push({ type: "LOG", message: `No one will pay for ${aName(def.name)}.`, tone: "err" });
     return;
   }
   // A 2% market toll, taken off the top and DESTROYED (no counterparty — the
@@ -2410,7 +2410,7 @@ export function applyIntent(
       player.hooked = null;
       if (!f) break;
       if (!intent.success) {
-        events.push({ type: "LOG", message: `The line snaps — the ${f.species} is gone. The deep keeps its own.` });
+        events.push({ type: "LOG", message: `The line snaps — ${aName(f.species)} is gone. The deep keeps its own.` });
         break;
       }
       grantXp(state, content, "fishing", f.xp, events);
@@ -3441,7 +3441,7 @@ function equipSlot(
   const def = content.items[data.item];
   const eslot = def.slot;
   if (!eslot || !EQUIP_SLOTS.has(eslot)) {
-    events.push({ type: "LOG", message: `You can't wear the ${def.name}.`, tone: "err" });
+    events.push({ type: "LOG", message: `You can't wear ${aName(def.name)}.`, tone: "err" });
     return;
   }
   // Arrows are worn as a whole stack into the quiver, not one at a time.
@@ -3457,7 +3457,7 @@ function equipSlot(
     if (skillLvl(player, req.skill) < req.level) {
       events.push({
         type: "LOG",
-        message: `You need ${content.skills[req.skill].name} level ${req.level} to wield the ${def.name}.`,
+        message: `You need ${content.skills[req.skill].name} level ${req.level} to wield ${aName(def.name)}.`,
         tone: "err",
       });
       return;
@@ -3469,7 +3469,7 @@ function equipSlot(
   if (stars > 0 && totalMasteryStars(player) < stars) {
     events.push({
       type: "LOG",
-      message: `The ${def.name} answers only to mastery — ${stars} master stars, and you have ${totalMasteryStars(player)}.`,
+      message: `${theName(def.name)} answers only to mastery — ${stars} master stars, and you have ${totalMasteryStars(player)}.`,
       tone: "err",
     });
     return;
@@ -3537,7 +3537,7 @@ function equipSlot(
     delete player.equipment.mainhand;
     addItem(player, mainId!, 1, events);
   }
-  events.push({ type: "LOG", message: `You equip the ${def.name}.` });
+  events.push({ type: "LOG", message: `You equip ${aName(def.name)}.` });
 }
 
 /** Nock a whole stack of arrows into the quiver, returning any other type held. */
@@ -3591,7 +3591,7 @@ function unequipSlot(
   addItem(player, worn, 1, events);
   events.push({
     type: "LOG",
-    message: `You unequip the ${content.items[worn].name}.`,
+    message: `You unequip ${aName(content.items[worn].name)}.`,
   });
 }
 
@@ -3650,7 +3650,7 @@ function eatSlot(
   const canEnergy = !!def.energyRestore;
   const canCure = !!def.curePoison;
   if (!canHeal && !canBuff && !canGrace && !canEnergy && !canCure) {
-    events.push({ type: "LOG", message: `You can't use the ${def.name}.`, tone: "err" });
+    events.push({ type: "LOG", message: `You can't use ${aName(def.name)}.`, tone: "err" });
     return;
   }
   // Don't waste an antidote on clean blood — the same courtesy the energy
@@ -3675,7 +3675,7 @@ function eatSlot(
     return;
   }
 
-  let msg = (canHeal && def.buff) || canGrace ? `You drink the ${def.name}.` : `You ${def.cat === "Food" || canHeal ? "eat" : "drink"} the ${def.name}.`;
+  let msg = (canHeal && def.buff) || canGrace ? `You drink ${aName(def.name)}.` : `You ${def.cat === "Food" || canHeal ? "eat" : "drink"} ${aName(def.name)}.`;
   if (canHeal) {
     // The Drowned Seal (Sunken Court unique): everything you eat heals half
     // again as much under the Magistrate's old authority.
@@ -3964,7 +3964,7 @@ function startInteraction(
       if (!beginGather(state, content, def, objId, "foraging", FORAGE.interval, ctx, events)) {
         return;
       }
-      events.push({ type: "LOG", message: `You search the ${def.name} for anything useful.` });
+      events.push({ type: "LOG", message: `You search ${aName(def.name)} for anything useful.` });
       break;
     }
 
@@ -4083,14 +4083,14 @@ function startInteraction(
       // infinite spell battery doesn't work; running to ANOTHER stone does.
       const gm = graceMax(player);
       if (player.grace >= gm) {
-        events.push({ type: "LOG", message: `You kneel at the ${def.name}. Your Grace is already full.` });
+        events.push({ type: "LOG", message: `You kneel at ${aName(def.name)}. Your Grace is already full.` });
       } else if (ctx.now < (obj.graceCooldownUntil ?? 0)) {
         const wait = Math.ceil(((obj.graceCooldownUntil ?? 0) - ctx.now) / 1000);
-        events.push({ type: "LOG", message: `The ${def.name} is spent from your last prayer — its grace returns in ${wait}s. Another stone would serve you now.` });
+        events.push({ type: "LOG", message: `${theName(def.name)} is spent from your last prayer — its grace returns in ${wait}s. Another stone would serve you now.` });
       } else {
         player.grace = gm;
         obj.graceCooldownUntil = ctx.now + SHRINE_RECHARGE_MS;
-        events.push({ type: "LOG", message: `You kneel at the ${def.name} and pray. Orun's grace fills you.` });
+        events.push({ type: "LOG", message: `You kneel at ${aName(def.name)} and pray. Orun's grace fills you.` });
       }
       break;
     }
@@ -4106,7 +4106,7 @@ function startInteraction(
       // Examine-only landmark / city dressing / wildlife / signage / heraldry.
       events.push({
         type: "LOG",
-        message: def.lines?.[0] ?? `You study the ${def.name}.`,
+        message: def.lines?.[0] ?? `You study ${aName(def.name)}.`,
       });
       break;
 
@@ -4139,7 +4139,7 @@ function startInteraction(
       // consumable (spent on each kill) or its permanent mastery unlock.
       const hg = HUNT_GATES[def.monster ?? ""];
       if (hg && !player.bounty.unlocks.includes(hg.unlock) && !hasItem(player, hg.item)) {
-        events.push({ type: "LOG", message: `Your blows just skate off the ${def.name}. The guides sell ${hg.toolName}s for this work — or buy the mastery once and never carry them again.` });
+        events.push({ type: "LOG", message: `Your blows just skate off ${aName(def.name)}. The guides sell ${hg.toolName}s for this work — or buy the mastery once and never carry them again.` });
         return;
       }
       // Each side keeps its own swing clock: the player swings on weapon speed,
@@ -4154,7 +4154,7 @@ function startInteraction(
         actionInterval: pSpeed,
       };
       obj.nextAttackAt = ctx.now + mSpeed;
-      events.push({ type: "LOG", message: `You engage the ${def.name}.` });
+      events.push({ type: "LOG", message: `You engage ${aName(def.name)}.` });
       break;
     }
 
@@ -4251,7 +4251,7 @@ function startInteraction(
         if (countItem(state.player, def.keyItem) > 0) {
           removeOneItem(state.player, def.keyItem);
           state.player.flags.push(`key_${def.id}`); // its hiddenByFlag — walkability rebuilds
-          events.push({ type: "LOG", message: `The ${content.items[def.keyItem]?.name ?? "key"} turns hard, twice — and the way stands open.` });
+          events.push({ type: "LOG", message: `${theName(content.items[def.keyItem]?.name ?? "key")} turns hard, twice — and the way stands open.` });
         } else {
           events.push({ type: "LOG", message: def.lines?.[0] ?? "Locked fast. Somewhere in these halls is the key — or the hand that carries it." });
         }
@@ -4439,7 +4439,7 @@ function openDungeonChest(
       if (countItem(player, l.item) > 0 || (player.bank[l.item] ?? 0) > 0) continue;
       if (canAddItem(player, l.item)) addItem(player, l.item, 1, events);
       else player.bank[l.item] = (player.bank[l.item] ?? 0) + 1;
-      events.push({ type: "LOG", message: `Under the chest's false bottom: the ${content.items[l.item]?.name ?? l.item}, right where you must have left it.` });
+      events.push({ type: "LOG", message: `Under the chest's false bottom: ${aName(content.items[l.item]?.name ?? l.item)}, right where you must have left it.` });
       return;
     }
     events.push({ type: "LOG", message: "The chest stands open and empty — you have already claimed what it kept." });
@@ -4482,7 +4482,7 @@ function interactPlot(
   const structure = homeStructureName(tier);
   const next = HOUSE_TIERS[tier + 1];
   const nextHint = next
-    ? ` A ${next.name} (adding the ${next.room}) awaits at Construction ${next.levelReq} — extend it from the sealed doorway inside.`
+    ? ` A ${next.name} (adding ${aName(next.room)}) awaits at Construction ${next.levelReq} — extend it from the sealed doorway inside.`
     : " It stands complete — every room raised.";
   events.push({
     type: "LOG",
@@ -4605,18 +4605,18 @@ function craftFurniture(state: WorldState, content: Content, furnitureId: string
     return;
   }
   if (skillLvl(player, "construction") < f.levelReq) {
-    events.push({ type: "LOG", message: `You need Construction level ${f.levelReq} to build the ${f.name}.`, tone: "err" });
+    events.push({ type: "LOG", message: `You need Construction level ${f.levelReq} to build ${aName(f.name)}.`, tone: "err" });
     return;
   }
   for (const [item, qty] of Object.entries(f.materials)) {
     if (countItem(player, item as ItemId) < (qty ?? 0)) {
-      events.push({ type: "LOG", message: `You're short of materials for the ${f.name}.` });
+      events.push({ type: "LOG", message: `You're short of materials for ${aName(f.name)}.` });
       return;
     }
   }
   // Prestige pieces cost coin as well as materials — a mid/late-game gold sink.
   if (f.gold && player.gold < f.gold) {
-    events.push({ type: "LOG", message: `The ${f.name} also costs ${f.gold.toLocaleString()}g in commissioned work — you can't afford it yet.` });
+    events.push({ type: "LOG", message: `${theName(f.name)} also costs ${f.gold.toLocaleString()}g in commissioned work — you can't afford it yet.` });
     return;
   }
   for (const [item, qty] of Object.entries(f.materials)) {
@@ -4702,7 +4702,7 @@ function storeFurniture(state: WorldState, content: Content, index: number, even
     if (other) player.spawn = { x: other.x, y: other.y };
   }
   refreshHomeStanding(player, content);
-  if (f) events.push({ type: "LOG", message: `You pack up the ${f.name}.` });
+  if (f) events.push({ type: "LOG", message: `You pack up ${aName(f.name)}.` });
 }
 
 /** UPGRADE: swap a placed piece for the next tier of its category, in place. */
@@ -4719,20 +4719,20 @@ function upgradeFurniture(state: WorldState, content: Content, index: number, ev
   const next = Object.values(content.furniture)
     .filter((g) => g.category === cur.category && !!g.station === !!cur.station && g.comfort > cur.comfort)
     .sort((a, b) => a.comfort - b.comfort || a.levelReq - b.levelReq)[0];
-  if (!next) { events.push({ type: "LOG", message: `The ${cur.name} is already the finest of its kind.` }); return; }
+  if (!next) { events.push({ type: "LOG", message: `${theName(cur.name)} is already the finest of its kind.` }); return; }
   if (skillLvl(player, "construction") < next.levelReq) {
-    events.push({ type: "LOG", message: `You need Construction level ${next.levelReq} to upgrade to the ${next.name}.`, tone: "err" });
+    events.push({ type: "LOG", message: `You need Construction level ${next.levelReq} to upgrade to ${aName(next.name)}.`, tone: "err" });
     return;
   }
   for (const [item, qty] of Object.entries(next.materials)) {
     if (countItem(player, item as ItemId) < (qty ?? 0)) {
-      events.push({ type: "LOG", message: `You're short of materials to upgrade to the ${next.name}.` });
+      events.push({ type: "LOG", message: `You're short of materials to upgrade to ${aName(next.name)}.` });
       return;
     }
   }
   // A bigger tier might not fit where the old one stood — check before committing.
   if (!canPlaceAt(state, content, next, p.x, p.y, p.rot, index)) {
-    events.push({ type: "LOG", message: `The ${next.name} is larger — clear space around it first.` });
+    events.push({ type: "LOG", message: `${theName(next.name)} is larger — clear space around it first.` });
     return;
   }
   for (const [item, qty] of Object.entries(next.materials)) {
@@ -4742,7 +4742,7 @@ function upgradeFurniture(state: WorldState, content: Content, index: number, ev
   grantXp(state, content, "construction", next.xp, events);
   if (next.bed) player.spawn = { x: p.x, y: p.y };
   refreshHomeStanding(player, content);
-  events.push({ type: "LOG", message: `You upgrade the ${cur.name} into a ${next.name}.` });
+  events.push({ type: "LOG", message: `You upgrade ${aName(cur.name)} into a ${next.name}.` });
 }
 
 /** SET_SURFACE: recolour the home's floor or walls to a chosen surface. */
@@ -4755,12 +4755,12 @@ function setSurface(state: WorldState, content: Content, surfaceId: string, even
   const s = content.surfaces[surfaceId];
   if (!s) return;
   if (s.levelReq && skillLvl(player, "construction") < s.levelReq) {
-    events.push({ type: "LOG", message: `You need Construction level ${s.levelReq} to lay the ${s.name}.`, tone: "err" });
+    events.push({ type: "LOG", message: `You need Construction level ${s.levelReq} to lay ${aName(s.name)}.`, tone: "err" });
     return;
   }
   if (s.kind === "floor") player.home.floor = surfaceId;
   else player.home.wall = surfaceId;
-  events.push({ type: "LOG", message: `You lay the ${s.name}.` });
+  events.push({ type: "LOG", message: `You lay ${aName(s.name)}.` });
 }
 
 /**
@@ -4813,13 +4813,13 @@ function buildFurniture(
     return;
   }
   if (skillLvl(player, "construction") < f.levelReq) {
-    events.push({ type: "LOG", message: `You need Construction level ${f.levelReq} to build the ${f.name}.`, tone: "err" });
+    events.push({ type: "LOG", message: `You need Construction level ${f.levelReq} to build ${aName(f.name)}.`, tone: "err" });
     return;
   }
   // Check, then consume, every required material.
   for (const [item, qty] of Object.entries(f.materials)) {
     if (countItem(player, item as ItemId) < (qty ?? 0)) {
-      events.push({ type: "LOG", message: `You're short of materials for the ${f.name}.` });
+      events.push({ type: "LOG", message: `You're short of materials for ${aName(f.name)}.` });
       return;
     }
   }
@@ -4834,11 +4834,11 @@ function buildFurniture(
     const plotDef = findObjectDef(content, def.plot);
     if (plotDef?.target) {
       player.spawn = { x: plotDef.target.x, y: plotDef.target.y };
-      events.push({ type: "LOG", message: `You build the ${f.name}. This is your home now — you'll wake here.` });
+      events.push({ type: "LOG", message: `You build ${aName(f.name)}. This is your home now — you'll wake here.` });
       return;
     }
   }
-  events.push({ type: "LOG", message: `You build the ${f.name}.` });
+  events.push({ type: "LOG", message: `You build ${aName(f.name)}.` });
 }
 
 /**
@@ -4927,10 +4927,10 @@ function useFurniture(
     const player = state.player;
     const gm = graceMax(player);
     if (player.grace >= gm) {
-      events.push({ type: "LOG", message: `You kneel at the ${f.name}. Your Grace is already full.` });
+      events.push({ type: "LOG", message: `You kneel at ${aName(f.name)}. Your Grace is already full.` });
     } else if (ctx.now < (obj.graceCooldownUntil ?? 0)) {
       const wait = Math.ceil(((obj.graceCooldownUntil ?? 0) - ctx.now) / 1000);
-      events.push({ type: "LOG", message: `The ${f.name} is spent from your last prayer — its grace returns in ${wait}s.` });
+      events.push({ type: "LOG", message: `${theName(f.name)} is spent from your last prayer — its grace returns in ${wait}s.` });
     } else {
       player.grace = gm;
       obj.graceCooldownUntil = ctx.now + SHRINE_RECHARGE_MS;
@@ -4958,7 +4958,7 @@ function removeFurniture(
   }
   const f = content.furniture[obj.furniture];
   delete obj.furniture;
-  events.push({ type: "LOG", message: `You clear away the ${f?.name ?? "furniture"}.` });
+  events.push({ type: "LOG", message: `You clear away ${aName(f?.name ?? "furniture")}.` });
 }
 
 /**
@@ -4975,7 +4975,7 @@ function readRelic(
   const { player } = state;
   const entry = def.loreId ? content.lore.find((l) => l.id === def.loreId) : undefined;
   if (!entry) {
-    events.push({ type: "LOG", message: `You study the ${def.name}, but make nothing of it.` });
+    events.push({ type: "LOG", message: `You study ${aName(def.name)}, but make nothing of it.` });
     return;
   }
   if (!player.lore.includes(entry.id)) {
@@ -5011,7 +5011,7 @@ function witnessSeam(
   const { player } = state;
   const off = def.witnessOffering!;
   if (!hasItem(player, off.item)) {
-    events.push({ type: "LOG", message: `The ${def.name} pulses with a heat that aches to stand near. The Cult witnesses with embercite laid on the stone — you have none to give. Bring embercite ore and stand your witness.` });
+    events.push({ type: "LOG", message: `${theName(def.name)} pulses with a heat that aches to stand near. The Cult witnesses with embercite laid on the stone — you have none to give. Bring embercite ore and stand your witness.` });
     return;
   }
   removeItems(player, off.item, 1);
@@ -5040,7 +5040,7 @@ function searchLandmark(
   const { player } = state;
   const f = def.find!;
   if (player.flags.includes(f.flag)) {
-    events.push({ type: "LOG", message: def.lines?.[0] ?? `You search the ${def.name} again, but it has given up what it kept.` });
+    events.push({ type: "LOG", message: def.lines?.[0] ?? `You search ${aName(def.name)} again, but it has given up what it kept.` });
     return;
   }
   player.flags.push(f.flag);
@@ -5102,7 +5102,7 @@ function harvestPatch(
   if (ctx.rng() >= survival) {
     addItem(player, crop.produce, 1, events);
     grantXp(state, content, "farming", Math.floor(crop.xpHarvest * 0.4), events);
-    events.push({ type: "LOG", message: `A thin harvest — the ${crop.name} struggled, but you save one ${content.items[crop.produce].name}.` });
+    events.push({ type: "LOG", message: `A thin harvest — ${aName(crop.name)} struggled, but you save one ${content.items[crop.produce].name}.` });
     return;
   }
   const qty = randInt(ctx, crop.produceMin, crop.produceMax);
@@ -5151,8 +5151,8 @@ function fertilizePatch(
   events.push({
     type: "LOG",
     message: obj.crop
-      ? `You work the ${content.items[held.item].name.toLowerCase()} in around the roots — this crop will come through stronger.`
-      : `You work the ${content.items[held.item].name.toLowerCase()} into the soil — the next planting here will come through stronger.`,
+      ? `You work ${aName(content.items[held.item].name.toLowerCase())} in around the roots — this crop will come through stronger.`
+      : `You work ${aName(content.items[held.item].name.toLowerCase())} into the soil — the next planting here will come through stronger.`,
   });
 }
 
@@ -5276,7 +5276,7 @@ function traverseObstacle(
   const isStart = order === 0;
   const inSequence = lap && lap.course === course && lap.next === order;
   if (!isStart && !inSequence) {
-    events.push({ type: "LOG", message: `Start at the beginning of the ${def.name.replace(/:.*$/, "")} course.` });
+    events.push({ type: "LOG", message: `Start at the beginning of ${aName(def.name.replace(/:.*$/, ""))} course.` });
     return;
   }
 
@@ -5422,7 +5422,7 @@ function checkAggro(
       actionInterval: pSpeed,
     };
     obj.nextAttackAt = ctx.now + Math.floor(mSpeed / 2); // it gets the jump on you
-    events.push({ type: "LOG", message: `The ${def.name} attacks!` });
+    events.push({ type: "LOG", message: `${theName(def.name)} attacks!` });
     return; // one engagement per tick
   }
 }
@@ -5800,9 +5800,35 @@ function moveFishingSpots(
     // (OSRS-style: moving to the new spot and recasting is the player's call).
     if (state.player.activity.kind === "fishing" && state.player.activity.targetId === def.id) {
       clearActivity(state.player);
-      events.push({ type: "LOG", message: `The ${def.name} moves off down the shore.` });
+      events.push({ type: "LOG", message: `${theName(def.name)} moves off down the shore.` });
     }
   }
+}
+
+/** The same, mid-sentence: "you engage the Grey Hollow", not "…the The Grey
+ *  Hollow". Fifty-one log lines wrote a bare lower-case `the ` in front of a
+ *  name; the article stays lower case unless the name's own article is part of
+ *  a proper title, which is a distinction English does not really make in a
+ *  game log — so the name's own capitalisation is kept as authored. */
+export function aName(name: string): string {
+  return /^(the|a|an) /i.test(name) ? name : `the ${name}`;
+}
+
+/**
+ * A name with its definite article, without doubling one that is already there.
+ *
+ * 439 of the world's objects carry an article in their own name ("The Grey
+ * Hollow", "A Child", "An Off-Duty Guard"), and nineteen log lines prefixed a
+ * bare `The `, so the game routinely said "The The Grey Hollow attacks!" and
+ * "The A Child…". Derived from the name rather than fixed by editing 439 of
+ * them: whatever a piece of content calls itself, this reads correctly.
+ *
+ * Returns the sentence-initial form, which is where every caller uses it.
+ */
+export function theName(name: string): string {
+  return /^(the|a|an) /i.test(name)
+    ? name.charAt(0).toUpperCase() + name.slice(1)
+    : `The ${name}`;
 }
 
 /**
@@ -6275,7 +6301,7 @@ function gatherStep(
     if (ctx.rng() < RICH_FIND_CHANCE && canAddItem(player, yieldAction.produces!)) {
       addItem(player, yieldAction.produces!, yieldAction.produceQty ?? 1, events);
       events.push({ type: "RICH_FIND", skill: yieldAction.skill, item: yieldAction.produces! });
-      events.push({ type: "LOG", message: `A rich find — the ${content.items[yieldAction.produces!].name} comes double!` });
+      events.push({ type: "LOG", message: `A rich find — ${aName(content.items[yieldAction.produces!].name)} comes double!` });
     }
     // A node's rare drop (bird nest, gem, etc.).
     if (
@@ -6289,7 +6315,7 @@ function gatherStep(
       obj.available = false;
       obj.respawnAt = ctx.now + (beh.respawn ?? 7000);
       const dname = content.objects.find((d) => d.id === obj.id)?.name ?? "node";
-      events.push({ type: "LOG", message: `The ${dname} is worked out — it'll recover shortly.` });
+      events.push({ type: "LOG", message: `${theName(dname)} is worked out — it'll recover shortly.` });
       events.push({ type: "OBJECT_DEPLETED", objId: obj.id });
       clearActivity(player);
       return;
@@ -6362,7 +6388,7 @@ function processCraft(
   // A burn wastes the raw food (yields worthless Burnt Food) and grants no XP.
   if (action.skill === "cooking" && ctx.rng() < cookBurnChance(player, action)) {
     if (canAddItem(player, "burnt_food")) addItem(player, "burnt_food", 1, events);
-    events.push({ type: "LOG", message: `You burn the ${content.items[action.produces].name}.` });
+    events.push({ type: "LOG", message: `You burn ${aName(content.items[action.produces].name)}.` });
     advanceCraftClock(act, craftInterval(action), ctx);
     return;
   }
@@ -7257,7 +7283,7 @@ function rollSuperiorRise(
   const pSpeed = playerSpeed(player, content);
   player.activity = { kind: "combat", targetId: def.id, actionId: null, nextActionAt: ctx.now + pSpeed, actionInterval: pSpeed };
   obj.nextAttackAt = ctx.now + Math.floor((stats.speed ?? COMBAT.monsterSpeed) / 2);
-  events.push({ type: "LOG", message: `The ${stats.name} RISES — a Superior, half again its size and twice as angry!` });
+  events.push({ type: "LOG", message: `${theName(stats.name)} RISES — a Superior, half again its size and twice as angry!` });
   return true;
 }
 
@@ -7780,7 +7806,7 @@ function resolveCombat(
     const far = Math.max(Math.abs(player.pos.x - mt.x), Math.abs(player.pos.y - mt.y));
     if (far > 30) {
       clearActivity(player);
-      events.push({ type: "LOG", message: `You've lost the ${def.name} — the fight is off.` });
+      events.push({ type: "LOG", message: `You've lost ${aName(def.name)} — the fight is off.` });
       return;
     }
   }
@@ -7992,7 +8018,7 @@ function playerSwing(
     const coatId = ranged ? player.equipment.ammo : player.equipment.mainhand;
     const coat = coatId ? content.items[coatId]?.poison ?? 0 : 0;
     if (dmg > 0 && coat > 0 && !stats.boss && applyPoison(obj, coat, ctx)) {
-      events.push({ type: "LOG", message: `Your coating bites — the ${def.name} is poisoned.` });
+      events.push({ type: "LOG", message: `Your coating bites — ${aName(def.name)} is poisoned.` });
     }
     grantXp(state, content, "vitality", dmg * 0.5, events);
     // Searing hide (recoil): a melee blow burns you back. Never lethal on its
@@ -8053,7 +8079,7 @@ function checkKill(
   if (player.killsSinceShard >= SHARD_PITY) {
     dropToGround(state, SHARD_ID, 1, drop.x, drop.y, ctx);
     player.killsSinceShard = 0;
-    events.push({ type: "LOG", message: `The ${def.name} drops a warm black Shard of Orun.` });
+    events.push({ type: "LOG", message: `${theName(def.name)} drops a warm black Shard of Orun.` });
   }
   player.stats.monstersSlain += 1;
   if (stats.boss) player.bossKills[stats.id] = (player.bossKills[stats.id] ?? 0) + 1;
@@ -8077,7 +8103,7 @@ function checkKill(
   }
   events.push({ type: "MONSTER_KILLED", objId: obj.id });
   // "the The Boneman" reads badly — names that carry their own article skip ours.
-  events.push({ type: "LOG", message: `You defeat ${/^The /.test(def.name) ? def.name : `the ${def.name}`}.` });
+  events.push({ type: "LOG", message: `You defeat ${/^The /.test(def.name) ? def.name : `${aName(def.name)}`}.` });
   advanceKillQuests(state, content, def.monster, events);
   trackBountyKill(state, content, def.monster, ctx, events);
   // Warren-bred quarry trains huntcraft even OFF-task (a modest flat trickle,
@@ -8241,7 +8267,7 @@ function castSpell(
       player.grace -= spell.cost;
       removeOneItem(player, gem);
       addItem(player, "cut_gem", 1, events);
-      events.push({ type: "LOG", message: `You cast ${spell.name} — the ${content.items[gem].name} becomes a Cut Gem.` });
+      events.push({ type: "LOG", message: `You cast ${spell.name} — ${aName(content.items[gem].name)} becomes a Cut Gem.` });
       grantXp(state, content, "faith", spell.xp, events);
       break;
     }
@@ -8260,12 +8286,12 @@ function buryBones(
   if (!data) return;
   const def = content.items[data.item];
   if (!def.buryXp) {
-    events.push({ type: "LOG", message: `You can't bury the ${def.name}.`, tone: "err" });
+    events.push({ type: "LOG", message: `You can't bury ${aName(def.name)}.`, tone: "err" });
     return;
   }
   data.qty -= 1;
   if (data.qty <= 0) player.inventory[slot] = null;
-  events.push({ type: "LOG", message: `You bury the ${def.name}. You murmur a rite to Orun.` });
+  events.push({ type: "LOG", message: `You bury ${aName(def.name)}. You murmur a rite to Orun.` });
   grantXp(state, content, "faith", def.buryXp, events);
 }
 
@@ -8282,7 +8308,7 @@ function grindBones(
   if (!data) return;
   const def = content.items[data.item];
   if (!def.buryXp) {
-    events.push({ type: "LOG", message: `You can't grind the ${def.name}.`, tone: "err" });
+    events.push({ type: "LOG", message: `You can't grind ${aName(def.name)}.`, tone: "err" });
     return;
   }
   if (!hasItem(player, "pestle")) {
@@ -8297,7 +8323,7 @@ function grindBones(
   data.qty -= 1;
   if (data.qty <= 0) player.inventory[slot] = null;
   addItem(player, "bonemeal", yieldN, events);
-  events.push({ type: "LOG", message: `You grind the ${def.name} into bonemeal.` });
+  events.push({ type: "LOG", message: `You grind ${aName(def.name)} into bonemeal.` });
 }
 
 /** Fire-lighting data per log id: the Survivalist level to burn it, the XP it
@@ -8330,7 +8356,7 @@ function lightFire(
   if (!data) return;
   const spec = FIRE_LOGS[data.item];
   if (!spec) {
-    events.push({ type: "LOG", message: `You can't set fire to the ${content.items[data.item].name}.`, tone: "err" });
+    events.push({ type: "LOG", message: `You can't set fire to ${aName(content.items[data.item].name)}.`, tone: "err" });
     return;
   }
   if (!hasItem(player, "flint")) {
@@ -8360,7 +8386,7 @@ function lightFire(
     player.path = [];
   }
   state.campfire = { x: px, y: py, expiresAt: ctx.now + spec.burnMs };
-  events.push({ type: "LOG", message: `The ${content.items[data.item].name} catches and a fire roars up.` });
+  events.push({ type: "LOG", message: `${theName(content.items[data.item].name)} catches and a fire roars up.` });
 }
 
 /**
@@ -8471,7 +8497,7 @@ function killPlayerByStatus(
   events: WorldEvent[],
   kind: "poison" | "venom",
 ): void {
-  killPlayer(state, content, ctx, events, `The ${kind} takes you.`);
+  killPlayer(state, content, ctx, events, `${theName(kind)} takes you.`);
 }
 
 function monsterSwing(
@@ -8594,8 +8620,8 @@ function monsterSwing(
       events.push({
         type: "LOG",
         message: stats.venom
-          ? `The ${def.name}'s bite burns — you are ENVENOMED. Only an antidote will stop it.`
-          : `The ${def.name}'s bite is poisoned.`,
+          ? `${theName(def.name)}'s bite burns — you are ENVENOMED. Only an antidote will stop it.`
+          : `${theName(def.name)}'s bite is poisoned.`,
         tone: "err",
       });
     }
@@ -8619,7 +8645,7 @@ function monsterSwing(
     events.push({ type: "DAMAGE", targetId: "player", amount: 0, kind: "miss" });
   }
 
-  if (player.hp <= 0) killPlayer(state, content, ctx, events, `The ${def.name} knocks you out!`);
+  if (player.hp <= 0) killPlayer(state, content, ctx, events, `${theName(def.name)} knocks you out!`);
 }
 
 // How often the wandering world boss relocates along its patrol.
@@ -8670,7 +8696,7 @@ export function compassHint(content: Content, p: Vec2): string {
   const ns = p.y < height / 3 ? "north" : p.y > (2 * height) / 3 ? "south" : "";
   const ew = p.x < width / 3 ? "west" : p.x > (2 * width) / 3 ? "east" : "";
   const dir = ns && ew ? `${ns}-${ew}` : ns || ew || "heart";
-  return dir === "heart" ? "the heart of Varath" : `the ${dir}ern wilds`;
+  return dir === "heart" ? "the heart of Varath" : `${aName(dir)}ern wilds`;
 }
 
 // ---------------------------------------------------------------------------
@@ -8921,7 +8947,7 @@ function rollDrops(
       } else {
         player.bank[drop.item] = (player.bank[drop.item] ?? 0) + qty;
         events.push({ type: "ITEM_GAINED", item: drop.item, qty });
-        events.push({ type: "LOG", message: `Your pack was full — the ${content.items[drop.item]?.name ?? drop.item} was sent to your bank.` });
+        events.push({ type: "LOG", message: `Your pack was full — ${aName(content.items[drop.item]?.name ?? drop.item)} was sent to your bank.` });
       }
       continue;
     }
