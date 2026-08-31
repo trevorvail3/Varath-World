@@ -3299,6 +3299,15 @@ button.inv-slot {
   color: var(--ink-dim); background: transparent; border: 0; padding: 2px;
 }
 .login-create:hover { color: var(--ink); }
+/* The way back in when the password is gone. Quieter than "Create account" —
+   it sits below it and is the rarer of the two — but on the form rather than
+   hidden behind anything, because somebody reaching for it is already stuck. */
+.login-forgot {
+  font-family: "EB Garamond", serif; font-size: 12px; cursor: pointer;
+  color: var(--ink-dim); background: transparent; border: 0; padding: 2px;
+  text-decoration: underline; text-underline-offset: 2px;
+}
+.login-forgot:hover { color: var(--ink); }
 .login-msg { font-family: "EB Garamond", serif; font-size: 12px; color: var(--ember); min-height: 1.1em; }
 .login-msg.ok { color: var(--gold); }
 .login-offline {

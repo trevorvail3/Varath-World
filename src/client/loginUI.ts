@@ -17,7 +17,7 @@
  * account; that character never touches the cloud.
  */
 
-import { signIn, signUp } from "./supabase.ts";
+import { clearRecoveryFragment, recoveryToken, resetPassword, setPassword, signIn, signUp } from "./supabase.ts";
 import { audio } from "./audio.ts";
 
 export class LoginUI {
@@ -27,6 +27,23 @@ export class LoginUI {
     this.backdrop = document.createElement("div");
     this.backdrop.className = "login-backdrop";
     root.appendChild(this.backdrop);
+    /*
+     * ARRIVING BACK FROM A RESET LINK SKIPS THE LANDING BEAT.
+     *
+     * Someone who followed a link out of their email has already decided to be
+     * here; making them press "Play now" first would be a gate in front of the
+     * one thing they came to do. The audio unlock the landing exists for is a
+     * nicety, and it is not worth a step here.
+     *
+     * The token has to come off the address bar immediately either way — a
+     * bookmark or a screenshot of that URL is a live credential.
+     */
+    const tok = recoveryToken();
+    if (tok !== "") {
+      clearRecoveryFragment();
+      this.showNewPassword(tok);
+      return;
+    }
     this.showLanding();
   }
 
@@ -60,6 +77,7 @@ export class LoginUI {
                  autocomplete="current-password" required />
           <button class="login-go" type="submit">Sign in</button>
           <button class="login-create" type="button">Create account</button>
+          <button class="login-forgot" type="button">Forgot your password?</button>
           <div class="login-msg"></div>
         </form>
         <button class="login-offline" type="button">Play offline</button>
@@ -101,6 +119,13 @@ export class LoginUI {
         .catch((ex) => { say(ex?.message ?? "Sign-up failed"); busy(false); });
     });
 
+    // There was no way to reset a password anywhere in this game, and the
+    // account is shared with the idle game and Hearthkeep — so a forgotten one
+    // locked you out of all three at once, reported through the same sentence
+    // as a typo.
+    const forgot = this.backdrop.querySelector(".login-forgot") as HTMLButtonElement;
+    forgot.addEventListener("click", () => { this.showReset(email.value.trim()); });
+
     // The sound toggle: mute persists from the game, so a returning player who
     // muted in the HUD sees why the theme is silent — and can flip it back on.
     const mute = this.backdrop.querySelector(".login-mute") as HTMLButtonElement;
@@ -114,6 +139,86 @@ export class LoginUI {
     } else {
       offline.remove();
     }
+  }
+
+  /** Ask for a reset link. */
+  private showReset(prefill: string): void {
+    this.backdrop.innerHTML = `
+      <div class="login-box">
+        <div class="login-title">VARATH</div>
+        <div class="login-sub">Reset your password.</div>
+        <form class="login-form">
+          <input class="login-email" type="email" placeholder="email"
+                 autocomplete="email" required value="${prefill.replace(/"/g, "&quot;")}" />
+          <button class="login-go" type="submit">Send the link</button>
+          <button class="login-create" type="button">Back to sign in</button>
+          <div class="login-msg"></div>
+        </form>
+        <div class="login-foot">One account across every game — resetting here resets it everywhere.</div>
+      </div>`;
+
+    const form = this.backdrop.querySelector(".login-form") as HTMLFormElement;
+    const email = this.backdrop.querySelector(".login-email") as HTMLInputElement;
+    const go = this.backdrop.querySelector(".login-go") as HTMLButtonElement;
+    const msg = this.backdrop.querySelector(".login-msg") as HTMLElement;
+    const say = (m: string, ok = false): void => { msg.textContent = m; msg.classList.toggle("ok", ok); };
+
+    form.addEventListener("submit", (e) => {
+      e.preventDefault();
+      const addr = email.value.trim();
+      if (addr === "") { say("An email address, please."); return; }
+      go.disabled = true;
+      say("Sending…", true);
+      resetPassword(addr)
+        // DELIBERATELY CONDITIONAL. `/recover` answers 200 whether or not the
+        // address is known, so "we sent you an email" would be a claim this
+        // code cannot make. It promises only that the request was accepted.
+        .then(() => { say(`If there is an account for ${addr}, a link is on its way.`, true); go.disabled = false; })
+        .catch((ex) => { say((ex as Error)?.message ?? "Could not send the link"); go.disabled = false; });
+    });
+
+    (this.backdrop.querySelector(".login-create") as HTMLButtonElement)
+      .addEventListener("click", () => { this.showSignIn(); });
+  }
+
+  /** Choose a new password, having followed the emailed link. */
+  private showNewPassword(token: string): void {
+    this.backdrop.innerHTML = `
+      <div class="login-box">
+        <div class="login-title">VARATH</div>
+        <div class="login-sub">Choose a new password.</div>
+        <form class="login-form">
+          <input class="login-pass" type="password" placeholder="new password"
+                 autocomplete="new-password" required />
+          <button class="login-go" type="submit">Set it and enter</button>
+          <button class="login-create" type="button">Cancel</button>
+          <div class="login-msg"></div>
+        </form>
+        <div class="login-foot">The link works once. If it has expired, ask for another.</div>
+      </div>`;
+
+    const form = this.backdrop.querySelector(".login-form") as HTMLFormElement;
+    const pass = this.backdrop.querySelector(".login-pass") as HTMLInputElement;
+    const go = this.backdrop.querySelector(".login-go") as HTMLButtonElement;
+    const msg = this.backdrop.querySelector(".login-msg") as HTMLElement;
+    const say = (m: string, ok = false): void => { msg.textContent = m; msg.classList.toggle("ok", ok); };
+
+    form.addEventListener("submit", (e) => {
+      e.preventDefault();
+      if (pass.value.length < 6) { say("Password needs to be at least six characters."); return; }
+      go.disabled = true;
+      say("Setting it…", true);
+      setPassword(token, pass.value)
+        // The recovery token is single-use and short-lived, so it is never kept
+        // as a session: signing in with the password just chosen is both the
+        // way in and the proof it took.
+        .then((addr) => signIn(addr, pass.value))
+        .then(() => { this.finish(); })
+        .catch((ex) => { say((ex as Error)?.message ?? "Could not set the password"); go.disabled = false; });
+    });
+
+    (this.backdrop.querySelector(".login-create") as HTMLButtonElement)
+      .addEventListener("click", () => { this.showSignIn(); });
   }
 
   private finish(): void {
