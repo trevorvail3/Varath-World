@@ -599,6 +599,11 @@ function paintTileStatic(
         g.fillStyle = "rgba(190,195,210,0.20)";
         g.fillRect(px + TILE * hv, py + TILE * hash(x * 9, y * 3), 4, 2);
       }
+      // (A cliff face along the range's outer edge was tried here and taken back
+      // out: the massif is shot through with stone and dirt tiles, so an
+      // "edge = borders non-mountain" test fired on interior tiles too and the
+      // range came out as a grid of dark boxes rather than a silhouette. It
+      // needs a real notion of the massif's outline, not a neighbour check.)
       return; // rock handles its own edges
     }
     case "grass":
@@ -2161,6 +2166,13 @@ export function drawWorld(
         drawInteriorDressing(g, b, cam, now, lights); // inside — roof up, dress the room
         continue;
       }
+      // Roofs are painted tile by tile, live. Baking each building's canopy into
+      // a sprite and blitting it — which looks like the obvious win, since a roof
+      // never changes — measured 28% SLOWER in the city (10.9 ms → 14.0 ms):
+      // under the view's zoom×DPR transform the browser resamples every one of
+      // those bitmaps each frame, and that costs more than the fills it saves.
+      // The chunk cache gets away with it by supersampling and blitting a
+      // handful of large images; a few dozen small ones do not amortise.
       const belongs = (xx: number, yy: number) => xx >= b.x0 && xx <= b.x1 && yy >= b.y0 && yy <= b.y1;
       const door = (xx: number, yy: number) => xx === b.door.x && yy === b.door.y;
       for (let yy = b.y0; yy <= b.y1; yy++) for (let xx = b.x0; xx <= b.x1; xx++) {
@@ -3113,11 +3125,20 @@ function drawWaterLife(
 }
 
 /** A soft darkened frame so the eye settles to the centre of the action. */
+let vignetteGrad: { key: string; grd: CanvasGradient } | null = null;
 function drawVignette(g: CanvasRenderingContext2D, w: number, h: number): void {
-  const grd = g.createRadialGradient(w / 2, h / 2, Math.min(w, h) * 0.42, w / 2, h / 2, Math.max(w, h) * 0.72);
-  grd.addColorStop(0, "rgba(0,0,0,0)");
-  grd.addColorStop(1, `rgba(8,6,12,${(0.34 * darkFactor()).toFixed(3)})`);
-  g.fillStyle = grd;
+  // A full-screen radial gradient, rebuilt on every frame of the game's life
+  // even though it only changes when the window resizes or the brightness
+  // slider moves. Keyed on exactly those.
+  const dark = darkFactor();
+  const key = `${w}x${h}:${dark.toFixed(2)}`;
+  if (!vignetteGrad || vignetteGrad.key !== key) {
+    const grd = g.createRadialGradient(w / 2, h / 2, Math.min(w, h) * 0.42, w / 2, h / 2, Math.max(w, h) * 0.72);
+    grd.addColorStop(0, "rgba(0,0,0,0)");
+    grd.addColorStop(1, `rgba(8,6,12,${(0.34 * dark).toFixed(3)})`);
+    vignetteGrad = { key, grd };
+  }
+  g.fillStyle = vignetteGrad.grd;
   g.fillRect(0, 0, w, h);
 }
 
@@ -3259,11 +3280,14 @@ function drawObject(
       // whole creature drawn half again its size about the ground line.
       if (superior && available) {
         const pulse = 0.5 + Math.sin(now / 220) * 0.15;
-        const grad = g.createRadialGradient(cx, cy + 12, 2, cx, cy + 12, 26);
-        grad.addColorStop(0, `rgba(240, 200, 90, ${0.4 * pulse})`);
-        grad.addColorStop(1, "rgba(240, 200, 90, 0)");
-        g.fillStyle = grad;
-        g.beginPath(); g.ellipse(cx, cy + 12, 26, 12, 0, 0, Math.PI * 2); g.fill();
+        // Cached: the gradient's SHAPE never changes, only how bright it is —
+        // so it is built once and the pulse rides on globalAlpha instead of
+        // rebuilding a radial gradient per superior per frame.
+        const ring = discSprite("superior-ring", 26,
+          [[0, "rgba(240,200,90,1)"], [1, "rgba(240,200,90,0)"]]);
+        g.globalAlpha = 0.4 * pulse;
+        g.drawImage(ring, cx - 26, cy + 12 - 12, 52, 24);
+        g.globalAlpha = 1;
       }
       g.save();
       if (flip) { g.translate(cx, 0); g.scale(-1, 1); g.translate(-cx, 0); }
@@ -4989,11 +5013,11 @@ function drawBanner(
 function drawWaystone(g: CanvasRenderingContext2D, cx: number, cy: number, now: number): void {
   const pulse = 0.55 + 0.45 * Math.sin(now / 500);
   // Ground glow — a warm pool that draws the eye.
-  const glow = g.createRadialGradient(cx, cy + 14, 2, cx, cy + 14, 26);
-  glow.addColorStop(0, `rgba(240,150,60,${(0.34 + 0.14 * pulse).toFixed(2)})`);
-  glow.addColorStop(1, "rgba(240,150,60,0)");
-  g.fillStyle = glow;
-  g.beginPath(); g.ellipse(cx, cy + 14, 26, 11, 0, 0, Math.PI * 2); g.fill();
+  const glow = discSprite("waystone-glow", 26,
+    [[0, "rgba(240,150,60,1)"], [1, "rgba(240,150,60,0)"]]);
+  g.globalAlpha = 0.34 + 0.14 * pulse;
+  g.drawImage(glow, cx - 26, cy + 14 - 11, 52, 22);
+  g.globalAlpha = 1;
 
   shadow(g, cx, cy + 17, 13, 4);
   // The standing stone — ~1.7× the old size.
@@ -5632,6 +5656,16 @@ function drawCart(g: CanvasRenderingContext2D, cx: number, cy: number): void {
  *  paddocks, sheep pens and net-drying rails are built from these. */
 function drawFence(g: CanvasRenderingContext2D, cx: number, cy: number, run: "h" | "v"): void {
   const post = "#4a3826", rail = "#6f5436", lit = "#7d6040";
+  // A fence stood on the ground with nothing under it and read as painted on.
+  // The rails throw a thin shadow that leans with the sun like everything else.
+  const sv = frameSun;
+  if (sv && sv.alpha > 0.02) {
+    g.globalAlpha = sv.alpha * 0.55;
+    g.fillStyle = "#000";
+    if (run === "h") g.fillRect(cx - TILE / 2 + sv.ox * 0.35, cy + 8, TILE, 2);
+    else g.fillRect(cx - 4 + sv.ox * 0.35, cy - TILE / 2, 9, TILE);
+    g.globalAlpha = 1;
+  }
   if (run === "h") {
     // Two rails clear across the tile; posts at each tile edge so runs share them.
     g.fillStyle = rail;
@@ -6056,6 +6090,15 @@ function drawBank(g: CanvasRenderingContext2D, cx: number, cy: number): void {
   g.fillRect(cx - 2, cy - 10, 4, 22);
   g.fillStyle = "#c9a24a"; // lock
   g.fillRect(cx - 2, cy + 1, 4, 4);
+  // Lift the chest off the flat: a lit top edge, a shaded right face and a
+  // dark rim, so it reads as a box rather than a sticker.
+  g.fillStyle = "rgba(255,236,200,0.16)";
+  g.fillRect(cx - 12, cy - 10, 24, 2);
+  g.fillStyle = "rgba(0,0,0,0.20)";
+  g.fillRect(cx + 7, cy - 10, 5, 22);
+  g.strokeStyle = "rgba(0,0,0,0.45)";
+  g.lineWidth = 1;
+  g.strokeRect(cx - 12.5, cy - 10.5, 25, 22);
   g.fillStyle = "#8a6a35"; // wood grain
   g.fillRect(cx - 10, cy - 1, 7, 1);
   g.fillRect(cx + 4, cy + 5, 6, 1);
@@ -6257,11 +6300,11 @@ function drawGrave(g: CanvasRenderingContext2D, x: number, y: number, now: numbe
   g.ellipse(x, y + 9, 12, 5, 0, 0, Math.PI * 2);
   g.fill();
   // Mourning glow.
-  const glow = g.createRadialGradient(x, y, 2, x, y, 22);
-  glow.addColorStop(0, `rgba(150, 190, 220, ${0.20 + 0.14 * pulse})`);
-  glow.addColorStop(1, "rgba(150, 190, 220, 0)");
-  g.fillStyle = glow;
-  g.fillRect(x - 24, y - 24, 48, 48);
+  const glow = discSprite("mourn-glow", 22,
+    [[0, "rgba(150,190,220,1)"], [1, "rgba(150,190,220,0)"]]);
+  g.globalAlpha = 0.20 + 0.14 * pulse;
+  g.drawImage(glow, x - 22, y - 22, 44, 44);
+  g.globalAlpha = 1;
   // The stone, leaning slightly — nobody set it straight.
   g.translate(x, y);
   g.rotate(-0.06);
@@ -6337,11 +6380,11 @@ function drawFurnace(g: CanvasRenderingContext2D, cx: number, cy: number, now: n
   g.arc(cx, cy + 4, 2.5, 0, Math.PI * 2);
   g.fill();
   // heat halo bleeding from the mouth
-  const halo = g.createRadialGradient(cx, cy + 4, 2, cx, cy + 4, 13);
-  halo.addColorStop(0, `rgba(230,120,40,${(0.30 * glow).toFixed(2)})`);
-  halo.addColorStop(1, "rgba(230,120,40,0)");
-  g.fillStyle = halo;
-  g.beginPath(); g.arc(cx, cy + 4, 13, 0, Math.PI * 2); g.fill();
+  const halo = discSprite("furnace-halo", 13,
+    [[0, "rgba(230,120,40,1)"], [1, "rgba(230,120,40,0)"]]);
+  g.globalAlpha = 0.30 * glow;
+  g.drawImage(halo, cx - 13, cy + 4 - 13, 26, 26);
+  g.globalAlpha = 1;
   // chimney smoke: three drifting puffs
   for (let i = 0; i < 3; i++) {
     const ph = ((now / 900) + i * 0.33) % 1;
@@ -6879,11 +6922,11 @@ function drawMonsterScaled(
   if (aura) {
     const breathe = 0.55 + 0.45 * Math.sin(now / 640);
     const r = 26 + breathe * 6;
-    const grd = g.createRadialGradient(cx, cy + 12, 2, cx, cy + 12, r);
-    grd.addColorStop(0, `rgba(${aura},${(0.22 * breathe + 0.10).toFixed(3)})`);
-    grd.addColorStop(1, `rgba(${aura},0)`);
-    g.fillStyle = grd;
-    g.beginPath(); g.ellipse(cx, cy + 12, r, r * 0.45, 0, 0, Math.PI * 2); g.fill();
+    const sprite = discSprite(`boss-aura-${aura}`, 32,
+      [[0, `rgba(${aura},1)`], [1, `rgba(${aura},0)`]]);
+    g.globalAlpha = 0.22 * breathe + 0.10;
+    g.drawImage(sprite, cx - r, cy + 12 - r * 0.45, r * 2, r * 0.9);
+    g.globalAlpha = 1;
   }
   const s = (monster && MONSTER_SCALE[monster]) || 1;
   if (s === 1) { drawMonsterBody(g, monster, cx, cy, now, moving, action); return; }

@@ -53,6 +53,7 @@ const STOPS: { label: string; x: number; y: number; hours?: string[] }[] = [
   { label: "hills-open", x: 95, y: 245 },
   { label: "hills-far", x: 330, y: 330 },
   { label: "shore", x: 282, y: 250 },
+  { label: "mountain", x: 56, y: 25, hours: ["noon", "dusk"] }, // a cliff edge
   { label: "cave", x: 50, y: 521, hours: ["noon"] }, // underground: one hour is enough
 ];
 
