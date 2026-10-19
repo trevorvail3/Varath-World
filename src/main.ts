@@ -54,7 +54,7 @@ import { submitCurrent } from "./client/social.ts";
 import { audio } from "./client/audio.ts";
 import { ping, setStateProvider } from "./client/ops.ts";
 import { founderEntitled, loadFounderEntitlement, maybeShowFounderClaim } from "./client/founder.ts";
-import { loadCloud, saveCloud, deleteCloud } from "./client/cloudSave.ts";
+import { loadCloud, saveCloud, deleteCloud, type CloudFailure } from "./client/cloudSave.ts";
 
 // The opening atmosphere lines — mood first, mechanics never. Framed as legend
 // (never stated as fact) to honour the world's load-bearing ambiguity.
@@ -153,15 +153,26 @@ async function afterLogin(): Promise<void> {
   const cloud = await loadCloud();
   await loadFounderEntitlement(); // supporter status for this account (fail-silent)
 
+  // A sign-in the server will not accept cannot be fixed by retrying, and
+  // playing on from a local copy would quietly stop syncing. Ask for it again —
+  // signing in re-enters here with a fresh token. This comes before the local
+  // fallback on purpose: it is the one failure the player can actually fix.
+  if (!cloud.ok && cloud.why === "signin") {
+    signOut();
+    new LoginUI(app!, () => void afterLogin(), playOffline,
+      "Your sign-in had expired. Sign in again to load your world — nothing was lost.");
+    return;
+  }
+
   // Cloud unreachable — its state is unknown. Play from a local copy if we have
-  // one (cloudReady=false: we won't push and risk clobbering), else ask to retry.
+  // one (cloudReady=false: we won't push and risk clobbering), else explain.
   if (!cloud.ok) {
     const local = readSave() ?? priorSave;
     if (local) {
       if (!readSave()) writeSave(local);
       boot(null, false);
     } else {
-      showCloudRetry();
+      showCloudProblem(cloud.why, cloud.detail);
     }
     return;
   }
@@ -188,22 +199,42 @@ async function afterLogin(): Promise<void> {
   });
 }
 
-// --- Shown only when the cloud can't be reached and there's nothing local to
+// --- Shown only when the cloud can't be read and there's nothing local to
 //     fall back to: starting fresh here could overwrite a save we just couldn't
-//     see, so we ask the player to reconnect instead. ---
-function showCloudRetry(): void {
+//     see, so no new character. But it must never be a dead end — it used to
+//     offer only Retry, which reloads into the same answer when the answer is a
+//     refusal rather than a dropped connection. ---
+function showCloudProblem(why: CloudFailure, detail: string): void {
   const back = document.createElement("div");
   back.className = "login-backdrop";
+  const say = why === "offline"
+    ? "Check your connection — we won't start a new character while your cloud save is out of reach."
+    : "The save server answered, but refused. We won't start a new character until it lets us see your save.";
   back.innerHTML = `
     <div class="login-box">
       <div class="login-title">VARATH</div>
-      <div class="login-sub">Couldn't reach your saved world.</div>
-      <div class="login-msg">Check your connection — we won't start a new character while your cloud save is out of reach.</div>
+      <div class="login-sub">${why === "offline" ? "Couldn't reach your saved world." : "Couldn't open your saved world."}</div>
+      <div class="login-msg">${say}</div>
+      <div class="login-raw"></div>
       <button class="login-go" type="button">Retry</button>
+      <button class="login-create" type="button">Sign out</button>
+      <button class="login-offline" type="button">Play offline</button>
+      <div class="login-foot">Offline play keeps a separate character in this browser and never touches your cloud save.</div>
     </div>`;
+  // textContent, not markup: this is whatever the server said.
+  (back.querySelector(".login-raw") as HTMLElement).textContent = detail;
   (back.querySelector(".login-go") as HTMLElement).addEventListener(
     "click", () => window.location.reload(),
   );
+  (back.querySelector(".login-create") as HTMLElement).addEventListener("click", () => {
+    signOut();
+    back.remove();
+    new LoginUI(app!, () => void afterLogin(), playOffline);
+  });
+  (back.querySelector(".login-offline") as HTMLElement).addEventListener("click", () => {
+    back.remove();
+    playOffline();
+  });
   app!.appendChild(back);
 }
 

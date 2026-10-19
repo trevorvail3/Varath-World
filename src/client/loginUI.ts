@@ -48,7 +48,12 @@ function staleNotice(): string {
 export class LoginUI {
   private backdrop: HTMLElement;
 
-  constructor(root: HTMLElement, private onDone: () => void, private onOffline?: () => void) {
+  /** `notice` is why the player is being asked to sign in again, when the app
+   *  knows — it skips the landing beat, because they had already pressed past it. */
+  constructor(
+    root: HTMLElement, private onDone: () => void, private onOffline?: () => void,
+    private notice = "",
+  ) {
     this.backdrop = document.createElement("div");
     this.backdrop.className = "login-backdrop";
     root.appendChild(this.backdrop);
@@ -69,6 +74,7 @@ export class LoginUI {
       this.showNewPassword(tok);
       return;
     }
+    if (notice !== "") { this.showSignIn(); return; }
     this.showLanding();
   }
 
@@ -107,6 +113,7 @@ export class LoginUI {
           <div class="login-raw"></div>
         </form>
         ${staleNotice()}
+        <div class="login-stale login-notice"></div>
         <button class="login-offline" type="button">Play offline</button>
         <div class="login-foot">Same account as the idle game and Hearthkeep — one sign-in across every
           IronVail game. Offline play saves only in this browser.</div>
@@ -122,6 +129,7 @@ export class LoginUI {
     const msg = this.backdrop.querySelector(".login-msg") as HTMLElement;
 
     const raw = this.backdrop.querySelector(".login-raw") as HTMLElement;
+    (this.backdrop.querySelector(".login-notice") as HTMLElement).textContent = this.notice;
     const busy = (on: boolean): void => { go.disabled = on; create.disabled = on; };
     const say = (m: string, ok = false): void => {
       msg.textContent = m;

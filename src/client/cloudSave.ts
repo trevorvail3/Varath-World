@@ -14,20 +14,57 @@ import { currentUser, rest } from "./supabase.ts";
 
 export type CloudLoad =
   | { ok: true; data: unknown | null } // reached the server (data null = no save yet)
-  | { ok: false };                     // network error — cloud state unknown
+  | { ok: false; why: CloudFailure; detail: string }; // cloud state unknown
+
+/**
+ * WHY THE SAVE COULD NOT BE READ — three answers, because they have three
+ * different ways out, and the screen used to give all three the one sentence
+ * for the first.
+ *
+ *   offline   the request never got an answer. Retrying is the way out.
+ *   signin    the server answered and said the SIGN-IN is no good (401, or a
+ *             JWT complaint, or the refresh failed and dropped the session).
+ *             Retrying can never fix that; signing in again does.
+ *   refused   the server answered and said no for some other reason. Show
+ *             what it said — that is the only way anybody finds out which.
+ *
+ * `signin` is the one that bit. The sign-in is shared across every game under
+ * the studio's address, so World is often opened ALREADY signed in, holding a
+ * session another game wrote and may since have rotated. Signed in on
+ * varath-world.vercel.app you have just typed a password, so the token is
+ * minutes old and this never happens there — which is why the game "worked
+ * everywhere except the studio page", behind a Retry button that reloaded into
+ * the same refusal forever.
+ */
+export type CloudFailure = "offline" | "signin" | "refused";
 
 /** Fetch this user's cloud save. */
 export async function loadCloud(): Promise<CloudLoad> {
   const user = currentUser();
   if (!user) return { ok: true, data: null };
+  let res: Response;
   try {
-    const res = await rest(`world_saves?user_id=eq.${user.id}&select=data`);
-    if (!res.ok) return { ok: false };
+    res = await rest(`world_saves?user_id=eq.${user.id}&select=data`);
+  } catch (e) {
+    return { ok: false, why: "offline", detail: String((e as Error)?.message ?? e) };
+  }
+  // `rest` refreshes an expiring token first, and a refresh the server refuses
+  // signs the player out and sends the request anonymously. Whatever came back
+  // for an anonymous request is not this player's save — empty rows included,
+  // which would otherwise read as "no save yet" and open the character creator.
+  if (!currentUser()) return { ok: false, why: "signin", detail: "the saved sign-in could not be renewed" };
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    const detail = `${res.status} ${body}`.trim().slice(0, 300);
+    const jwt = /jwt|PGRST30[0-9]/i.test(body);
+    return { ok: false, why: res.status === 401 || jwt ? "signin" : "refused", detail };
+  }
+  try {
     const rows = await res.json();
     const row = Array.isArray(rows) && rows.length > 0 ? rows[0] : null;
     return { ok: true, data: row?.data ?? null };
-  } catch {
-    return { ok: false };
+  } catch (e) {
+    return { ok: false, why: "refused", detail: `unreadable answer: ${String((e as Error)?.message ?? e)}` };
   }
 }
 

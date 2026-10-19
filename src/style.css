@@ -3452,6 +3452,7 @@ button.inv-slot {
   text-align: left;
 }
 .login-stale b { color: var(--gold, #e0b653); font-weight: 600; }
+.login-notice:empty { display: none; }
 .login-msg { font-family: "EB Garamond", serif; font-size: 12px; color: var(--ember); min-height: 1.1em; }
 .login-msg.ok { color: var(--gold); }
 .login-offline {

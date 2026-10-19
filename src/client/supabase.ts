@@ -328,17 +328,39 @@ export async function setPassword(token: string, password: string): Promise<stri
   return email;
 }
 
-/** A valid access token, refreshing if it's expired/near-expiry. */
+/**
+ * A valid access token, refreshing if it's expired/near-expiry.
+ *
+ * THE SESSION IS SHARED, SO SOMEBODY ELSE MAY HAVE ALREADY RENEWED IT. Every
+ * game under the studio's address reads and writes the one `SESSION_KEY`, and a
+ * refresh token is single-use: whichever game renews first gets the new pair
+ * and the old refresh token stops working. This module reads the session once
+ * at load, so without looking again it would try the spent token, be refused,
+ * and `store(null)` — deleting the GOOD session the other game had just
+ * written, and signing the player out of every game at once. So: look at the
+ * shared copy before renewing, and again before giving up.
+ */
+function sharedNewer(): Session | null {
+  const s = readSession();
+  if (!s || !session) return s;
+  return s.refresh_token !== session.refresh_token ? s : null;
+}
+
 async function freshToken(): Promise<string | null> {
   if (!session) return null;
   if (Date.now() / 1000 < session.expires_at - 60) return session.access_token;
+  const other = sharedNewer();
+  if (other && Date.now() / 1000 < other.expires_at - 60) { session = other; return other.access_token; }
+  if (other) session = other;
   try {
     const d = await authFetch("token?grant_type=refresh_token", {
-      refresh_token: session.refresh_token,
+      refresh_token: session!.refresh_token,
     });
     const s = sessionFromToken(d);
     if (s) { store(s); return s.access_token; }
-  } catch { /* refresh failed — fall through to sign-out */ }
+  } catch { /* refresh failed — see whether another game renewed it meanwhile */ }
+  const late = sharedNewer();
+  if (late && Date.now() / 1000 < late.expires_at - 60) { session = late; return late.access_token; }
   store(null);
   return null;
 }

@@ -32,7 +32,8 @@
     "sim:towns": "tsx sims/towns.ts",
     "sim:ttk": "tsx sims/ttk.ts",
     "sim:world": "tsx sims/world.ts",
-    "sim:zones": "tsx sims/zones.ts"
+    "sim:zones": "tsx sims/zones.ts",
+    "test:cloud": "npm run build && tsx tools/cloud-test.ts"
   },
   "devDependencies": {
     "@types/node": "^26.4.0",
