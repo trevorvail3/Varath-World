@@ -5185,5 +5185,7 @@ button.inv-slot {
 .login-box.iv-acct { width: min(420px, calc(100% - 32px)); max-width: 420px; padding: 26px 26px 22px; }
 .login-box.iv-acct .login-title, .login-box.iv-acct .login-sub { text-align: left; }
 .login-box.iv-acct .login-msg:empty { min-height: 0; }
-.login-studio { max-width: none; text-align: center; }
-.login-studio .iv-studio { margin-bottom: 18px; }
+.char-card { display: flex; flex-direction: column; gap: 4px; margin: 0 0 14px; padding: 14px 16px;
+  border: 1px solid var(--panel-edge); border-radius: 12px; background: rgba(0, 0, 0, 0.32); text-align: left; }
+.char-card b { font-family: "Cinzel", serif; font-size: 18px; font-weight: 600; color: var(--gold); letter-spacing: .04em; }
+.char-card span { font-family: "EB Garamond", serif; font-size: 14px; color: var(--ink-dim); }

@@ -47,13 +47,28 @@ interface Case {
   expect: RegExp;
   /** Whether the shared session must survive — it is every game's sign-in. */
   kept: boolean;
+  /** The signed-out gate: no form of its own, and a way to the studio and back. */
+  gate?: boolean;
+  /** Extra localStorage to seed — an offline character already on this device. */
+  local?: Record<string, string>;
 }
 
 const CASES: Case[] = [
+  // There is no sign-in in the game: signed out is a door to the studio and back.
+  { name: "signed out", session: null, expect: /Sign in to play[\s\S]*Create an account/, kept: false, gate: true },
+  // Signed in with a character: the game opens on that character, not mid-step.
+  // Offline play is no longer offered, but a character already kept offline on
+  // this device must not be stranded behind the closed door.
+  { name: "signed out, with an offline character", session: null, gate: true, kept: false,
+    local: { "varath-world-save-v1::__offline__": JSON.stringify({ appearance: { name: "Wren" } }) },
+    expect: /Sign in to play[\s\S]*Continue your offline character/ },
+  { name: "signed in, has a character", session: sess(now() + 3600),
+    saves: [200, [{ data: { appearance: { name: "Brannoc" }, mode: "ironman", questsDone: ["a", "b"], playMs: 7_200_000 } }]],
+    expect: /Brannoc[\s\S]*Ironman · 2 quests done · 2h played[\s\S]*Enter the world/, kept: true },
   { name: "signed in, empty save", session: sess(now() + 3600), saves: [200, []], expect: /Who will you become/, kept: true },
   { name: "token refused (401)", session: sess(now() + 3600), saves: [401, { code: "PGRST301", message: "JWT expired" }], expect: /sign-in had expired/, kept: false },
-  { name: "policy refusal (403)", session: sess(now() + 3600), saves: [403, { code: "42501", message: "permission denied" }], expect: /refused[\s\S]*permission denied[\s\S]*Sign out[\s\S]*Play offline/, kept: true },
-  { name: "network down", session: sess(now() + 3600), saves: "abort", expect: /Couldn't reach[\s\S]*Sign out[\s\S]*Play offline/, kept: true },
+  { name: "policy refusal (403)", session: sess(now() + 3600), saves: [403, { code: "42501", message: "permission denied" }], expect: /refused[\s\S]*permission denied[\s\S]*Retry[\s\S]*Sign out/, kept: true },
+  { name: "network down", session: sess(now() + 3600), saves: "abort", expect: /Couldn't reach[\s\S]*Retry[\s\S]*Sign out/, kept: true },
   { name: "expired, renewed", session: sess(now() - 100), refresh: [200, { access_token: "at2", refresh_token: "rt2", expires_in: 3600, user }], saves: [200, []], expect: /Who will you become/, kept: true },
   { name: "expired, refresh spent", session: sess(now() - 100), refresh: [400, { error: "invalid_grant" }], saves: [401, {}], expect: /sign-in had expired/, kept: false },
   { name: "renewed by another game", session: sess(now() - 100), race: true, saves: [200, []], expect: /Who will you become/, kept: true },
@@ -96,12 +111,13 @@ for (const c of CASES) {
     }
     return send([200, []]);
   });
-  await page.addInitScript(([k, s]) => {
+  await page.addInitScript(([k, s, extra]) => {
     if (sessionStorage.getItem("seeded")) return;
     sessionStorage.setItem("seeded", "1");
     localStorage.clear();
     if (s) localStorage.setItem(k as string, JSON.stringify(s));
-  }, [KEY, c.session]);
+    for (const [ek, ev] of Object.entries((extra ?? {}) as Record<string, string>)) localStorage.setItem(ek, ev);
+  }, [KEY, c.session, c.local ?? {}] as const);
   await page.goto(`http://localhost:${PORT}/world/`);
   let text = "";
   try {
@@ -110,7 +126,17 @@ for (const c of CASES) {
   } catch { /* reported below */ }
   text = (await page.evaluate(() => document.getElementById("app")?.innerText ?? "")).replace(/\s+/g, " ");
   const kept = await page.evaluate((k) => localStorage.getItem(k) !== null, KEY);
-  const ok = c.expect.test(text) && kept === c.kept;
+  let ok = c.expect.test(text) && kept === c.kept;
+  if (c.gate) {
+    const g = await page.evaluate(() => ({
+      inputs: document.querySelectorAll("#app input").length,
+      href: document.getElementById("gate-signin")?.getAttribute("href") ?? "",
+    }));
+    if (g.inputs > 0 || !/\/account\?next=%2Fworld%2F$/.test(g.href)) {
+      ok = false;
+      text += ` [inputs=${g.inputs} href=${g.href}]`;
+    }
+  }
   if (!ok) failed++;
   console.log(`${ok ? "  ok  " : "  FAIL"} ${c.name}${ok ? "" : `\n        session ${kept ? "kept" : "gone"} (want ${c.kept ? "kept" : "gone"})\n        screen: ${text.slice(0, 200)}`}`);
   await ctx.close();

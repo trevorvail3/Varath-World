@@ -48,8 +48,7 @@ import { humanoidKit } from "./client/monsterKit.ts";
 import { DEFAULT_APPEARANCE } from "./client/avatar.ts";
 import { resolveGear } from "./client/gearLook.ts";
 import { isNameAvailable, reserveName } from "./client/nameRegistry.ts";
-import { LoginUI } from "./client/loginUI.ts";
-import { currentUser, signOut } from "./client/supabase.ts";
+import { currentUser, recoveryToken, signOut } from "./client/supabase.ts";
 import { submitCurrent } from "./client/social.ts";
 import { audio } from "./client/audio.ts";
 import { ping, setStateProvider } from "./client/ops.ts";
@@ -117,8 +116,102 @@ function start(): void {
   // character. Automated screenshot runs need a deterministic, one-step start;
   // the same flag also opens the `__varath` handle at the end of boot().
   if (TEST_MODE) { playOffline(); return; }
+  // A reset or confirmation link from before the studio became the front door
+  // can still land here holding a live credential. Only the studio's account
+  // page can spend it, so hand it over with the fragment intact.
+  if (recoveryToken() !== "" || /(^|[#&?])error_code=/.test(location.search + location.hash)) {
+    location.replace(`${STUDIO}/account${location.search}${location.hash}`);
+    return;
+  }
   if (currentUser()) { void afterLogin(); return; }
-  new LoginUI(app!, () => void afterLogin(), playOffline);
+  showGate();
+}
+
+/*
+ * THERE IS NO SIGN-IN IN THIS GAME. The studio is the one front door: signed
+ * out, this screen sends the player to its account page with next=/world/,
+ * which brings them straight back here signed in. The sign-in is shared under
+ * the studio's address, so arriving back IS being signed in.
+ *
+ * A BUTTON, NOT A REDIRECT: if the studio accepts a session this game cannot
+ * use, an automatic bounce would loop between the two pages forever.
+ *
+ * Offline play is no longer offered — signing in comes first in every game —
+ * but a character already kept offline on this device stays reachable. A door
+ * closing must not strand somebody's save behind it.
+ */
+const STUDIO = "https://ivstudios.vercel.app";
+const SIGN_IN = `${STUDIO}/account?next=%2Fworld%2F`;
+const STUDIO_LINK = `<a class="iv-studio" href="${STUDIO}/"><b>Iron</b><i>Vail</i>&nbsp;Studios</a>`;
+
+function showGate(message = ""): void {
+  const offline = readSaveFor(OFFLINE_ACCOUNT) !== null;
+  const back = document.createElement("div");
+  back.className = "login-backdrop";
+  back.innerHTML = `
+    <div class="login-box iv-acct">
+      ${STUDIO_LINK}
+      <div class="login-title">VARATH</div>
+      <div class="login-sub">Sign in to enter the world.</div>
+      <div class="iv-form">
+        <a class="iv-go" id="gate-signin" href="${SIGN_IN}">Sign in to play</a>
+        <a class="iv-alt" href="${SIGN_IN}#create">Create an account</a>
+        ${offline ? `<button class="iv-alt quiet" id="gate-offline" type="button">Continue your offline character</button>` : ""}
+      </div>
+      <div class="login-msg iv-msg"></div>
+      <div class="iv-foot"><b>One IronVail account</b> opens Varath World, Varath and Hearthkeep.
+        Sign in at the studio and you come straight back here, to your character.</div>
+    </div>`;
+  (back.querySelector(".login-msg") as HTMLElement).textContent = message;
+  back.querySelector("#gate-offline")?.addEventListener("click", () => {
+    audio.unlock();
+    back.remove();
+    playOffline();
+  });
+  app!.appendChild(back);
+}
+
+/** Signed in with a character: say whose it is before walking into the world,
+ *  so the game opens on the character rather than dropping you in mid-step. */
+function showCharacter(data: unknown, enter: () => void): void {
+  const d = (data ?? {}) as Record<string, unknown>;
+  const look = (d["appearance"] ?? {}) as Record<string, unknown>;
+  const name = typeof look["name"] === "string" && look["name"].trim() !== "" ? look["name"] : "Your character";
+  const meta: string[] = [];
+  const mode = d["mode"];
+  if (typeof mode === "string" && mode !== "standard") meta.push(mode[0]!.toUpperCase() + mode.slice(1));
+  const quests = Array.isArray(d["questsDone"]) ? d["questsDone"].length : 0;
+  meta.push(`${quests} quest${quests === 1 ? "" : "s"} done`);
+  const hours = typeof d["playMs"] === "number" ? Math.floor(d["playMs"] / 3_600_000) : 0;
+  meta.push(hours < 1 ? "under an hour played" : `${hours}h played`);
+  const back = document.createElement("div");
+  back.className = "login-backdrop";
+  back.innerHTML = `
+    <div class="login-box iv-acct">
+      ${STUDIO_LINK}
+      <div class="login-title">VARATH</div>
+      <div class="login-sub">Your character.</div>
+      <div class="char-card"><b></b><span></span></div>
+      <div class="iv-form">
+        <button class="iv-go" id="char-enter" type="button">Enter the world</button>
+        <button class="iv-alt quiet" id="char-signout" type="button">Sign out</button>
+      </div>
+      <div class="iv-foot">One character per account, kept on the account — it follows you to any device.</div>
+    </div>`;
+  // textContent: the name is whatever the player typed.
+  (back.querySelector(".char-card b") as HTMLElement).textContent = name;
+  (back.querySelector(".char-card span") as HTMLElement).textContent = meta.join(" · ");
+  back.querySelector("#char-enter")!.addEventListener("click", () => {
+    audio.unlock();
+    back.remove();
+    enter();
+  });
+  back.querySelector("#char-signout")!.addEventListener("click", () => {
+    signOut();
+    back.remove();
+    showGate();
+  });
+  app!.appendChild(back);
 }
 
 // --- Offline play: a purely local character (its own save slot, never synced).
@@ -159,8 +252,7 @@ async function afterLogin(): Promise<void> {
   // fallback on purpose: it is the one failure the player can actually fix.
   if (!cloud.ok && cloud.why === "signin") {
     signOut();
-    new LoginUI(app!, () => void afterLogin(), playOffline,
-      "Your sign-in had expired. Sign in again to load your world — nothing was lost.");
+    showGate("Your sign-in had expired. Sign in again to load your world — nothing was lost.");
     return;
   }
 
@@ -180,7 +272,7 @@ async function afterLogin(): Promise<void> {
   // Cloud has a save: it wins. Mirror it locally and play.
   if (cloud.data) {
     writeSave(cloud.data);
-    boot(null, true);
+    showCharacter(cloud.data, () => boot(null, true));
     return;
   }
 
@@ -188,7 +280,7 @@ async function afterLogin(): Promise<void> {
   // start a brand-new one.
   if (priorSave) {
     writeSave(priorSave);
-    boot(null, true); // boot's first cloud push uploads it
+    showCharacter(priorSave, () => boot(null, true)); // boot's first cloud push uploads it
     return;
   }
   new CharacterCreator(app!, {
@@ -212,15 +304,14 @@ function showCloudProblem(why: CloudFailure, detail: string): void {
     : "The save server answered, but refused. We won't start a new character until it lets us see your save.";
   back.innerHTML = `
     <div class="login-box iv-acct">
-      <a class="iv-studio" href="https://ivstudios.vercel.app/"><b>Iron</b><i>Vail</i>&nbsp;Studios</a>
+      ${STUDIO_LINK}
       <div class="login-title">VARATH</div>
       <div class="login-sub">${why === "offline" ? "Couldn't reach your saved world." : "Couldn't open your saved world."}</div>
       <div class="login-msg iv-msg">${say}</div>
       <div class="login-raw"></div>
       <button class="login-go iv-go" type="button">Retry</button>
       <button class="login-create iv-alt" type="button">Sign out</button>
-      <button class="login-offline iv-alt quiet" type="button">Play offline</button>
-      <div class="iv-foot">Offline play keeps a separate character in this browser and never touches your cloud save.</div>
+      <div class="iv-foot">We won't start a new character while your saved one is out of reach.</div>
     </div>`;
   // textContent, not markup: this is whatever the server said.
   (back.querySelector(".login-raw") as HTMLElement).textContent = detail;
@@ -230,11 +321,7 @@ function showCloudProblem(why: CloudFailure, detail: string): void {
   (back.querySelector(".login-create") as HTMLElement).addEventListener("click", () => {
     signOut();
     back.remove();
-    new LoginUI(app!, () => void afterLogin(), playOffline);
-  });
-  (back.querySelector(".login-offline") as HTMLElement).addEventListener("click", () => {
-    back.remove();
-    playOffline();
+    showGate();
   });
   app!.appendChild(back);
 }
