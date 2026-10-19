@@ -211,15 +211,16 @@ function showCloudProblem(why: CloudFailure, detail: string): void {
     ? "Check your connection — we won't start a new character while your cloud save is out of reach."
     : "The save server answered, but refused. We won't start a new character until it lets us see your save.";
   back.innerHTML = `
-    <div class="login-box">
+    <div class="login-box iv-acct">
+      <a class="iv-studio" href="https://ivstudios.vercel.app/"><b>Iron</b><i>Vail</i>&nbsp;Studios</a>
       <div class="login-title">VARATH</div>
       <div class="login-sub">${why === "offline" ? "Couldn't reach your saved world." : "Couldn't open your saved world."}</div>
-      <div class="login-msg">${say}</div>
+      <div class="login-msg iv-msg">${say}</div>
       <div class="login-raw"></div>
-      <button class="login-go" type="button">Retry</button>
-      <button class="login-create" type="button">Sign out</button>
-      <button class="login-offline" type="button">Play offline</button>
-      <div class="login-foot">Offline play keeps a separate character in this browser and never touches your cloud save.</div>
+      <button class="login-go iv-go" type="button">Retry</button>
+      <button class="login-create iv-alt" type="button">Sign out</button>
+      <button class="login-offline iv-alt quiet" type="button">Play offline</button>
+      <div class="iv-foot">Offline play keeps a separate character in this browser and never touches your cloud save.</div>
     </div>`;
   // textContent, not markup: this is whatever the server said.
   (back.querySelector(".login-raw") as HTMLElement).textContent = detail;

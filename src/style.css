@@ -5109,3 +5109,81 @@ button.inv-slot {
   color: var(--ember);
   border-color: rgba(var(--ember-rgb), 0.4);
 }
+
+/* ironvail-account v1
+ *
+ * THE SIGN-IN SURFACE EVERY IRONVAIL GAME SHARES. One account opens Varath,
+ * Varath World and Hearthkeep, so the screen that asks for it is the studio's
+ * and looks the same in all three: the way back to the studio at the top, the
+ * same fields, one gold button, the same line saying what the account is. The
+ * GAME keeps its own title in its own typeface above the form — the account
+ * around it is shared, the identity of the game is not.
+ *
+ * IT TRAVELS BY COPY, exactly as brand/house.css does: this block is
+ * byte-identical in varath.html, Varath World's src/style.css and Hearthkeep's
+ * src/client/style.css, with the stamp above as the drift check. Everything is
+ * namespaced `iv-` so it can never collide with a game's own rules, and the
+ * colours are the house's own values (house.css v2), restated because none of
+ * these games loads house.css.
+ */
+.iv-acct {
+  --iv-gold: #F0C040; --iv-gold-hi: #FFD463; --iv-jet: #08090B; --iv-iron: #8C9298;
+  --iv-leaf: #121316; --iv-leaf-3: #23262B; --iv-rule: #26282D;
+  --iv-ink: #F2F3F4; --iv-soft: #A8ABB0; --iv-faint: #70747A;
+  --iv-bad: #F0736A; --iv-good: #4FC98D;
+  --iv-face: Archivo, "Helvetica Neue", Helvetica, Arial, system-ui, sans-serif;
+  box-sizing: border-box; width: 100%; max-width: 380px; margin: 0 auto;
+  font-family: var(--iv-face); color: var(--iv-soft); text-align: left;
+}
+.iv-acct *, .iv-acct *::before, .iv-acct *::after { box-sizing: border-box; }
+.iv-studio {
+  display: inline-block; margin: 0 0 28px; text-decoration: none; white-space: nowrap;
+  font: 700 11px/1 var(--iv-face); letter-spacing: .16em; text-transform: uppercase; color: var(--iv-soft);
+}
+.iv-studio::before { content: "\2190"; font-weight: 400; letter-spacing: 0; margin-right: 8px; }
+.iv-studio:hover { color: var(--iv-ink); }
+.iv-studio b { color: var(--iv-iron); font-weight: 900; }
+.iv-studio i { color: var(--iv-gold); font-style: normal; font-weight: 900; }
+.iv-tabs { display: flex; gap: 4px; padding: 4px; margin: 0 0 20px; background: var(--iv-leaf-3); border-radius: 99px; }
+.iv-tabs button {
+  flex: 1; border: 0; background: none; border-radius: 99px; padding: 9px 12px; cursor: pointer;
+  font: 700 13px/1 var(--iv-face); letter-spacing: 0; color: var(--iv-soft);
+}
+.iv-tabs button:hover { color: var(--iv-ink); }
+.iv-tabs button[aria-selected="true"] { background: var(--iv-leaf); color: var(--iv-ink); box-shadow: 0 1px 2px rgb(0 0 0 / .5); }
+.iv-form { display: flex; flex-direction: column; gap: 12px; }
+.iv-acct input {
+  width: 100%; margin: 0; padding: 12px 14px; border-radius: 12px;
+  font: 400 15px/1.3 var(--iv-face); color: var(--iv-ink);
+  background: var(--iv-leaf-3); border: 1px solid var(--iv-faint);
+}
+.iv-acct input::placeholder { color: var(--iv-faint); }
+.iv-acct input:focus { outline: none; border-color: var(--iv-gold); box-shadow: 0 0 0 4px rgb(240 192 64 / .18); }
+.iv-acct .iv-go {
+  display: block; width: 100%; margin: 4px 0 0; padding: 13px 20px; border-radius: 99px; cursor: pointer;
+  font: 700 14px/1 var(--iv-face); letter-spacing: 0; text-transform: none; text-align: center; text-decoration: none;
+  color: var(--iv-jet); background: var(--iv-gold); border: 1px solid transparent;
+}
+.iv-acct .iv-go:hover { background: var(--iv-gold-hi); }
+.iv-acct .iv-go:disabled { opacity: .55; cursor: default; }
+.iv-acct .iv-alt {
+  display: block; width: 100%; margin: 0; padding: 8px 0; background: none; border: 0; cursor: pointer;
+  font: 600 13px/1.3 var(--iv-face); letter-spacing: 0; text-transform: none; text-align: center;
+  text-decoration: none; color: var(--iv-ink);
+}
+.iv-acct .iv-alt:hover { color: var(--iv-gold); }
+.iv-acct .iv-alt.quiet { color: var(--iv-soft); font-weight: 500; }
+.iv-msg { min-height: 1.2em; margin: 0; font: 400 13px/1.45 var(--iv-face); color: var(--iv-bad); text-align: center; }
+.iv-msg.ok { color: var(--iv-good); }
+.iv-foot { margin: 24px 0 0; padding: 16px 0 0; border-top: 1px solid var(--iv-rule); font: 400 12px/1.55 var(--iv-face); color: var(--iv-soft); }
+.iv-foot b { color: var(--iv-ink); font-weight: 700; }
+.iv-acct :focus-visible { outline: 2px solid var(--iv-gold); outline-offset: 3px; }
+
+/* World's own seams around the shared block: the card keeps World's panel,
+ * the landing beat carries only the way back to the studio, and the title
+ * sits left with the form under it. */
+.login-box.iv-acct { width: min(420px, calc(100% - 32px)); max-width: 420px; padding: 26px 26px 22px; }
+.login-box.iv-acct .login-title, .login-box.iv-acct .login-sub { text-align: left; }
+.login-box.iv-acct .login-msg:empty { min-height: 0; }
+.login-studio { max-width: none; text-align: center; }
+.login-studio .iv-studio { margin-bottom: 18px; }

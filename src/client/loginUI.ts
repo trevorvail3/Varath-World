@@ -83,6 +83,7 @@ export class LoginUI {
   private showLanding(): void {
     this.backdrop.innerHTML = `
       <div class="login-box">
+        <div class="iv-acct login-studio"><a class="iv-studio" href="https://ivstudios.vercel.app/"><b>Iron</b><i>Vail</i>&nbsp;Studios</a></div>
         <div class="login-title">VARATH</div>
         <div class="login-sub">The stone remembers, and the moon watches.</div>
         <button class="login-play" type="button">Play now</button>
@@ -98,25 +99,26 @@ export class LoginUI {
   /** Beat two: the sign-in screen proper, with the theme already playing. */
   private showSignIn(): void {
     this.backdrop.innerHTML = `
-      <div class="login-box">
+      <div class="login-box iv-acct">
+        <a class="iv-studio" href="https://ivstudios.vercel.app/"><b>Iron</b><i>Vail</i>&nbsp;Studios</a>
         <div class="login-title">VARATH</div>
         <div class="login-sub">Sign in to enter the world.</div>
-        <form class="login-form">
-          <input class="login-email" type="email" placeholder="email"
+        <form class="login-form iv-form">
+          <input class="login-email" type="email" placeholder="Email"
                  autocomplete="email" required />
-          <input class="login-pass" type="password" placeholder="password"
+          <input class="login-pass" type="password" placeholder="Password"
                  autocomplete="current-password" required />
-          <button class="login-go" type="submit">Sign in</button>
-          <button class="login-create" type="button">Create account</button>
-          <button class="login-forgot" type="button">Forgot your password?</button>
-          <div class="login-msg"></div>
+          <button class="login-go iv-go" type="submit">Sign in</button>
+          <button class="login-create iv-alt" type="button">Create account</button>
+          <button class="login-forgot iv-alt quiet" type="button">Forgot your password?</button>
+          <div class="login-msg iv-msg"></div>
           <div class="login-raw"></div>
         </form>
         ${staleNotice()}
         <div class="login-stale login-notice"></div>
-        <button class="login-offline" type="button">Play offline</button>
-        <div class="login-foot">Same account as the idle game and Hearthkeep — one sign-in across every
-          IronVail game. Offline play saves only in this browser.</div>
+        <button class="login-offline iv-alt quiet" type="button">Play offline</button>
+        <div class="iv-foot"><b>One IronVail account</b> opens Varath, Varath World and Hearthkeep —
+          same email, same password. Offline play saves only in this browser.</div>
         <div class="login-ref">this build talks to <b>${projectRef()}</b></div>
         <button class="login-mute" type="button"></button>
       </div>`;
@@ -185,17 +187,18 @@ export class LoginUI {
   /** Ask for a reset link. */
   private showReset(prefill: string): void {
     this.backdrop.innerHTML = `
-      <div class="login-box">
+      <div class="login-box iv-acct">
+        <a class="iv-studio" href="https://ivstudios.vercel.app/"><b>Iron</b><i>Vail</i>&nbsp;Studios</a>
         <div class="login-title">VARATH</div>
         <div class="login-sub">Reset your password.</div>
-        <form class="login-form">
-          <input class="login-email" type="email" placeholder="email"
+        <form class="login-form iv-form">
+          <input class="login-email" type="email" placeholder="Email"
                  autocomplete="email" required value="${prefill.replace(/"/g, "&quot;")}" />
-          <button class="login-go" type="submit">Send the link</button>
-          <button class="login-create" type="button">Back to sign in</button>
-          <div class="login-msg"></div>
+          <button class="login-go iv-go" type="submit">Send the link</button>
+          <button class="login-create iv-alt" type="button">Back to sign in</button>
+          <div class="login-msg iv-msg"></div>
         </form>
-        <div class="login-foot">One account across every game — resetting here resets it everywhere.</div>
+        <div class="iv-foot"><b>One IronVail account</b> — resetting it here resets it in every game.</div>
       </div>`;
 
     const form = this.backdrop.querySelector(".login-form") as HTMLFormElement;
@@ -225,17 +228,18 @@ export class LoginUI {
   /** Choose a new password, having followed the emailed link. */
   private showNewPassword(token: string): void {
     this.backdrop.innerHTML = `
-      <div class="login-box">
+      <div class="login-box iv-acct">
+        <a class="iv-studio" href="https://ivstudios.vercel.app/"><b>Iron</b><i>Vail</i>&nbsp;Studios</a>
         <div class="login-title">VARATH</div>
         <div class="login-sub">Choose a new password.</div>
-        <form class="login-form">
-          <input class="login-pass" type="password" placeholder="new password"
+        <form class="login-form iv-form">
+          <input class="login-pass" type="password" placeholder="New password"
                  autocomplete="new-password" required />
-          <button class="login-go" type="submit">Set it and enter</button>
-          <button class="login-create" type="button">Cancel</button>
-          <div class="login-msg"></div>
+          <button class="login-go iv-go" type="submit">Set it and enter</button>
+          <button class="login-create iv-alt" type="button">Cancel</button>
+          <div class="login-msg iv-msg"></div>
         </form>
-        <div class="login-foot">The link works once. If it has expired, ask for another.</div>
+        <div class="iv-foot">The link works once. If it has expired, ask for another.</div>
       </div>`;
 
     const form = this.backdrop.querySelector(".login-form") as HTMLFormElement;
