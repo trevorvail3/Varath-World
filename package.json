@@ -26,6 +26,7 @@
     "sim:rates": "tsx sims/rates.ts",
     "sim:routines": "tsx sims/routines.ts",
     "sim:status": "tsx sims/status.ts",
+    "sim:storage": "tsx sims/storage.ts",
     "sim:styles": "tsx sims/styles.ts",
     "sim:thieving": "tsx sims/thieving.ts",
     "sim:tick": "tsx sims/tick.ts",

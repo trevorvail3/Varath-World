@@ -46,6 +46,7 @@ import { recentChat, sendChat } from "./chat.ts";
 import { listFriends } from "./friends.ts";
 import { currentUser } from "./supabase.ts";
 import { getTrackedQuest, setTrackedQuest, dismissTracking } from "./questTrack.ts";
+import { BRIGHT_KEY, LOG_MIN_KEY, PERF_KEY, readBrightness, readLogMinimized, readPerfMode, readUiScale, UI_SCALE_KEY } from "./prefs.ts";
 
 // How many lines of history the log keeps (you can scroll back through them).
 // The panel itself shows ~7 at a time; older lines stay available above. Game
@@ -54,17 +55,11 @@ import { getTrackedQuest, setTrackedQuest, dismissTracking } from "./questTrack.
 const MAX_GAME_LINES = 80;
 const MAX_CHAT_LINES = 80;
 
-/** Interface-size (accessibility) scale, persisted per device. */
-const UI_SCALE_KEY = "varath_ui_scale";
-function getUiScale(): number {
-  const v = Number(localStorage.getItem(UI_SCALE_KEY));
-  return Number.isFinite(v) && v >= 0.85 && v <= 1.4 ? v : 1;
-}
-const BRIGHT_KEY = "varath-brightness";
-function getBrightnessSetting(): number {
-  const v = Number(localStorage.getItem(BRIGHT_KEY));
-  return Number.isFinite(v) && v >= 0.6 && v <= 2 ? v : 1;
-}
+// Interface size, brightness, performance mode and the minimized log are read
+// in prefs.ts, through a reader that never throws (they run while the Hud is
+// built, so a blocked localStorage must not blank the page).
+const getUiScale = readUiScale;
+const getBrightnessSetting = readBrightness;
 /** The sender name world-broadcasts (new pier champions, etc.) post under, so
  *  the chat feed can render them as server messages rather than player chatter. */
 const HERALD_NAME = "Herald";
@@ -570,7 +565,7 @@ export class Hud {
     const minBtn = document.createElement("button");
     minBtn.type = "button";
     minBtn.className = "log-min-btn";
-    const minimized = (): boolean => localStorage.getItem("varath-log-min") === "1";
+    const minimized = readLogMinimized;
     const applyMin = (): void => {
       const on = minimized();
       logPanel.classList.toggle("collapsed", on);
@@ -579,7 +574,7 @@ export class Hud {
     };
     minBtn.addEventListener("pointerdown", (e) => {
       e.stopPropagation();
-      try { localStorage.setItem("varath-log-min", minimized() ? "0" : "1"); } catch { /* ignore */ }
+      try { localStorage.setItem(LOG_MIN_KEY, minimized() ? "0" : "1"); } catch { /* ignore */ }
       applyMin();
     });
     filterRow.appendChild(minBtn);
@@ -1088,11 +1083,11 @@ export class Hud {
           toggleRow("Show loot & fishing-spot names", this.lootLabels.get(), (v) => this.lootLabels.set(v)),
           "Labels each dropped item and fishing spot with its name, so you can tell piles apart at a glance."));
 
-        const perfOn = localStorage.getItem("varath-perf") === "1";
+        const perfOn = readPerfMode();
         setPerfMode(perfOn);
         gameplay.appendChild(item(
           toggleRow("Performance mode", perfOn, (v) => {
-            try { localStorage.setItem("varath-perf", v ? "1" : "0"); } catch { /* ignore */ }
+            try { localStorage.setItem(PERF_KEY, v ? "1" : "0"); } catch { /* ignore */ }
             setPerfMode(v);
             window.dispatchEvent(new Event("resize"));
           }),

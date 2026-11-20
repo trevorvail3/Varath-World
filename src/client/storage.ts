@@ -13,6 +13,21 @@ const LEGACY_KEY = "varath-world-save-v1";
 const INDEX_KEY = "varath-world-accounts";
 const saveKey = (name: string): string => `${LEGACY_KEY}::${name}`;
 
+/**
+ * Read one device preference, or null if it is unset OR storage is blocked.
+ * Reading `localStorage` throws a SecurityError when the browser denies site
+ * storage ("Block all cookies", some in-app webviews); a preference read on the
+ * boot path that throws leaves the player on a blank page. Every caller treats
+ * null as "use the default".
+ */
+export function readPref(key: string): string | null {
+  try {
+    return localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
 /** The account whose save reads/writes currently target. */
 let current: string | null = null;
 

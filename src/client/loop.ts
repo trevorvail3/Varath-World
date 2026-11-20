@@ -57,6 +57,7 @@ import { objectPos, objectHidden, travelFare, equipRequirement, combatLevel, TIC
 import { findPath, pathToAdjacent, pathToWithin } from "./pathfinding.ts";
 import { getSocial, submitCurrent } from "./social.ts";
 import { currentUser } from "./supabase.ts";
+import { clampZoom, DRAW_KEY, DRAW_MAX, DRAW_MIN, LOOT_KEY, readDrawDist, readLootLabels, readPerfMode, readZoom, ZOOM_KEY } from "./prefs.ts";
 
 /**
  * The bridge to the core. main.ts builds this so the loop never imports the
@@ -215,31 +216,10 @@ const LONG_PRESS_MS = 330;
 const MOVE_CANCEL_PX = 12;
 const MARKER_LIFE = 600;
 const FLASH_LIFE = 450;
-const ZOOM_MIN = 0.6;
-const ZOOM_MAX = 2.4;
-const ZOOM_KEY = "varath-zoom"; // a client display preference, kept in localStorage
-const clampZoom = (z: number): number => Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, z));
-function readZoom(): number {
-  const raw = Number(localStorage.getItem(ZOOM_KEY));
-  return Number.isFinite(raw) && raw > 0 ? clampZoom(raw) : 1;
-}
-
-// Draw distance: how many tiles out from the player the world is painted. A
-// client display preference (helps wide screens / slower machines). The slider
-// runs DRAW_MIN..DRAW_MAX tiles; DRAW_MAX means "unlimited" (Infinity).
-export const DRAW_MIN = 8;
-export const DRAW_MAX = 40;
-const DRAW_KEY = "varath-drawdist";
-function readDrawDist(): number {
-  const raw = Number(localStorage.getItem(DRAW_KEY));
-  return Number.isFinite(raw) && raw >= DRAW_MIN && raw < DRAW_MAX ? raw : Infinity;
-}
-
-// Floor-loot name labels (OSRS-style). On by default; a client display preference.
-const LOOT_KEY = "varath-loot-labels";
-function readLootLabels(): boolean {
-  return localStorage.getItem(LOOT_KEY) !== "0";
-}
+// Zoom, draw distance and loot labels are client display preferences. Their
+// readers live in prefs.ts and never throw, because they run during `new Game`
+// and a blocked localStorage must not blank the page.
+export { DRAW_MIN, DRAW_MAX };
 
 /**
  * Which ambient bed each mood plays under.
@@ -662,7 +642,7 @@ export class Game {
     // Cap the backing-store resolution: a hi-DPI screen at DPR 3 renders 9× the
     // pixels of DPR 1, the biggest single cost of a stutter. Cap at 2 normally,
     // and 1 in Performance mode — far smoother on slower machines.
-    const cap = localStorage.getItem("varath-perf") === "1" ? 1 : 2;
+    const cap = readPerfMode() ? 1 : 2;
     const dpr = Math.min(Math.max(window.devicePixelRatio || 1, 1), cap);
     // Prefer visualViewport: on mobile it reports the *settled* visible size
     // (excluding the URL bar) and updates correctly through a rotation.
