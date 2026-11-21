@@ -449,23 +449,215 @@ Ordering is deliberate: parity first, so nothing built later has to be
 retrofitted to a changed combat model; multiplayer last, because it is the one
 phase headless sims cannot cover.
 
-## Phase 2 — Missing skills & activities
+## Phase 2 — Missing skills & activities (VW 2.0 Phase 2)
 
-- **Thieving** — the one OSRS skill with no Varath analogue at all (Bounty
-  covers Slayer, Survivalist covers Firemaking, Woodcraft covers Fletching,
-  Faith covers Prayer + Magic + Runecrafting). A 21st `SkillId`: pickpocketing
-  the 59 existing `npc` spawns, market stalls (Ironvale's market already
-  exists in `map.ts`), and locked chests. Needs one new `ObjKind` (`stall`), a
-  `STEAL` intent, and a stun-on-fail state reusing WS5's machinery.
-- **Random events** — a tick-driven roller spawning a temporary NPC near the
-  player. Cheap on the existing spawn/dialogue seams.
-- **Deepen the thin content.** `lore.ts` is only 16 fragments; `factions.ts`
-  is metadata-only — four factions with no faction *content* behind the
-  reputation numbers. The two clearest expansion targets in the repo.
-- **Diaries → OSRS tiers.** Today 9 regions × 4 tasks, one flat tier,
-  XP-lamp-only rewards. Should become Easy/Medium/Hard/Elite per region with
-  real reward *perks* (shortcuts, better rates, teleports), reusing the
-  existing `AchievementCond` evaluator.
+**Scoped 2026-11-20.** The vault's Phase 2 note
+(`varath-world/2.0/phase-2-skills-and-systems.md`) was a placeholder, "scoped
+into a full plan when Phase 1 lands". Phase 1 landed (Phase 4 here). This
+section is that plan. It is written in the shape of Phase 1: workstreams in a
+build order, each one shippable and checkable on its own, each with a sim
+gate and a TRY line on the live build.
+
+### Two sources, one plan
+
+The vault note and this roadmap described Phase 2 differently. The plan keeps
+both and puts them in an order:
+
+| Source | Phase 2 contents | Where it lands below |
+|---|---|---|
+| Vault stub (2026-07-18) | New skills "toward ~22–24 total"; deeper crafting and economy; player housing on the home/furniture system | WS2.4 (housing), WS2.5 (new skills). Economy is folded into each WS's rewards, not given a WS of its own |
+| This roadmap (2026-08-30) | Thieving; random events; lore and faction content; diaries to tiers | WS2.0 (done), WS2.1, WS2.2, WS2.3 |
+
+The vault note's "existing 18" skills is stale. The game has **21**
+`SkillId`s (`src/core/types.ts:49`): 13 gathering/processing, Thieving,
+Agility, five combat skills and Faith.
+
+### Where the game is today (read 2026-11-20)
+
+| System | State | Seam to build on |
+|---|---|---|
+| Thieving | **Built**: pickpockets, stalls, locked chests, stun on fail | `src/content/thieving.ts`, `sims/thieving.ts` |
+| Random events | Nothing. No roller, no event NPC | `stepTick` (`worldCore.ts`), `ctx.rng()`, the unsaved `WorldState.fight` pattern |
+| Diaries | 9 regions × 4 tasks, one tier, an XP lamp each (10k–50k) | `src/content/diaries.ts`, `DiaryDef`, `claimDiary`, `Player.diariesClaimed`, `evalAchievement` |
+| Factions | 4 factions; 50 quest-dialogue choices move rep (`quests.ts`), but it is **spent in only 5** places: four 50-rep capes and the Lodge Outrider (`shops.ts`) | `requiresRep` on shop stock and dialogue lines; `minRep` on events |
+| Lore | 16 fragments, 16 `loreId` relics in `spawns.ts` | `src/content/lore.ts`, the Archive tab |
+| Housing | Free placement, crafted furniture, comfort tiers that set `home_cottage/manor/palace` flags, functional stations (hearth, anvil, cauldron, bench, bank chest) | `src/content/furniture.ts`, `homeComfort`, `Player.home`, `save.ts` housing block |
+
+### WS2.0 — Thieving *(done)*
+
+The 21st skill, as specified here before Phase 4: pickpocketing, market
+stalls, locked chests, stun on fail. `sim:thieving` checks that the level
+gate opens, that success improves with level, and that the stun holds.
+Kept in the list only so the record matches the code.
+
+### WS2.1 — Random events *(build first: smallest, no save change)*
+
+A tick-driven roller that sometimes puts a temporary NPC beside the player
+with a small, skippable interaction and a small reward.
+
+- **Core.** A `randomEvent` field on `WorldState`, not on `Player`, like
+  `WorldState.fight`. That means **no save format change**, and a reload
+  simply drops a pending event. One roll per tick, made only when the player
+  is idle-skilling or walking: never in combat, a dungeon, a delve, a home
+  interior. A global cooldown means two events can never land
+  back to back. All randomness comes from `ctx.rng()` (RULE 1).
+- **Content.** An `events.ts` data file (RULE 3): who appears, what they
+  say, what they give. Start with three or four that use the existing dialogue
+  choice and `giveItem` paths (`worldCore.ts`, the quest-choice handler). Rewards come from **existing** items only, so the
+  collection log and `collectionProgress` stay exact.
+- **Never punishing.** Ignoring an event lets it walk away after a short
+  timer. There is no teleport-away and no hostile spawn, because a
+  phone player who looks away must not come back to a penalty.
+- **Gate: `sims/events.ts`.** Over N simulated idle hours at a fixed seed,
+  the event rate sits inside a target band (proposed: 1 per 45–75 min of
+  eligible play). It also checks that zero events fire in combat or instanced
+  areas, that the cooldown holds, that an ignored event clears itself, that
+  a reward is never granted twice, and that `sim:rates` is unchanged.
+- **TRY:** chop trees outside Ironvale for an hour. A stranger appears
+  beside you once, says a line and offers a reward. Ignore one and it leaves.
+
+### WS2.2 — Diaries become tiers
+
+Easy / Medium / Hard / Elite per region, with **perks** as the reward in
+place of an XP lamp alone.
+
+- **Save compatibility without a migration.** Today's four tasks per region
+  become that region's **first** tier and keep its id (`diary_greyoak`,
+  etc.), so every claim already in `diariesClaimed` stays valid with no
+  rewrite and `SAVE_VERSION` stays at 1. New tiers get new ids
+  (`diary_greyoak_medium`, …). Whether today's tier is called Easy or
+  Medium depends on the region: Greyoak's tasks are level 20–35, the Marrow
+  Deeps' are 50–60. The tier label is data, so this costs nothing to set.
+- **Types.** `DiaryDef` gains `region` and `tier`. `reward` stays as the
+  lamp, and an optional `perk` id is added. A tier can be claimed only once
+  the tier below it is claimed. `claimDiary` changes in that one gate and
+  nowhere else.
+- **Perks.** A `hasDiaryPerk(player, id)` reader in the core. Each perk is
+  read at exactly one call site, so it can be checked in isolation. Kinds,
+  for the Director to pick per region: a **shortcut** (a `requiresFlag`
+  passage, the seam the boss adds already use), a **teleport** (to the
+  region seat), a **quality-of-life** change (each one named
+  and checked against the code when the tier is written). **Not** flat stat or XP-rate boosts, under the
+  vault's no-stat-bonus-outside-marquee-sets rule. If the Director
+  wants rate perks anyway, `sim:rates` must show the change only for a
+  perked player.
+- **Tasks** use only the conditions `AchievementCond` already has. A new
+  condition kind is added only when a tier truly needs one, and it is
+  added to `evalAchievement` alongside the others.
+- **Gate: `sims/diaries.ts`.** Every task's quest, skill and boss reference
+  resolves. Every tier is reachable: no task asks for more than the game can
+  give. Tiers claim in order and never twice. A pre-change save with a
+  claimed diary loads with that tier still claimed and the next one open.
+  Each perk changes behaviour only for a player who holds it.
+- **TRY:** World tab → Diaries. Each region shows four tiers. Your old
+  completed diary shows as its first tier, already claimed. Finish the next
+  tier and its perk works.
+
+### WS2.3 — Faction and lore content
+
+Fifty quest choices move reputation; five things spend it. That gap is the work.
+
+- **Faction ranks.** Named standing tiers per faction (thresholds in data),
+  shown in the Factions panel and acknowledged by the leaders' dialogue
+  through the existing `requiresRep` seam on dialogue lines.
+- **Things to spend standing on.** More rep-gated shop stock and dialogue
+  branches, one short quest per faction at a rank threshold. Rewards come
+  from existing items, or new items that are given a source in the same
+  commit, because `sims/collection.ts` will fail otherwise.
+- **Canon rule.** Faction ids, names and badges come from the idle game's
+  `GUILD_BADGES` (`factions.ts` header, `docs/CANON_LEDGER.md`). They are
+  **not** renamed or hand-edited here. Rank names and new lore text are new
+  canon, so they go to the Director for a canon check before they merge.
+- **Lore.** New fragments in the witness voice that `lore.ts` sets down
+  ("Nothing here is stated as fact"). Each one has a relic placed in a
+  Phase 4 region (the seats and wild zones), checked against `spawns.ts` for
+  regions that already have one. The count target is the Director's
+  call. The plan proposes one fragment per region seat and wild zone.
+- **Gate: `sims/factions.ts`.** Every rank threshold is reachable from the
+  rep sources in content, every rep-gated line and stock entry names a real
+  faction, and every `loreId` relic resolves to a fragment and back. `npx
+  tsc --noEmit` covers the id references.
+- **TRY:** Factions panel shows your rank with each faction. Talk to a
+  faction leader at 50+ standing for a new line and quest. Read a new relic in
+  a Phase 4 region and it appears in the Archive tab.
+
+### WS2.4 — Housing, the functional pass
+
+The house is already a place you build. This makes it a place you **use**.
+
+- Candidates, for the Director to pick: a home **teleport** (a crafted
+  tablet or a bed-linked return), comfort tiers that unlock **rooms or
+  stations** in place of flags alone, a **display** furniture set that
+  shows collection-log progress, and storage furniture (a costume rack).
+- The vault's own rule holds: **no stat bonuses** from housing outside
+  marquee sets. Comfort buys utility and looks, never damage or XP rate.
+- Anything placed or stored must round-trip through the existing
+  `save.ts` housing block. If the shape changes, the same commit adds a
+  load path that handles the old shape.
+- **Gate: `sims/housing.ts`.** Each comfort tier is reachable from craftable
+  furniture. Each new function works only at the tier it is gated on. A
+  furnished home survives `serializePlayer` → `hydratePlayer` unchanged. A
+  pre-change save loads its home.
+- **TRY:** Build up your home's comfort past the next tier, and the new
+  room or station it unlocks works.
+
+### WS2.5 — New skill(s) *(last; design pass first)*
+
+The vault aims at ~22–24 skills, and the game has 21. A new `SkillId` is the
+most expensive change in this phase: it touches the type union, the skill
+registry, XP, the Records tab, master stars and the Ascendant ember count
+(21 × 3 = 63 today, so a new skill changes how many embers an account can
+ever mint). It also has a canon question first.
+
+- **Names come from the idle game.** Skill names follow the Varath idle
+  game, so a new skill is designed there first or agreed with the Director.
+  It is **not** invented here.
+- Scoped as its own plan once the Director names the skill(s). This plan
+  only sets the gate any new skill must pass: a level gate that opens, XP
+  per hour on a curve consistent with `sim:rates`, master stars and
+  embers that settle for it, and a save from before the skill loads with it
+  at level 1.
+
+### Build order and why
+
+1. **WS2.1 random events.** Smallest, no save change, proves the new-sim
+   pattern for this phase.
+2. **WS2.2 diaries.** Touches saves, but needs no migration. It also builds
+   the perk reader that WS2.3 and WS2.4 can reuse for rewards.
+3. **WS2.3 factions and lore.** Content-heavy, and needs canon review, so
+   it runs while the Director reviews text.
+4. **WS2.4 housing.** Depends on the Director's pick of functions.
+5. **WS2.5 new skills.** Depends on the idle game or the Director.
+
+### Risks
+
+- **Building the wrong Phase 2.** Two sources disagreed. This plan
+  merges them, but the scope is the Director's call. The open questions
+  below come first.
+- **Collection-log drift.** Any new item without a source breaks
+  Ironvale's Cape. `sim:collection` catches this. Run it on every WS that
+  adds an item.
+- **Save shape.** WS2.1 adds nothing to saves. WS2.2 and WS2.4 must load a
+  pre-change save, and WS2.5 must load one from before the skill existed.
+- **The measurement lesson from Phase 1 still applies:** check what a sim
+  is doing before retuning content on its word, especially the event-rate
+  band in WS2.1.
+- **Sim gates are only gates if something runs them.** `package.json` runs
+  the sims without `--check` and `deploy.yml` runs none. Until that changes,
+  each WS runs its gate by hand before merge.
+
+### Open questions for the Director
+
+1. Is this merged scope right? In particular: should WS2.4 housing and
+   WS2.5 new skills stay in Phase 2, or move to a later phase?
+2. Diaries: four tiers for all nine regions (36 tiers), or Easy–Hard first
+   and Elite later?
+3. Perks: shortcuts, teleports and quality-of-life only, or are small rate
+   perks allowed?
+4. Random events: the target rate (proposed 1 per 45–75 min of eligible
+   play), and whether they should be switchable off in settings.
+5. Lore: how many new fragments, and who signs off new canon text?
+6. New skill(s): which ones, and are they designed in the idle game first?
 
 ## Phase 3 — Endgame & progression
 
